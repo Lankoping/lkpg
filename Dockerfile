@@ -1,0 +1,32 @@
+# Use the official Bun image
+FROM oven/bun:1.1 AS base
+WORKDIR /app
+
+# Install dependencies in a separate stage for caching
+FROM base AS install
+COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile
+
+# Build the application
+FROM base AS build
+COPY --from=install /app/node_modules ./node_modules
+COPY . .
+# TanStack Start build command
+RUN bun run build
+
+# Production image
+FROM base AS release
+COPY --from=build /app/.output ./.output
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/server.ts ./server.ts
+
+# Set environment to production
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Expose the port
+EXPOSE 3000
+
+# Run the production server using Bun
+CMD ["bun", "run", "server.ts"]
