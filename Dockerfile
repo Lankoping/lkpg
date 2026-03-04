@@ -11,8 +11,9 @@ RUN bun install
 FROM base AS build
 COPY --from=install /app/node_modules ./node_modules
 COPY . .
-# TanStack Start build command
-RUN bun run build
+# Skip redundant TSR generate and Type Check during Docker build to avoid race conditions
+# and speed up deployment, as Vite build handles the necessary parts.
+RUN bun vite build --sourcemap
 
 # Production image
 FROM base AS release
