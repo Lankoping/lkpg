@@ -81,17 +81,15 @@ export function ComingSoon() {
           <span className="cs-marker-line" />
         </motion.div>
 
-        {/* Logo */}
-        <motion.div
+        {/* Logo - Debug simplified */}
+        <div
           className="cs-logo-wrap"
-          initial={{ opacity: 0, y: 32 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
+          style={{ opacity: 1, transform: 'none' }}
         >
           <span className="cs-logo-l">L</span>
           <span className="cs-logo-rest">ANKOPING</span>
           <span className="cs-logo-se">.SE</span>
-        </motion.div>
+        </div>
 
         {/* Industrial rule */}
         <motion.div
@@ -101,59 +99,53 @@ export function ComingSoon() {
           transition={{ duration: 1.2, ease: 'easeOut', delay: 0.5 }}
         />
 
-        {/* Headline */}
-        <motion.h1
+        {/* Headline - Debug simplified */}
+        <h1
           className="cs-headline"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ 
-            duration: 1.5, 
-            ease: [0.16, 1, 0.3, 1], 
-            delay: 0.7 
-          }}
-          whileHover={{ 
-            scale: 1.02,
-            transition: { duration: 0.4 }
-          }}
+          style={{ opacity: 1, transform: 'none' }}
         >
           Snart
-        </motion.h1>
+        </h1>
 
-        {/* Sub-headline */}
-        <motion.p
+        {/* Sub-headline - Debug simplified */}
+        <p
           className="cs-sub"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: 'easeOut', delay: 0.85 }}
+          style={{ opacity: 1, transform: 'none' }}
         >
           Vi håller fortfarande på med de sista detaljerna.
-        </motion.p>
+        </p>
 
-        {/* City tags */}
-        <motion.div
+        {/* City tags - Debug simplified */}
+        <div
           className="cs-tags"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 1.1 }}
+          style={{ opacity: 1 }}
         >
           <span className="cs-tag">Norrköping</span>
           <span className="cs-tag-sep">×</span>
           <span className="cs-tag">Östergötland</span>
           <span className="cs-tag-sep">×</span>
           <span className="cs-tag">Sverige</span>
-        </motion.div>
+        </div>
 
-        {/* Rules Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 1.3 }}
+        {/* Rules Buttons - Debug simplified */}
+        <div
           className="cs-btn-group"
+          style={{ opacity: 1, transform: 'none' }}
         >
           <a href="/rules" className="cs-rules-btn">Läs Regler</a>
           <a href="/team" className="cs-rules-btn">Teamet</a>
           <a href="/privacy" className="cs-rules-btn">Dina Uppgifter</a>
-        </motion.div>
+        </div>
+
+        {/* Socials - Debug with regular div */}
+        <div 
+            className="cs-socials"
+            style={{ opacity: 1, transition: 'opacity 1s ease 1.35s' }}
+        >
+            <a href="https://discord.gg/h8wuaqyBwT" target="_blank" rel="noopener noreferrer" className="cs-social-link">Discord</a>
+            <span className="cs-social-sep">•</span>
+            <a href="https://www.youtube.com/@LANKPNG" target="_blank" rel="noopener noreferrer" className="cs-social-link">Youtube</a>
+        </div>
 
         {/* Footer */}
         <motion.footer
@@ -462,6 +454,49 @@ export function ComingSoon() {
           gap: 16px;
           margin-top: 24px;
           margin-bottom: 20px;
+        }
+
+        /* Socials */
+        .cs-socials {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 32px;
+        }
+        .cs-social-link {
+          font-family: var(--cs-font-body);
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--cs-rust);
+          text-decoration: none;
+          transition: color 0.3s ease;
+          position: relative;
+        }
+        .cs-social-link:hover {
+          color: var(--cs-cream);
+        }
+        .cs-social-link::after {
+          content: '';
+          position: absolute;
+          bottom: -4px;
+          left: 0;
+          width: 100%;
+          height: 1px;
+          background: var(--cs-rust);
+          transform: scaleX(0);
+          transform-origin: right;
+          transition: transform 0.3s ease;
+        }
+        .cs-social-link:hover::after {
+          transform: scaleX(1);
+          transform-origin: left;
+        }
+        .cs-social-sep {
+          color: var(--cs-rust);
+          opacity: 0.5;
+          font-size: 10px;
         }
 
         /* Footer */
