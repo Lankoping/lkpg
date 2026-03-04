@@ -11,13 +11,16 @@ RUN bun install
 FROM base AS build
 COPY --from=install /app/node_modules ./node_modules
 COPY . .
-# We must run 'tsr generate' once to ensure routeTree.gen.ts is synced,
-# but we disable the auto-watch in the vite plugin to prevent the loop.
+# Explicitly disable TSR and Nitro build-time complexities by using simple vite build
 ENV TSR_AUTOGENERATE=false
-RUN bun run tsr generate && bun vite build --sourcemap
+ENV FOR_SITES=true
+# Run tsr generate BEFORE vite build to ensure types are ready, 
+# then build everything into .output
+RUN bun run tsr generate && bun vite build
 
 # Production image
 FROM base AS release
+WORKDIR /app
 COPY --from=build /app/.output ./.output
 
 # Expose the port the app runs on
