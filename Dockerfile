@@ -25,4 +25,4 @@ COPY --from=build /app/.output ./.output
 EXPOSE 3000
 
 # Start the application
-CMD ["node", "--input-type=module", "--eval", "import { createServer } from 'node:http'; import { listener } from './.output/server/index.mjs'; const port = parseInt(process.env.PORT || '3000'); createServer(listener).listen(port, '0.0.0.0', () => console.log('Listening on port ' + port));"]
+CMD ["node", ".output/server/index.mjs"]

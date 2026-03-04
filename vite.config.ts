@@ -19,7 +19,7 @@ const config = defineConfig({
     forSites &&
       nitroV2Plugin({
         compatibilityDate: '2025-10-08',
-        preset: 'node',
+        preset: 'node-server',
       }),
     devtoolsJson(),
     viteReact(),
