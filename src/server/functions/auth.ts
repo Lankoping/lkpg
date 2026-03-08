@@ -66,16 +66,6 @@ export const getUsersFn = createServerFn({ method: "GET" })
       throw new Error('Forbidden')
     }
 
-    const targetUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, data.userId))
-      .limit(1)
-
-    if (targetUser[0] && targetUser[0].role === 'admin' && currentUser[0].id !== targetUser[0].id) {
-      throw new Error('Forbidden: Cannot change other admin passwords')
-    }
-
     return await db.select().from(users)
   })
 
@@ -198,35 +188,3 @@ export const deleteUserFn = createServerFn({ method: "POST" })
     return { success: true }
   })
 
-export const deleteUserFn = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
-    z.object({
-      userId: z.number(),
-    }).parse(data)
-  )
-  .handler(async ({ data }) => {
-    const currentUserId = getCookie('session')
-    if (!currentUserId) {
-      throw new Error('Unauthorized')
-    }
-
-    const currentUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, parseInt(currentUserId)))
-      .limit(1)
-
-    if (!currentUser[0] || currentUser[0].role !== 'admin') {
-      throw new Error('Forbidden')
-    }
-
-    if (currentUser[0].id === data.userId) {
-      throw new Error('Forbidden: Cannot delete yourself')
-    }
-
-    await db
-      .delete(users)
-      .where(eq(users.id, data.userId))
-
-    return { success: true }
-  })
