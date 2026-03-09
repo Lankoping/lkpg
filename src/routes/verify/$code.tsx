@@ -43,7 +43,7 @@ function VerifyTicket() {
        <div className="absolute inset-0 bg-[linear-gradient(to_right,#C04A2A08_1px,transparent_1px),linear-gradient(to_bottom,#C04A2A08_1px,transparent_1px)] bg-[size:3rem_3rem] pointer-events-none" />
        
        <div className={`w-full max-w-md p-8 border ${
-          !success || ticket?.status !== 'valid' 
+          !success || (ticket?.status !== 'valid' && !data.checkingIn)
             ? 'border-red-500/30 bg-red-500/5 shadow-[0_0_40px_rgba(239,68,68,0.1)]' 
             : 'border-green-500/30 bg-green-500/5 shadow-[0_0_40px_rgba(34,197,94,0.1)]'
         } rounded-sm relative overflow-hidden text-center`}>
@@ -52,7 +52,7 @@ function VerifyTicket() {
           
           <div className="mb-6 flex justify-center">
             {success ? (
-              ticket.status === 'valid' ? (
+              (ticket.status === 'valid' || data.checkingIn) ? (
                 <div className="p-4 bg-green-500/20 rounded-full border border-green-500/40">
                    <ShieldCheck className="w-10 h-10 text-green-400" />
                 </div>
