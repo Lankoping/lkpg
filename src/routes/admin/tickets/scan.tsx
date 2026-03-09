@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Html5QrcodeScanner } from 'html5-qrcode'
 import { ArrowLeft, Scan, CheckCircle, XCircle, AlertTriangle, ShieldCheck, User, Calendar, Loader2 } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
-import { verifyTicketByCodeFn } from '../../server/functions/tickets'
+import { verifyTicketByCodeFn } from '../../../server/functions/tickets'
 
 export const Route = createFileRoute('/admin/tickets/scan')({
   component: TicketScanner,
