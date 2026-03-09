@@ -17,6 +17,7 @@ import { Route as NyheterIndexRouteImport } from './routes/nyheter/index'
 import { Route as BlogsIndexRouteImport } from './routes/blogs/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as VerifyCodeRouteImport } from './routes/verify/$code'
 import { Route as NyheterSlugRouteImport } from './routes/nyheter/$slug'
 import { Route as BlogsSlugRouteImport } from './routes/blogs/$slug'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
@@ -28,6 +29,11 @@ import { Route as PublicPrivacyRouteImport } from './routes/_public/privacy'
 import { Route as ProtectedExampleProtectedRouteRouteImport } from './routes/_protected/example-protected-route'
 import { Route as ApiOgRouteImport } from './routes/_api/og'
 import { Route as ApiHelloRouteImport } from './routes/_api/hello'
+import { Route as AdminTicketsIndexRouteImport } from './routes/admin/tickets/index'
+import { Route as AdminTicketsTypesRouteImport } from './routes/admin/tickets/types'
+import { Route as AdminTicketsScanRouteImport } from './routes/admin/tickets/scan'
+import { Route as AdminTicketsNewRouteImport } from './routes/admin/tickets/new'
+import { Route as AdminTicketsEventsRouteImport } from './routes/admin/tickets/events'
 import { Route as AdminEditIdRouteImport } from './routes/admin/edit/$id'
 
 const LoginRoute = LoginRouteImport.update({
@@ -67,6 +73,11 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PublicRoute,
+} as any)
+const VerifyCodeRoute = VerifyCodeRouteImport.update({
+  id: '/verify/$code',
+  path: '/verify/$code',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const NyheterSlugRoute = NyheterSlugRouteImport.update({
   id: '/nyheter/$slug',
@@ -124,6 +135,31 @@ const ApiHelloRoute = ApiHelloRouteImport.update({
   path: '/hello',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminTicketsIndexRoute = AdminTicketsIndexRouteImport.update({
+  id: '/tickets/',
+  path: '/tickets/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTicketsTypesRoute = AdminTicketsTypesRouteImport.update({
+  id: '/tickets/types',
+  path: '/tickets/types',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTicketsScanRoute = AdminTicketsScanRouteImport.update({
+  id: '/tickets/scan',
+  path: '/tickets/scan',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTicketsNewRoute = AdminTicketsNewRouteImport.update({
+  id: '/tickets/new',
+  path: '/tickets/new',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTicketsEventsRoute = AdminTicketsEventsRouteImport.update({
+  id: '/tickets/events',
+  path: '/tickets/events',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminEditIdRoute = AdminEditIdRouteImport.update({
   id: '/edit/$id',
   path: '/edit/$id',
@@ -145,10 +181,16 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
   '/nyheter/$slug': typeof NyheterSlugRoute
+  '/verify/$code': typeof VerifyCodeRoute
   '/admin/': typeof AdminIndexRoute
   '/blogs/': typeof BlogsIndexRoute
   '/nyheter/': typeof NyheterIndexRoute
   '/admin/edit/$id': typeof AdminEditIdRoute
+  '/admin/tickets/events': typeof AdminTicketsEventsRoute
+  '/admin/tickets/new': typeof AdminTicketsNewRoute
+  '/admin/tickets/scan': typeof AdminTicketsScanRoute
+  '/admin/tickets/types': typeof AdminTicketsTypesRoute
+  '/admin/tickets/': typeof AdminTicketsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -164,10 +206,16 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
   '/nyheter/$slug': typeof NyheterSlugRoute
+  '/verify/$code': typeof VerifyCodeRoute
   '/admin': typeof AdminIndexRoute
   '/blogs': typeof BlogsIndexRoute
   '/nyheter': typeof NyheterIndexRoute
   '/admin/edit/$id': typeof AdminEditIdRoute
+  '/admin/tickets/events': typeof AdminTicketsEventsRoute
+  '/admin/tickets/new': typeof AdminTicketsNewRoute
+  '/admin/tickets/scan': typeof AdminTicketsScanRoute
+  '/admin/tickets/types': typeof AdminTicketsTypesRoute
+  '/admin/tickets': typeof AdminTicketsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -186,11 +234,17 @@ export interface FileRoutesById {
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
   '/nyheter/$slug': typeof NyheterSlugRoute
+  '/verify/$code': typeof VerifyCodeRoute
   '/_public/': typeof PublicIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/blogs/': typeof BlogsIndexRoute
   '/nyheter/': typeof NyheterIndexRoute
   '/admin/edit/$id': typeof AdminEditIdRoute
+  '/admin/tickets/events': typeof AdminTicketsEventsRoute
+  '/admin/tickets/new': typeof AdminTicketsNewRoute
+  '/admin/tickets/scan': typeof AdminTicketsScanRoute
+  '/admin/tickets/types': typeof AdminTicketsTypesRoute
+  '/admin/tickets/': typeof AdminTicketsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -209,10 +263,16 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/blogs/$slug'
     | '/nyheter/$slug'
+    | '/verify/$code'
     | '/admin/'
     | '/blogs/'
     | '/nyheter/'
     | '/admin/edit/$id'
+    | '/admin/tickets/events'
+    | '/admin/tickets/new'
+    | '/admin/tickets/scan'
+    | '/admin/tickets/types'
+    | '/admin/tickets/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -228,10 +288,16 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/blogs/$slug'
     | '/nyheter/$slug'
+    | '/verify/$code'
     | '/admin'
     | '/blogs'
     | '/nyheter'
     | '/admin/edit/$id'
+    | '/admin/tickets/events'
+    | '/admin/tickets/new'
+    | '/admin/tickets/scan'
+    | '/admin/tickets/types'
+    | '/admin/tickets'
   id:
     | '__root__'
     | '/_protected'
@@ -249,11 +315,17 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/blogs/$slug'
     | '/nyheter/$slug'
+    | '/verify/$code'
     | '/_public/'
     | '/admin/'
     | '/blogs/'
     | '/nyheter/'
     | '/admin/edit/$id'
+    | '/admin/tickets/events'
+    | '/admin/tickets/new'
+    | '/admin/tickets/scan'
+    | '/admin/tickets/types'
+    | '/admin/tickets/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -265,6 +337,7 @@ export interface RootRouteChildren {
   ApiOgRoute: typeof ApiOgRoute
   BlogsSlugRoute: typeof BlogsSlugRoute
   NyheterSlugRoute: typeof NyheterSlugRoute
+  VerifyCodeRoute: typeof VerifyCodeRoute
   BlogsIndexRoute: typeof BlogsIndexRoute
   NyheterIndexRoute: typeof NyheterIndexRoute
 }
@@ -326,6 +399,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/verify/$code': {
+      id: '/verify/$code'
+      path: '/verify/$code'
+      fullPath: '/verify/$code'
+      preLoaderRoute: typeof VerifyCodeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/nyheter/$slug': {
       id: '/nyheter/$slug'
@@ -404,6 +484,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHelloRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/tickets/': {
+      id: '/admin/tickets/'
+      path: '/tickets'
+      fullPath: '/admin/tickets/'
+      preLoaderRoute: typeof AdminTicketsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/tickets/types': {
+      id: '/admin/tickets/types'
+      path: '/tickets/types'
+      fullPath: '/admin/tickets/types'
+      preLoaderRoute: typeof AdminTicketsTypesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/tickets/scan': {
+      id: '/admin/tickets/scan'
+      path: '/tickets/scan'
+      fullPath: '/admin/tickets/scan'
+      preLoaderRoute: typeof AdminTicketsScanRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/tickets/new': {
+      id: '/admin/tickets/new'
+      path: '/tickets/new'
+      fullPath: '/admin/tickets/new'
+      preLoaderRoute: typeof AdminTicketsNewRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/tickets/events': {
+      id: '/admin/tickets/events'
+      path: '/tickets/events'
+      fullPath: '/admin/tickets/events'
+      preLoaderRoute: typeof AdminTicketsEventsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/edit/$id': {
       id: '/admin/edit/$id'
       path: '/edit/$id'
@@ -449,6 +564,11 @@ interface AdminRouteChildren {
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminEditIdRoute: typeof AdminEditIdRoute
+  AdminTicketsEventsRoute: typeof AdminTicketsEventsRoute
+  AdminTicketsNewRoute: typeof AdminTicketsNewRoute
+  AdminTicketsScanRoute: typeof AdminTicketsScanRoute
+  AdminTicketsTypesRoute: typeof AdminTicketsTypesRoute
+  AdminTicketsIndexRoute: typeof AdminTicketsIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -457,6 +577,11 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminEditIdRoute: AdminEditIdRoute,
+  AdminTicketsEventsRoute: AdminTicketsEventsRoute,
+  AdminTicketsNewRoute: AdminTicketsNewRoute,
+  AdminTicketsScanRoute: AdminTicketsScanRoute,
+  AdminTicketsTypesRoute: AdminTicketsTypesRoute,
+  AdminTicketsIndexRoute: AdminTicketsIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -470,6 +595,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOgRoute: ApiOgRoute,
   BlogsSlugRoute: BlogsSlugRoute,
   NyheterSlugRoute: NyheterSlugRoute,
+  VerifyCodeRoute: VerifyCodeRoute,
   BlogsIndexRoute: BlogsIndexRoute,
   NyheterIndexRoute: NyheterIndexRoute,
 }

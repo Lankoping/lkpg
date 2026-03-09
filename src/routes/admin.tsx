@@ -42,6 +42,7 @@ function AdminLayout() {
         <nav className="flex md:flex-col space-x-6 md:space-x-0 md:space-y-6 md:flex-1 w-full md:w-full overflow-x-auto justify-end md:justify-start items-center md:items-start ml-4 md:ml-0 scrollbar-hide">
           <a href="/admin/posts" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Posts</a>
           <a href="/admin/users" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Users</a>
+          <a href="/admin/tickets" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Tickets</a>
           <div className="hidden md:block flex-1" />
           <button onClick={handleLogout} className="text-[11px] uppercase tracking-[0.1em] text-red-500/70 hover:text-red-400 block w-full text-left transition-colors whitespace-nowrap">Logout</button>
         </nav>
