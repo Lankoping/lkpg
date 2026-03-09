@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { verifyTicketByCodeFn } from '../server/functions/tickets'
+import { verifyTicketByCodeFn } from '../../../server/functions/tickets'
 import { useState, useEffect } from 'react'
 import { Ticket, Calendar, User, MapPin, QrCode, Loader2, Clock, Mail } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
