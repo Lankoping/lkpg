@@ -43,6 +43,7 @@ function AdminLayout() {
           <a href="/admin/posts" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Posts</a>
           <a href="/admin/users" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Users</a>
           <a href="/admin/tickets" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Tickets</a>
+          <a href="/admin/performance" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Performance</a>
           <div className="hidden md:block flex-1" />
           <button onClick={handleLogout} className="text-[11px] uppercase tracking-[0.1em] text-red-500/70 hover:text-red-400 block w-full text-left transition-colors whitespace-nowrap">Logout</button>
         </nav>

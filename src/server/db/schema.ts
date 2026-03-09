@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, integer } from 'drizzle-orm/pg-core'
+import { pgTable, text, serial, timestamp, boolean, integer, jsonb, real } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -58,4 +58,36 @@ export const tickets = pgTable('tickets', {
   issuedBy: integer('issued_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+export const performanceTests = pgTable('performance_tests', {
+  id: serial('id').primaryKey(),
+  testDate: timestamp('test_date').notNull().defaultNow(),
+  totalTests: integer('total_tests').notNull(),
+  successfulTests: integer('successful_tests').notNull(),
+  failedTests: integer('failed_tests').notNull(),
+  successRate: real('success_rate').notNull(),
+  avgLoadTime: real('avg_load_time').notNull(),
+  minLoadTime: real('min_load_time'),
+  maxLoadTime: real('max_load_time'),
+  duration: real('duration').notNull(),
+  status: text('status', { enum: ['running', 'completed', 'failed'] }).default('running').notNull(),
+  results: jsonb('results'),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const performanceTestResults = pgTable('performance_test_results', {
+  id: serial('id').primaryKey(),
+  testId: integer('test_id').notNull().references(() => performanceTests.id),
+  deviceName: text('device_name').notNull(),
+  browserName: text('browser_name').notNull(),
+  platform: text('platform').notNull(),
+  page: text('page').notNull(),
+  loadTime: real('load_time').notNull(),
+  domContentLoaded: real('dom_content_loaded'),
+  firstPaint: real('first_paint'),
+  success: boolean('success').notNull(),
+  error: text('error'),
+  pageTitle: text('page_title'),
+  createdAt: timestamp('created_at').defaultNow(),
 })

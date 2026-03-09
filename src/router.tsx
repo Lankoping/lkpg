@@ -2,6 +2,13 @@ import { createRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import * as TanstackQuery from './integrations/tanstack-query/root-provider'
 
+// Initialize server (cron jobs, etc.) - only runs on server
+if (typeof window === 'undefined') {
+  import('./server/init').then(({ initializeServer }) => {
+    initializeServer()
+  }).catch(console.error)
+}
+
 // Import the generated route tree
 import { routeTree } from './routeTree.gen'
 import { ErrorComponent } from './components/error-component'

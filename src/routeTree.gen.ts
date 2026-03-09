@@ -22,11 +22,13 @@ import { Route as NyheterSlugRouteImport } from './routes/nyheter/$slug'
 import { Route as BlogsSlugRouteImport } from './routes/blogs/$slug'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminPostsRouteImport } from './routes/admin/posts'
+import { Route as AdminPerformanceRouteImport } from './routes/admin/performance'
 import { Route as AdminNewRouteImport } from './routes/admin/new'
 import { Route as PublicTeamRouteImport } from './routes/_public/team'
 import { Route as PublicRulesRouteImport } from './routes/_public/rules'
 import { Route as PublicPrivacyRouteImport } from './routes/_public/privacy'
 import { Route as ProtectedExampleProtectedRouteRouteImport } from './routes/_protected/example-protected-route'
+import { Route as ApiPerformanceRunRouteImport } from './routes/_api/performance-run'
 import { Route as ApiOgRouteImport } from './routes/_api/og'
 import { Route as ApiHelloRouteImport } from './routes/_api/hello'
 import { Route as AdminTicketsIndexRouteImport } from './routes/admin/tickets/index'
@@ -100,6 +102,11 @@ const AdminPostsRoute = AdminPostsRouteImport.update({
   path: '/posts',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPerformanceRoute = AdminPerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminNewRoute = AdminNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -126,6 +133,11 @@ const ProtectedExampleProtectedRouteRoute =
     path: '/example-protected-route',
     getParentRoute: () => ProtectedRoute,
   } as any)
+const ApiPerformanceRunRoute = ApiPerformanceRunRouteImport.update({
+  id: '/_api/performance-run',
+  path: '/performance-run',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOgRoute = ApiOgRouteImport.update({
   id: '/_api/og',
   path: '/og',
@@ -178,11 +190,13 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/hello': typeof ApiHelloRoute
   '/og': typeof ApiOgRoute
+  '/performance-run': typeof ApiPerformanceRunRoute
   '/example-protected-route': typeof ProtectedExampleProtectedRouteRoute
   '/privacy': typeof PublicPrivacyRoute
   '/rules': typeof PublicRulesRoute
   '/team': typeof PublicTeamRoute
   '/admin/new': typeof AdminNewRoute
+  '/admin/performance': typeof AdminPerformanceRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
@@ -204,11 +218,13 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/hello': typeof ApiHelloRoute
   '/og': typeof ApiOgRoute
+  '/performance-run': typeof ApiPerformanceRunRoute
   '/example-protected-route': typeof ProtectedExampleProtectedRouteRoute
   '/privacy': typeof PublicPrivacyRoute
   '/rules': typeof PublicRulesRoute
   '/team': typeof PublicTeamRoute
   '/admin/new': typeof AdminNewRoute
+  '/admin/performance': typeof AdminPerformanceRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
@@ -233,11 +249,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_api/hello': typeof ApiHelloRoute
   '/_api/og': typeof ApiOgRoute
+  '/_api/performance-run': typeof ApiPerformanceRunRoute
   '/_protected/example-protected-route': typeof ProtectedExampleProtectedRouteRoute
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/rules': typeof PublicRulesRoute
   '/_public/team': typeof PublicTeamRoute
   '/admin/new': typeof AdminNewRoute
+  '/admin/performance': typeof AdminPerformanceRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
@@ -263,11 +281,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/hello'
     | '/og'
+    | '/performance-run'
     | '/example-protected-route'
     | '/privacy'
     | '/rules'
     | '/team'
     | '/admin/new'
+    | '/admin/performance'
     | '/admin/posts'
     | '/admin/users'
     | '/blogs/$slug'
@@ -289,11 +309,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/hello'
     | '/og'
+    | '/performance-run'
     | '/example-protected-route'
     | '/privacy'
     | '/rules'
     | '/team'
     | '/admin/new'
+    | '/admin/performance'
     | '/admin/posts'
     | '/admin/users'
     | '/blogs/$slug'
@@ -317,11 +339,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/_api/hello'
     | '/_api/og'
+    | '/_api/performance-run'
     | '/_protected/example-protected-route'
     | '/_public/privacy'
     | '/_public/rules'
     | '/_public/team'
     | '/admin/new'
+    | '/admin/performance'
     | '/admin/posts'
     | '/admin/users'
     | '/blogs/$slug'
@@ -347,6 +371,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ApiHelloRoute: typeof ApiHelloRoute
   ApiOgRoute: typeof ApiOgRoute
+  ApiPerformanceRunRoute: typeof ApiPerformanceRunRoute
   BlogsSlugRoute: typeof BlogsSlugRoute
   NyheterSlugRoute: typeof NyheterSlugRoute
   VerifyCodeRoute: typeof VerifyCodeRoute
@@ -447,6 +472,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPostsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/performance': {
+      id: '/admin/performance'
+      path: '/performance'
+      fullPath: '/admin/performance'
+      preLoaderRoute: typeof AdminPerformanceRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/new': {
       id: '/admin/new'
       path: '/new'
@@ -481,6 +513,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/example-protected-route'
       preLoaderRoute: typeof ProtectedExampleProtectedRouteRouteImport
       parentRoute: typeof ProtectedRoute
+    }
+    '/_api/performance-run': {
+      id: '/_api/performance-run'
+      path: '/performance-run'
+      fullPath: '/performance-run'
+      preLoaderRoute: typeof ApiPerformanceRunRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_api/og': {
       id: '/_api/og'
@@ -581,6 +620,7 @@ const PublicRouteWithChildren =
 
 interface AdminRouteChildren {
   AdminNewRoute: typeof AdminNewRoute
+  AdminPerformanceRoute: typeof AdminPerformanceRoute
   AdminPostsRoute: typeof AdminPostsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -594,6 +634,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminNewRoute: AdminNewRoute,
+  AdminPerformanceRoute: AdminPerformanceRoute,
   AdminPostsRoute: AdminPostsRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -614,6 +655,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ApiHelloRoute: ApiHelloRoute,
   ApiOgRoute: ApiOgRoute,
+  ApiPerformanceRunRoute: ApiPerformanceRunRoute,
   BlogsSlugRoute: BlogsSlugRoute,
   NyheterSlugRoute: NyheterSlugRoute,
   VerifyCodeRoute: VerifyCodeRoute,
