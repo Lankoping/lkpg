@@ -1,7 +1,7 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db/index'
-import { tickets, posts, ticketTypes, events } from '../db/schema'
+import { tickets, posts, ticketTypes, events, users } from '../db/schema'
 import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
 import { getCookie } from '@tanstack/react-start/server'
