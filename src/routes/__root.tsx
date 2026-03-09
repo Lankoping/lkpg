@@ -8,12 +8,6 @@ import appCss from '../styles.css?url'
 import type { QueryClient } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from 'next-themes'
-import {
-  createOGMetaTags,
-  generateOGImageUrl,
-  OGImageConfig,
-  OGMetaTags,
-} from '@/lib/og-config'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -32,33 +26,7 @@ if (import.meta.env.VITE_INSTRUMENTATION_SCRIPT_SRC) {
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
-  loader: async () => {
-    return {
-      baseUrl: 'https://lankoping.se',
-    }
-  },
-  head: ({ loaderData }) => {
-    const baseUrl =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : (loaderData?.baseUrl ?? 'https://lankoping.se')
-
-    const config: OGImageConfig = {
-      isCustom: false,
-    }
-
-    const ogImageUrl = generateOGImageUrl(config, baseUrl)
-
-    const metadata: OGMetaTags = {
-      title: 'Lankoping.se – Kommer Snart',
-      description:
-        'Lankoping.se håller på med de sista detaljerna – snart är vi redo att välkomna dig!',
-      image: ogImageUrl,
-      url: typeof window !== 'undefined' ? window.location.href : baseUrl,
-    }
-
-    const ogTags = createOGMetaTags(metadata)
-
+  head: () => {
     return {
       meta: [
         {
@@ -76,7 +44,19 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
           content:
             'Lankoping.se håller på med de sista detaljerna – snart är vi redo att välkomna dig!',
         },
-        ...ogTags.meta,
+        {
+          property: 'og:title',
+          content: 'Lankoping.se – Kommer Snart',
+        },
+        {
+          property: 'og:description',
+          content:
+            'Lankoping.se håller på med de sista detaljerna – snart är vi redo att välkomna dig!',
+        },
+        {
+          property: 'og:type',
+          content: 'website',
+        },
       ],
       links: [
         {
