@@ -2,6 +2,58 @@ import { createFileRoute } from '@tanstack/react-router'
 import { ImageResponse } from '@vercel/og'
 import { defaultCustomOGConfig } from '@/lib/og-config'
 
+function buildValidatedAssetUrl(baseUrl: string, path: string): string {
+  try {
+    const url = new URL(baseUrl)
+    
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error('Invalid protocol')
+    }
+    
+    url.pathname = path
+    
+    return url.href
+  } catch {
+    throw new Error('Invalid URL')
+  }
+}
+
+function buildValidatedFontUrl(fontUrl: string): string {
+  try {
+    const url = new URL(fontUrl)
+    
+    const allowedDomains = ['fonts.gstatic.com']
+    if (!allowedDomains.includes(url.hostname)) {
+      throw new Error('Invalid host')
+    }
+    
+    if (!['https:'].includes(url.protocol)) {
+      throw new Error('Invalid protocol')
+    }
+    
+    return url.href
+  } catch {
+    throw new Error('Invalid URL')
+  }
+}
+  try {
+    const url = new URL(fontUrl)
+    
+    const allowedDomains = ['fonts.gstatic.com']
+    if (!allowedDomains.includes(url.hostname)) {
+      throw new Error('Invalid host')
+    }
+    
+    if (!['https:'].includes(url.protocol)) {
+      throw new Error('Invalid protocol')
+    }
+    
+    return url.href
+  } catch {
+    throw new Error('Invalid URL')
+  }
+}
+
 async function loadGoogleFont(font: string, text: string) {
   const url = `https://fonts.googleapis.com/css2?family=${font}&text=${encodeURIComponent(text)}`
   const css = await (await fetch(url)).text()
@@ -10,7 +62,8 @@ async function loadGoogleFont(font: string, text: string) {
   )
 
   if (resource) {
-    const response = await fetch(resource[1])
+    const validatedUrl = buildValidatedFontUrl(resource[1])
+    const response = await fetch(validatedUrl)
     if (response.status == 200) {
       return await response.arrayBuffer()
     }
@@ -31,7 +84,7 @@ export const Route = createFileRoute('/_api/og')({
             : new URL(request.url).origin
 
         if (!searchParams.toString()) {
-          const assetUrl = new URL('/default-og-image.png', baseUrl)
+          const assetUrl = buildValidatedAssetUrl(baseUrl, '/default-og-image.png')
           const assetResponse = await fetch(assetUrl)
 
           if (!assetResponse.ok || !assetResponse.body) {
@@ -50,7 +103,7 @@ export const Route = createFileRoute('/_api/og')({
               }}
             >
               <img
-                src={assetUrl.toString()}
+                src={assetUrl}
                 style={{
                   position: 'absolute',
                   width: '100%',
