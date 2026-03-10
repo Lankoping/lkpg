@@ -181,23 +181,25 @@ function PerformanceDashboard() {
             color: latestTest?.status === 'completed' ? 'text-green-400' : 'text-yellow-400'
           },
         ].map((stat, i) => (
-          <div key={i} className="bg-[#141210]/60 border border-[#C04A2A]/10 p-6 rounded-sm relative overflow-hidden group hover:border-[#C04A2A]/30 transition-all">
-            <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
-              <stat.icon className="size-24 text-[#C04A2A]" />
+          <div key={i} className="bg-[#141210]/60 border border-[#C04A2A]/10 p-7 rounded-md relative overflow-hidden group hover:border-[#C04A2A]/30 transition-all">
+            <div className="absolute -right-2 -top-2 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity rotate-12">
+              <stat.icon className="size-32 text-[#C04A2A]" />
             </div>
-            <div className="flex items-center gap-2 mb-4">
-              <stat.icon className="size-3 text-[#C04A2A]" />
-              <p className="text-[10px] uppercase tracking-[0.28em] text-[#C04A2A]/80 font-bold">
+            <div className="flex items-center gap-2.5 mb-5">
+              <div className="p-2 bg-[#C04A2A]/10 rounded-lg group-hover:bg-[#C04A2A]/20 transition-colors">
+                <stat.icon className="size-4 text-[#C04A2A]" />
+              </div>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-[#C04A2A]/90 font-bold">
                 {stat.label}
               </p>
             </div>
-            <div className="flex items-baseline gap-3">
-              <p className={stat.color ? `text-4xl font-display ${stat.color}` : "text-4xl font-display text-[#F0E8D8]"}>
+            <div className="flex items-baseline gap-4">
+              <p className={stat.color ? `text-5xl font-display leading-none ${stat.color}` : "text-5xl font-display leading-none text-[#F0E8D8]"}>
                 {stat.value}
               </p>
               {stat.trend !== undefined && stat.trend !== 0 && (
-                <span className={stat.trend > 0 ? "text-[10px] flex items-center bg-black/20 px-1.5 py-0.5 rounded-full text-green-400" : "text-[10px] flex items-center bg-black/20 px-1.5 py-0.5 rounded-full text-red-400"}>
-                  {stat.trend > 0 ? <ArrowUpRight className="size-2 mr-0.5" /> : <ArrowDownRight className="size-2 mr-0.5" />}
+                <span className={stat.trend > 0 ? "text-[10px] flex items-center bg-green-500/10 px-2 py-1 rounded-full text-green-400 font-bold border border-green-500/20" : "text-[10px] flex items-center bg-red-500/10 px-2 py-1 rounded-full text-red-400 font-bold border border-red-500/20"}>
+                  {stat.trend > 0 ? <ArrowUpRight className="size-2.5 mr-1" /> : <ArrowDownRight className="size-2.5 mr-1" />}
                   {Math.abs(stat.trend).toFixed(1)}%
                 </span>
               )}
@@ -270,13 +272,13 @@ function PerformanceDashboard() {
                   </TableCell>
                   <TableCell className="p-6">
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 w-24 h-1 bg-white/5 rounded-full overflow-hidden">
+                      <div className="flex-1 w-24 h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
                         <div 
-                          className={test.successRate > 90 ? "bg-green-500 h-full transition-all duration-1000" : test.successRate > 70 ? "bg-yellow-500 h-full transition-all duration-1000" : "bg-red-500 h-full transition-all duration-1000"}
+                          className={test.successRate > 90 ? "bg-green-500/80 h-full transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]" : test.successRate > 70 ? "bg-yellow-500/80 h-full transition-all duration-1000" : "bg-red-500/80 h-full transition-all duration-1000"}
                           style={{ width: `${test.successRate}%` }}
                         />
                       </div>
-                      <span className="text-xs font-mono text-[#F0E8D8]">
+                      <span className="text-xs font-mono text-[#F0E8D8] font-bold">
                         {test.successRate.toFixed(1)}%
                       </span>
                     </div>
@@ -376,12 +378,17 @@ function PerformanceDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Best Performer */}
                   {testDetails.results?.some((r: any) => r.success) && (
-                    <div className="p-6 bg-green-500/5 border border-green-500/20 rounded-sm">
-                      <div className="flex items-center gap-2 mb-4">
-                        <TrendingUp className="size-3 text-green-400" />
-                        <p className="text-[10px] uppercase tracking-widest text-green-400 font-bold">Fastest Response</p>
+                    <div className="p-7 bg-green-500/10 border border-green-500/20 rounded-md relative overflow-hidden group hover:bg-green-500/[0.12] transition-colors">
+                      <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <TrendingUp className="size-24 text-green-500" />
                       </div>
-                      <div className="flex justify-between items-end">
+                      <div className="flex items-center gap-2.5 mb-6">
+                        <div className="p-1.5 bg-green-500/20 rounded-md">
+                          <TrendingUp className="size-3.5 text-green-400" />
+                        </div>
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-green-400 font-bold">Fastest Response</p>
+                      </div>
+                      <div className="flex justify-between items-center relative z-10">
                         {(() => {
                           const validResults = testDetails.results.filter((r: any) => r.success);
                           const best = [...validResults].sort((a: any, b: any) => a.loadTime - b.loadTime)[0];
@@ -389,12 +396,18 @@ function PerformanceDashboard() {
                           return (
                             <>
                               <div>
-                                <p className="text-xl font-display">{best.deviceName}</p>
-                                <p className="text-[10px] text-[#F0E8D8]/40 uppercase tracking-tighter mt-1">
-                                  {best.browserName} • {best.platform}
+                                <p className="text-2xl font-display text-[#F0E8D8] tracking-wide">{best.deviceName}</p>
+                                <p className="text-[10px] text-[#F0E8D8]/40 uppercase tracking-widest mt-2 flex items-center gap-2">
+                                  <span className="px-1.5 py-0.5 bg-white/5 rounded-sm">{best.browserName}</span>
+                                  <span className="opacity-50">•</span>
+                                  <span>{best.platform}</span>
                                 </p>
                               </div>
-                              <p className="text-2xl font-mono text-green-400">{best.loadTime}ms</p>
+                              <div className="text-right">
+                                <p className="text-3xl font-mono text-green-400 font-bold drop-shadow-[0_0_10px_rgba(74,222,128,0.2)]">
+                                  {best.loadTime}<span className="text-xs ml-1 opacity-50 font-sans tracking-normal">ms</span>
+                                </p>
+                              </div>
                             </>
                           )
                         })()}
@@ -404,12 +417,17 @@ function PerformanceDashboard() {
 
                   {/* Worst Performer */}
                   {testDetails.results?.some((r: any) => r.success) && (
-                    <div className="p-6 bg-red-500/5 border border-red-500/20 rounded-sm">
-                      <div className="flex items-center gap-2 mb-4">
-                        <AlertTriangle className="size-3 text-red-400" />
-                        <p className="text-[10px] uppercase tracking-widest text-red-400 font-bold">Slowest Response</p>
+                    <div className="p-7 bg-red-500/10 border border-red-500/20 rounded-md relative overflow-hidden group hover:bg-red-500/[0.12] transition-colors">
+                      <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <AlertTriangle className="size-24 text-red-500" />
                       </div>
-                      <div className="flex justify-between items-end">
+                      <div className="flex items-center gap-2.5 mb-6">
+                        <div className="p-1.5 bg-red-500/20 rounded-md">
+                          <AlertTriangle className="size-3.5 text-red-400" />
+                        </div>
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-red-400 font-bold">Slowest Response</p>
+                      </div>
+                      <div className="flex justify-between items-center relative z-10">
                         {(() => {
                            const validResults = testDetails.results.filter((r: any) => r.success);
                            const worst = [...validResults].sort((a: any, b: any) => b.loadTime - a.loadTime)[0];
@@ -417,12 +435,18 @@ function PerformanceDashboard() {
                           return (
                             <>
                               <div>
-                                <p className="text-xl font-display">{worst.deviceName}</p>
-                                <p className="text-[10px] text-[#F0E8D8]/40 uppercase tracking-tighter mt-1">
-                                  {worst.browserName} • {worst.platform}
+                                <p className="text-2xl font-display text-[#F0E8D8] tracking-wide">{worst.deviceName}</p>
+                                <p className="text-[10px] text-[#F0E8D8]/40 uppercase tracking-widest mt-2 flex items-center gap-2">
+                                  <span className="px-1.5 py-0.5 bg-white/5 rounded-sm">{worst.browserName}</span>
+                                  <span className="opacity-50">•</span>
+                                  <span>{worst.platform}</span>
                                 </p>
                               </div>
-                              <p className="text-2xl font-mono text-red-400">{worst.loadTime}ms</p>
+                              <div className="text-right">
+                                <p className="text-3xl font-mono text-red-400 font-bold drop-shadow-[0_0_10px_rgba(248,113,113,0.2)]">
+                                  {worst.loadTime}<span className="text-xs ml-1 opacity-50 font-sans tracking-normal">ms</span>
+                                </p>
+                              </div>
                             </>
                           )
                         })()}
@@ -433,34 +457,51 @@ function PerformanceDashboard() {
 
                 {/* Raw Device Logs */}
                 <div className="space-y-4">
-                   <h3 className="text-[10px] uppercase tracking-[0.3em] text-[#C04A2A] font-bold pl-1">Matrix Logs</h3>
-                   <div className="border border-[#C04A2A]/10 rounded-sm overflow-hidden">
+                   <div className="flex items-center justify-between pl-1">
+                     <h3 className="text-[10px] uppercase tracking-[0.3em] text-[#C04A2A] font-bold">Matrix Logs</h3>
+                     <span className="text-[9px] text-[#F0E8D8]/20 uppercase tracking-widest">{testDetails.results?.length} Devices Tracked</span>
+                   </div>
+                   <div className="border border-[#C04A2A]/10 rounded-md overflow-hidden bg-white/[0.02]">
                     <Table>
-                      <TableHeader className="bg-white/5">
-                        <TableRow>
-                          <TableHead className="text-[9px] uppercase tracking-widest font-bold">Device</TableHead>
-                          <TableHead className="text-[9px] uppercase tracking-widest font-bold">Platform</TableHead>
-                          <TableHead className="text-[9px] uppercase tracking-widest font-bold text-center">Status</TableHead>
-                          <TableHead className="text-[9px] uppercase tracking-widest font-bold text-right">LCP</TableHead>
+                      <TableHeader className="bg-white/[0.03] border-b border-[#C04A2A]/10">
+                        <TableRow className="hover:bg-transparent border-0">
+                          <TableHead className="text-[9px] uppercase tracking-widest font-bold h-12 p-4 text-[#C04A2A]">Device</TableHead>
+                          <TableHead className="text-[9px] uppercase tracking-widest font-bold h-12 p-4 text-[#C04A2A]">Platform</TableHead>
+                          <TableHead className="text-[9px] uppercase tracking-widest font-bold h-12 p-4 text-[#C04A2A] text-center">Status</TableHead>
+                          <TableHead className="text-[9px] uppercase tracking-widest font-bold h-12 p-4 text-[#C04A2A] text-right">LCP Latency</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {testDetails.results?.map((res: any, idx: number) => (
-                          <TableRow key={idx} className="border-b border-white/5 last:border-0">
-                            <TableCell className="text-xs">
-                              <div className="flex items-center gap-2">
-                                {res.deviceName.includes('Mobile') ? <Smartphone className="size-3 text-[#F0E8D8]/30" /> : <Monitor className="size-3 text-[#F0E8D8]/30" />}
-                                <span>{res.deviceName}</span>
+                          <TableRow key={idx} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
+                            <TableCell className="text-xs p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="p-1.5 bg-white/5 rounded-sm">
+                                  {res.deviceName.includes('Mobile') ? <Smartphone className="size-3 text-[#F0E8D8]/50" /> : <Monitor className="size-3 text-[#F0E8D8]/50" />}
+                                </div>
+                                <span className="font-medium text-[#F0E8D8]">{res.deviceName}</span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-[10px] text-[#F0E8D8]/40 uppercase tracking-tight">{res.platform}</TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-[10px] text-[#F0E8D8]/40 uppercase tracking-widest p-4">{res.platform}</TableCell>
+                            <TableCell className="text-center p-4">
                               <div className="flex justify-center">
-                                {res.success ? <CheckCircle2 className="size-3 text-green-500/50" /> : <XCircle className="size-3 text-red-500/50" />}
+                                {res.success ? (
+                                  <div className="bg-green-500/10 p-1 rounded-full border border-green-500/20">
+                                    <CheckCircle2 className="size-3 text-green-500/70" />
+                                  </div>
+                                ) : (
+                                  <div className="bg-red-500/10 p-1 rounded-full border border-red-500/20">
+                                    <XCircle className="size-3 text-red-500/70" />
+                                  </div>
+                                )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-right font-mono text-xs">
-                              {res.success ? `${res.loadTime}ms` : <span className="text-red-900">FAIL</span>}
+                            <TableCell className="text-right p-4">
+                              {res.success ? (
+                                <span className="font-mono text-xs text-[#F0E8D8] font-bold">{res.loadTime}<span className="text-[9px] ml-0.5 opacity-30">ms</span></span>
+                              ) : (
+                                <span className="text-[9px] font-bold text-red-500/40 uppercase tracking-tighter">Execution Failed</span>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}

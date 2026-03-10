@@ -10,58 +10,31 @@ const GRID_URL = 'hub.lambdatest.com/wd/hub'
 
 const TEST_PAGES = ['/', '/nyheter', '/blogs', '/team', '/privacy', '/rules']
 
-// 25 device configurations for daily testing
+// 20 device configurations for balanced testing (10 Desktop, 10 Real Mobile)
 const DAILY_TEST_DEVICES = [
-  // Chrome Windows (8)
-  ...Array(8)
-    .fill(null)
-    .map((_, i) => ({
-      browserName: 'Chrome',
-      browserVersion: 'latest',
-      platform: 'Windows 11',
-      resolution: '1920x1080',
-      name: `Chrome Win ${i + 1}`,
-    })),
-  // Firefox Windows (5)
-  ...Array(5)
-    .fill(null)
-    .map((_, i) => ({
-      browserName: 'Firefox',
-      browserVersion: 'latest',
-      platform: 'Windows 11',
-      resolution: '1920x1080',
-      name: `Firefox Win ${i + 1}`,
-    })),
-  // Edge Windows (4)
-  ...Array(4)
-    .fill(null)
-    .map((_, i) => ({
-      browserName: 'MicrosoftEdge',
-      browserVersion: 'latest',
-      platform: 'Windows 11',
-      resolution: '1920x1080',
-      name: `Edge Win ${i + 1}`,
-    })),
-  // Safari macOS (4)
-  ...Array(4)
-    .fill(null)
-    .map((_, i) => ({
-      browserName: 'Safari',
-      browserVersion: 'latest',
-      platform: 'macOS Ventura',
-      resolution: '1920x1080',
-      name: `Safari Mac ${i + 1}`,
-    })),
-  // Mobile emulation (4)
-  ...Array(4)
-    .fill(null)
-    .map((_, i) => ({
-      browserName: 'Chrome',
-      browserVersion: 'latest',
-      platform: 'Windows 11',
-      resolution: '414x896',
-      name: `Mobile Emulation ${i + 1}`,
-    })),
+  // Desktop Computers (10)
+  { browserName: 'Chrome', browserVersion: 'latest', platform: 'Windows 11', resolution: '1920x1080', name: 'Win 11 - Chrome' },
+  { browserName: 'Firefox', browserVersion: 'latest', platform: 'Windows 11', resolution: '1920x1080', name: 'Win 11 - Firefox' },
+  { browserName: 'MicrosoftEdge', browserVersion: 'latest', platform: 'Windows 11', resolution: '1920x1080', name: 'Win 11 - Edge' },
+  { browserName: 'Chrome', browserVersion: 'latest', platform: 'Windows 10', resolution: '1920x1080', name: 'Win 10 - Chrome' },
+  { browserName: 'Safari', browserVersion: 'latest', platform: 'macOS Ventura', resolution: '1920x1080', name: 'Mac Ventura - Safari' },
+  { browserName: 'Chrome', browserVersion: 'latest', platform: 'macOS Sonoma', resolution: '1920x1080', name: 'Mac Sonoma - Chrome' },
+  { browserName: 'Firefox', browserVersion: 'latest', platform: 'macOS Sonoma', resolution: '1920x1080', name: 'Mac Sonoma - Firefox' },
+  { browserName: 'Chrome', browserVersion: 'latest', platform: 'macOS Monterey', resolution: '1920x1080', name: 'Mac Monterey - Chrome' },
+  { browserName: 'MicrosoftEdge', browserVersion: 'latest', platform: 'macOS Sonoma', resolution: '1920x1080', name: 'Mac Sonoma - Edge' },
+  { browserName: 'Chrome', browserVersion: 'latest', platform: 'Windows 11', resolution: '2560x1440', name: 'Win 11 - Chrome HighRes' },
+
+  // Real Mobile Devices (10)
+  { browserName: 'Chrome', platformName: 'Android', deviceName: 'Galaxy S23', platformVersion: '13', name: 'Android - Galaxy S23' },
+  { browserName: 'Chrome', platformName: 'Android', deviceName: 'Galaxy S22 Ultra 5G', platformVersion: '12', name: 'Android - S22 Ultra' },
+  { browserName: 'Chrome', platformName: 'Android', deviceName: 'Pixel 7', platformVersion: '13', name: 'Android - Pixel 7' },
+  { browserName: 'Chrome', platformName: 'Android', deviceName: 'OnePlus 11', platformVersion: '13', name: 'Android - OnePlus 11' },
+  { browserName: 'Chrome', platformName: 'Android', deviceName: 'Redmi Note 12', platformVersion: '13', name: 'Android - Redmi 12' },
+  { browserName: 'Safari', platformName: 'iOS', deviceName: 'iPhone 15', platformVersion: '17', name: 'iOS - iPhone 15' },
+  { browserName: 'Safari', platformName: 'iOS', deviceName: 'iPhone 14 Pro', platformVersion: '16', name: 'iOS - iPhone 14 Pro' },
+  { browserName: 'Safari', platformName: 'iOS', deviceName: 'iPhone 13', platformVersion: '15', name: 'iOS - iPhone 13' },
+  { browserName: 'Safari', platformName: 'iOS', deviceName: 'iPhone 12', platformVersion: '14', name: 'iOS - iPhone 12' },
+  { browserName: 'Safari', platformName: 'iOS', deviceName: 'iPhone SE 2022', platformVersion: '15', name: 'iOS - iPhone SE' },
 ]
 
 interface TestResult {
@@ -97,13 +70,15 @@ async function runSingleTest(capability: any): Promise<TestResult> {
   const url = `${TARGET_URL}${testPage}`
 
   try {
+    const hub = `https://${process.env.LT_USERNAME}:${process.env.LT_ACCESS_KEY}@hub.lambdatest.com/wd/hub`
     driver = new webdriver.Builder()
-      .usingServer(`https://${LT_USERNAME}:${LT_ACCESS_KEY}@${GRID_URL}`)
+      .usingServer(hub)
       .withCapabilities(capabilities)
       .build()
 
     await driver.get(url)
 
+    // Wait for the critical content to be interactive
     await driver.wait(
       function () {
         return driver
@@ -115,30 +90,32 @@ async function runSingleTest(capability: any): Promise<TestResult> {
       30000,
     )
 
-    const title = await driver.getTitle()
-
+    // Calculate Latency using Navigation Timing API for precision
+    // If precision timing fails, we fallback to the Date.now() duration
     const perfData = await driver.executeScript(`
-      const perfData = window.performance.getEntriesByType('navigation')[0];
+      const [entry] = performance.getEntriesByType('navigation');
+      if (!entry) return null;
       return {
-        loadTime: perfData ? perfData.loadEventEnd - perfData.fetchStart : 0,
-        domContentLoaded: perfData ? perfData.domContentLoadedEventEnd - perfData.fetchStart : 0,
-        firstPaint: performance.getEntriesByType('paint').find(p => p.name === 'first-paint')?.startTime || 0
+        loadTime: Math.round(entry.loadEventEnd - entry.startTime),
+        domContentLoaded: Math.round(entry.domContentLoadedEventEnd - entry.startTime),
+        firstPaint: Math.round(performance.getEntriesByType('paint').find(p => p.name === 'first-paint')?.startTime || 0)
       };
-    `)
+    `) as any;
 
-    const loadTime = Date.now() - testStart
+    const title = await driver.getTitle()
+    const loadTime = perfData?.loadTime || (Date.now() - testStart)
 
     await driver.executeScript('lambda-status=passed')
 
     return {
       device: capability.name,
       browser: capability.browserName,
-      platform: capability.platform,
+      platform: capability.platform || capability.platformName,
       page: testPage,
       success: true,
       loadTime,
-      domContentLoaded: perfData.domContentLoaded,
-      firstPaint: perfData.firstPaint,
+      domContentLoaded: perfData?.domContentLoaded,
+      firstPaint: perfData?.firstPaint,
       title,
     }
   } catch (error: any) {
@@ -193,33 +170,47 @@ export async function runDailyPerformanceTest() {
 
   const results: TestResult[] = []
 
-  console.log(`Starting daily performance test (${DAILY_TEST_DEVICES.length} devices)...`)
+  console.log(`Starting performance test Matrix (${DAILY_TEST_DEVICES.length} unique devices)...`)
 
-  // Run tests sequentially (GitHub Student Pack = 1 parallel)
-  for (const device of DAILY_TEST_DEVICES) {
-    try {
-      const result = await runSingleTest(device)
-      results.push(result)
+  // Run tests with parallelism of 2 to stay within pack limits
+  // but finish significantly faster than sequential runs.
+  const batchSize = 2;
+  for (let i = 0; i < DAILY_TEST_DEVICES.length; i += batchSize) {
+    const batch = DAILY_TEST_DEVICES.slice(i, i + batchSize);
+    console.log(`Executing device batch ${Math.floor(i/batchSize) + 1}...`);
+    
+    const batchPromises = batch.map(device => 
+      runSingleTest(device).then(async (result) => {
+        results.push(result);
+        
+        // Track progress in DB as results come back
+        await db.insert(performanceTestResults).values({
+          testId: test.id,
+          deviceName: result.device,
+          browserName: result.browser,
+          platform: result.platform,
+          page: result.page,
+          loadTime: result.loadTime,
+          domContentLoaded: result.domContentLoaded || null,
+          firstPaint: result.firstPaint || null,
+          success: result.success,
+          error: result.error || null,
+          pageTitle: result.title || null,
+        });
 
-      await db.insert(performanceTestResults).values({
-        testId: test.id,
-        deviceName: result.device,
-        browserName: result.browser,
-        platform: result.platform,
-        page: result.page,
-        loadTime: result.loadTime,
-        domContentLoaded: result.domContentLoaded || null,
-        firstPaint: result.firstPaint || null,
-        success: result.success,
-        error: result.error || null,
-        pageTitle: result.title || null,
+        console.log(`OK ${result.device} - ${result.success ? 'Pass' : 'Fail'} - ${result.loadTime}ms - ${result.page}`);
+        return result;
+      }).catch(err => {
+        console.error(`Batch fatal error check: ${err.message}`);
+        return null;
       })
+    );
 
-      console.log(
-        `OK ${result.device} - ${result.success ? 'Pass' : 'Fail'} - ${result.loadTime}ms`,
-      )
-    } catch (error) {
-      console.error(`Error testing ${device.name}:`, error)
+    await Promise.all(batchPromises);
+    
+    // Minor throttle between batches to avoid session overlap errors
+    if (i + batchSize < DAILY_TEST_DEVICES.length) {
+      await new Promise(r => setTimeout(r, 1000));
     }
   }
 
