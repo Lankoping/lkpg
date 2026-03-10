@@ -8,7 +8,10 @@ export const Route = createFileRoute('/_api/performance-run')({
         const result = await runPerformanceTestManually()
         
         return Response.json(result, {
-          status: result.success ? 200 : 500,
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
         })
       },
     },
