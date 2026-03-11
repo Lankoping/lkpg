@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { getPostsFn } from '../../../server/functions/posts'
+import { getPostsTranslatedToEnglishFn } from '../../../server/functions/posts'
 
 export const Route = createFileRoute('/en/nyheter/')({
   loader: async () => {
     return {
-      posts: await getPostsFn({ data: 'news' }),
+      posts: await getPostsTranslatedToEnglishFn({ data: 'news' }),
     }
   },
   component: NewsList,
@@ -16,6 +16,7 @@ function NewsList() {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6 text-[#C04A2A]">News</h1>
+      <p className="text-xs text-[#F0E8D8]/60 mb-6 italic">* Translted from swedish to english using google translate</p>
 
       {posts.length === 0 ? (
         <p className="text-gray-500">No news yet.</p>

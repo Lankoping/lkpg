@@ -9,6 +9,77 @@ import { GoogleGenAI } from '@google/genai'
 
 export const typeValidator = z.union([z.literal('blog'), z.literal('news')])
 
+function splitIntoChunks(text: string, maxChunkLength = 1000): string[] {
+  if (text.length <= maxChunkLength) return [text]
+
+  const chunks: string[] = []
+  let current = ''
+
+  for (const part of text.split(/(\n\n+)/)) {
+    if ((current + part).length > maxChunkLength && current.length > 0) {
+      chunks.push(current)
+      current = part
+      continue
+    }
+    current += part
+  }
+
+  if (current.length > 0) chunks.push(current)
+  return chunks
+}
+
+const translationCache = new Map<string, string>()
+
+async function translateWithGoogle(text: string, from = 'sv', to = 'en'): Promise<string> {
+  if (!text.trim()) return text
+
+  const cacheKey = `${from}:${to}:${text}`
+  const cached = translationCache.get(cacheKey)
+  if (cached) return cached
+
+  const chunks = splitIntoChunks(text)
+  const translatedChunks: string[] = []
+
+  for (const chunk of chunks) {
+    const url =
+      'https://translate.googleapis.com/translate_a/single' +
+      `?client=gtx&sl=${encodeURIComponent(from)}&tl=${encodeURIComponent(to)}&dt=t&q=${encodeURIComponent(chunk)}`
+
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`Google Translate request failed: ${response.status}`)
+    }
+
+    const data = (await response.json()) as unknown
+    const translated = Array.isArray(data) && Array.isArray(data[0])
+      ? (data[0] as Array<Array<string>>)
+          .map((segment) => segment?.[0] ?? '')
+          .join('')
+      : chunk
+
+    translatedChunks.push(translated)
+  }
+
+  const translatedText = translatedChunks.join('')
+  translationCache.set(cacheKey, translatedText)
+  return translatedText
+}
+
+async function translatePostToEnglish(post: typeof posts.$inferSelect) {
+  const [title, excerpt, content] = await Promise.all([
+    translateWithGoogle(post.title),
+    post.excerpt ? translateWithGoogle(post.excerpt) : Promise.resolve(post.excerpt),
+    translateWithGoogle(post.content),
+  ])
+
+  return {
+    ...post,
+    title,
+    excerpt,
+    content,
+  }
+}
+
 export const getPostsFn = createServerFn({ method: "GET" })
   .inputValidator((type: string) => z.enum(['blog', 'news']).parse(type))
   .handler(async ({ data: type }) => {
@@ -17,6 +88,18 @@ export const getPostsFn = createServerFn({ method: "GET" })
       .where(eq(posts.type, type))
       .orderBy(desc(posts.createdAt))
       .limit(10)
+  })
+
+export const getPostsTranslatedToEnglishFn = createServerFn({ method: 'GET' })
+  .inputValidator((type: string) => z.enum(['blog', 'news']).parse(type))
+  .handler(async ({ data: type }) => {
+    const postsResult = await db.select()
+      .from(posts)
+      .where(eq(posts.type, type))
+      .orderBy(desc(posts.createdAt))
+      .limit(10)
+
+    return await Promise.all(postsResult.map((post) => translatePostToEnglish(post)))
   })
 
 export const getPostBySlugFn = createServerFn({ method: "GET" })
@@ -28,6 +111,21 @@ export const getPostBySlugFn = createServerFn({ method: "GET" })
       .limit(1)
     
     return post[0] || null
+  })
+
+export const getPostBySlugTranslatedToEnglishFn = createServerFn({ method: 'GET' })
+  .inputValidator((slug: string) => z.string().parse(slug))
+  .handler(async ({ data: slug }) => {
+    const post = await db.select()
+      .from(posts)
+      .where(eq(posts.slug, slug))
+      .limit(1)
+
+    if (!post[0]) {
+      return null
+    }
+
+    return await translatePostToEnglish(post[0])
   })
 
 export const getPostByIdFn = createServerFn({ method: "GET" })
