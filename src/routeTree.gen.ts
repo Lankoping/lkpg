@@ -10,15 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as EnRouteImport } from './routes/en'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as PublicRouteImport } from './routes/_public'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as NyheterIndexRouteImport } from './routes/nyheter/index'
+import { Route as EnIndexRouteImport } from './routes/en/index'
 import { Route as BlogsIndexRouteImport } from './routes/blogs/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as VerifyCodeRouteImport } from './routes/verify/$code'
 import { Route as NyheterSlugRouteImport } from './routes/nyheter/$slug'
+import { Route as EnTeamRouteImport } from './routes/en/team'
+import { Route as EnRulesRouteImport } from './routes/en/rules'
+import { Route as EnPrivacyRouteImport } from './routes/en/privacy'
 import { Route as BlogsSlugRouteImport } from './routes/blogs/$slug'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminPostsRouteImport } from './routes/admin/posts'
@@ -28,7 +33,11 @@ import { Route as PublicRulesRouteImport } from './routes/_public/rules'
 import { Route as PublicPrivacyRouteImport } from './routes/_public/privacy'
 import { Route as ProtectedExampleProtectedRouteRouteImport } from './routes/_protected/example-protected-route'
 import { Route as ApiHelloRouteImport } from './routes/_api/hello'
+import { Route as EnNyheterIndexRouteImport } from './routes/en/nyheter/index'
+import { Route as EnBlogsIndexRouteImport } from './routes/en/blogs/index'
 import { Route as AdminTicketsIndexRouteImport } from './routes/admin/tickets/index'
+import { Route as EnNyheterSlugRouteImport } from './routes/en/nyheter/$slug'
+import { Route as EnBlogsSlugRouteImport } from './routes/en/blogs/$slug'
 import { Route as AdminTicketsTypesRouteImport } from './routes/admin/tickets/types'
 import { Route as AdminTicketsScanRouteImport } from './routes/admin/tickets/scan'
 import { Route as AdminTicketsNewRouteImport } from './routes/admin/tickets/new'
@@ -39,6 +48,11 @@ import { Route as PublicBiljettCodeRouteImport } from './routes/_public/biljett/
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnRoute = EnRouteImport.update({
+  id: '/en',
+  path: '/en',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -58,6 +72,11 @@ const NyheterIndexRoute = NyheterIndexRouteImport.update({
   id: '/nyheter/',
   path: '/nyheter/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const EnIndexRoute = EnIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => EnRoute,
 } as any)
 const BlogsIndexRoute = BlogsIndexRouteImport.update({
   id: '/blogs/',
@@ -83,6 +102,21 @@ const NyheterSlugRoute = NyheterSlugRouteImport.update({
   id: '/nyheter/$slug',
   path: '/nyheter/$slug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const EnTeamRoute = EnTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => EnRoute,
+} as any)
+const EnRulesRoute = EnRulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => EnRoute,
+} as any)
+const EnPrivacyRoute = EnPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => EnRoute,
 } as any)
 const BlogsSlugRoute = BlogsSlugRouteImport.update({
   id: '/blogs/$slug',
@@ -130,10 +164,30 @@ const ApiHelloRoute = ApiHelloRouteImport.update({
   path: '/hello',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EnNyheterIndexRoute = EnNyheterIndexRouteImport.update({
+  id: '/nyheter/',
+  path: '/nyheter/',
+  getParentRoute: () => EnRoute,
+} as any)
+const EnBlogsIndexRoute = EnBlogsIndexRouteImport.update({
+  id: '/blogs/',
+  path: '/blogs/',
+  getParentRoute: () => EnRoute,
+} as any)
 const AdminTicketsIndexRoute = AdminTicketsIndexRouteImport.update({
   id: '/tickets/',
   path: '/tickets/',
   getParentRoute: () => AdminRoute,
+} as any)
+const EnNyheterSlugRoute = EnNyheterSlugRouteImport.update({
+  id: '/nyheter/$slug',
+  path: '/nyheter/$slug',
+  getParentRoute: () => EnRoute,
+} as any)
+const EnBlogsSlugRoute = EnBlogsSlugRouteImport.update({
+  id: '/blogs/$slug',
+  path: '/blogs/$slug',
+  getParentRoute: () => EnRoute,
 } as any)
 const AdminTicketsTypesRoute = AdminTicketsTypesRouteImport.update({
   id: '/tickets/types',
@@ -169,6 +223,7 @@ const PublicBiljettCodeRoute = PublicBiljettCodeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/en': typeof EnRouteWithChildren
   '/login': typeof LoginRoute
   '/hello': typeof ApiHelloRoute
   '/example-protected-route': typeof ProtectedExampleProtectedRouteRoute
@@ -179,10 +234,14 @@ export interface FileRoutesByFullPath {
   '/admin/posts': typeof AdminPostsRoute
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
+  '/en/privacy': typeof EnPrivacyRoute
+  '/en/rules': typeof EnRulesRoute
+  '/en/team': typeof EnTeamRoute
   '/nyheter/$slug': typeof NyheterSlugRoute
   '/verify/$code': typeof VerifyCodeRoute
   '/admin/': typeof AdminIndexRoute
   '/blogs/': typeof BlogsIndexRoute
+  '/en/': typeof EnIndexRoute
   '/nyheter/': typeof NyheterIndexRoute
   '/biljett/$code': typeof PublicBiljettCodeRoute
   '/admin/edit/$id': typeof AdminEditIdRoute
@@ -190,7 +249,11 @@ export interface FileRoutesByFullPath {
   '/admin/tickets/new': typeof AdminTicketsNewRoute
   '/admin/tickets/scan': typeof AdminTicketsScanRoute
   '/admin/tickets/types': typeof AdminTicketsTypesRoute
+  '/en/blogs/$slug': typeof EnBlogsSlugRoute
+  '/en/nyheter/$slug': typeof EnNyheterSlugRoute
   '/admin/tickets/': typeof AdminTicketsIndexRoute
+  '/en/blogs/': typeof EnBlogsIndexRoute
+  '/en/nyheter/': typeof EnNyheterIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -204,10 +267,14 @@ export interface FileRoutesByTo {
   '/admin/posts': typeof AdminPostsRoute
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
+  '/en/privacy': typeof EnPrivacyRoute
+  '/en/rules': typeof EnRulesRoute
+  '/en/team': typeof EnTeamRoute
   '/nyheter/$slug': typeof NyheterSlugRoute
   '/verify/$code': typeof VerifyCodeRoute
   '/admin': typeof AdminIndexRoute
   '/blogs': typeof BlogsIndexRoute
+  '/en': typeof EnIndexRoute
   '/nyheter': typeof NyheterIndexRoute
   '/biljett/$code': typeof PublicBiljettCodeRoute
   '/admin/edit/$id': typeof AdminEditIdRoute
@@ -215,13 +282,18 @@ export interface FileRoutesByTo {
   '/admin/tickets/new': typeof AdminTicketsNewRoute
   '/admin/tickets/scan': typeof AdminTicketsScanRoute
   '/admin/tickets/types': typeof AdminTicketsTypesRoute
+  '/en/blogs/$slug': typeof EnBlogsSlugRoute
+  '/en/nyheter/$slug': typeof EnNyheterSlugRoute
   '/admin/tickets': typeof AdminTicketsIndexRoute
+  '/en/blogs': typeof EnBlogsIndexRoute
+  '/en/nyheter': typeof EnNyheterIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_protected': typeof ProtectedRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
+  '/en': typeof EnRouteWithChildren
   '/login': typeof LoginRoute
   '/_api/hello': typeof ApiHelloRoute
   '/_protected/example-protected-route': typeof ProtectedExampleProtectedRouteRoute
@@ -232,11 +304,15 @@ export interface FileRoutesById {
   '/admin/posts': typeof AdminPostsRoute
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
+  '/en/privacy': typeof EnPrivacyRoute
+  '/en/rules': typeof EnRulesRoute
+  '/en/team': typeof EnTeamRoute
   '/nyheter/$slug': typeof NyheterSlugRoute
   '/verify/$code': typeof VerifyCodeRoute
   '/_public/': typeof PublicIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/blogs/': typeof BlogsIndexRoute
+  '/en/': typeof EnIndexRoute
   '/nyheter/': typeof NyheterIndexRoute
   '/_public/biljett/$code': typeof PublicBiljettCodeRoute
   '/admin/edit/$id': typeof AdminEditIdRoute
@@ -244,13 +320,18 @@ export interface FileRoutesById {
   '/admin/tickets/new': typeof AdminTicketsNewRoute
   '/admin/tickets/scan': typeof AdminTicketsScanRoute
   '/admin/tickets/types': typeof AdminTicketsTypesRoute
+  '/en/blogs/$slug': typeof EnBlogsSlugRoute
+  '/en/nyheter/$slug': typeof EnNyheterSlugRoute
   '/admin/tickets/': typeof AdminTicketsIndexRoute
+  '/en/blogs/': typeof EnBlogsIndexRoute
+  '/en/nyheter/': typeof EnNyheterIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/admin'
+    | '/en'
     | '/login'
     | '/hello'
     | '/example-protected-route'
@@ -261,10 +342,14 @@ export interface FileRouteTypes {
     | '/admin/posts'
     | '/admin/users'
     | '/blogs/$slug'
+    | '/en/privacy'
+    | '/en/rules'
+    | '/en/team'
     | '/nyheter/$slug'
     | '/verify/$code'
     | '/admin/'
     | '/blogs/'
+    | '/en/'
     | '/nyheter/'
     | '/biljett/$code'
     | '/admin/edit/$id'
@@ -272,7 +357,11 @@ export interface FileRouteTypes {
     | '/admin/tickets/new'
     | '/admin/tickets/scan'
     | '/admin/tickets/types'
+    | '/en/blogs/$slug'
+    | '/en/nyheter/$slug'
     | '/admin/tickets/'
+    | '/en/blogs/'
+    | '/en/nyheter/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -286,10 +375,14 @@ export interface FileRouteTypes {
     | '/admin/posts'
     | '/admin/users'
     | '/blogs/$slug'
+    | '/en/privacy'
+    | '/en/rules'
+    | '/en/team'
     | '/nyheter/$slug'
     | '/verify/$code'
     | '/admin'
     | '/blogs'
+    | '/en'
     | '/nyheter'
     | '/biljett/$code'
     | '/admin/edit/$id'
@@ -297,12 +390,17 @@ export interface FileRouteTypes {
     | '/admin/tickets/new'
     | '/admin/tickets/scan'
     | '/admin/tickets/types'
+    | '/en/blogs/$slug'
+    | '/en/nyheter/$slug'
     | '/admin/tickets'
+    | '/en/blogs'
+    | '/en/nyheter'
   id:
     | '__root__'
     | '/_protected'
     | '/_public'
     | '/admin'
+    | '/en'
     | '/login'
     | '/_api/hello'
     | '/_protected/example-protected-route'
@@ -313,11 +411,15 @@ export interface FileRouteTypes {
     | '/admin/posts'
     | '/admin/users'
     | '/blogs/$slug'
+    | '/en/privacy'
+    | '/en/rules'
+    | '/en/team'
     | '/nyheter/$slug'
     | '/verify/$code'
     | '/_public/'
     | '/admin/'
     | '/blogs/'
+    | '/en/'
     | '/nyheter/'
     | '/_public/biljett/$code'
     | '/admin/edit/$id'
@@ -325,13 +427,18 @@ export interface FileRouteTypes {
     | '/admin/tickets/new'
     | '/admin/tickets/scan'
     | '/admin/tickets/types'
+    | '/en/blogs/$slug'
+    | '/en/nyheter/$slug'
     | '/admin/tickets/'
+    | '/en/blogs/'
+    | '/en/nyheter/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   ProtectedRoute: typeof ProtectedRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
+  EnRoute: typeof EnRouteWithChildren
   LoginRoute: typeof LoginRoute
   ApiHelloRoute: typeof ApiHelloRoute
   BlogsSlugRoute: typeof BlogsSlugRoute
@@ -348,6 +455,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/en': {
+      id: '/en'
+      path: '/en'
+      fullPath: '/en'
+      preLoaderRoute: typeof EnRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -377,6 +491,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/nyheter/'
       preLoaderRoute: typeof NyheterIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/en/': {
+      id: '/en/'
+      path: '/'
+      fullPath: '/en/'
+      preLoaderRoute: typeof EnIndexRouteImport
+      parentRoute: typeof EnRoute
     }
     '/blogs/': {
       id: '/blogs/'
@@ -412,6 +533,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/nyheter/$slug'
       preLoaderRoute: typeof NyheterSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/en/team': {
+      id: '/en/team'
+      path: '/team'
+      fullPath: '/en/team'
+      preLoaderRoute: typeof EnTeamRouteImport
+      parentRoute: typeof EnRoute
+    }
+    '/en/rules': {
+      id: '/en/rules'
+      path: '/rules'
+      fullPath: '/en/rules'
+      preLoaderRoute: typeof EnRulesRouteImport
+      parentRoute: typeof EnRoute
+    }
+    '/en/privacy': {
+      id: '/en/privacy'
+      path: '/privacy'
+      fullPath: '/en/privacy'
+      preLoaderRoute: typeof EnPrivacyRouteImport
+      parentRoute: typeof EnRoute
     }
     '/blogs/$slug': {
       id: '/blogs/$slug'
@@ -476,12 +618,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHelloRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/en/nyheter/': {
+      id: '/en/nyheter/'
+      path: '/nyheter'
+      fullPath: '/en/nyheter/'
+      preLoaderRoute: typeof EnNyheterIndexRouteImport
+      parentRoute: typeof EnRoute
+    }
+    '/en/blogs/': {
+      id: '/en/blogs/'
+      path: '/blogs'
+      fullPath: '/en/blogs/'
+      preLoaderRoute: typeof EnBlogsIndexRouteImport
+      parentRoute: typeof EnRoute
+    }
     '/admin/tickets/': {
       id: '/admin/tickets/'
       path: '/tickets'
       fullPath: '/admin/tickets/'
       preLoaderRoute: typeof AdminTicketsIndexRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/en/nyheter/$slug': {
+      id: '/en/nyheter/$slug'
+      path: '/nyheter/$slug'
+      fullPath: '/en/nyheter/$slug'
+      preLoaderRoute: typeof EnNyheterSlugRouteImport
+      parentRoute: typeof EnRoute
+    }
+    '/en/blogs/$slug': {
+      id: '/en/blogs/$slug'
+      path: '/blogs/$slug'
+      fullPath: '/en/blogs/$slug'
+      preLoaderRoute: typeof EnBlogsSlugRouteImport
+      parentRoute: typeof EnRoute
     }
     '/admin/tickets/types': {
       id: '/admin/tickets/types'
@@ -587,10 +757,35 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface EnRouteChildren {
+  EnPrivacyRoute: typeof EnPrivacyRoute
+  EnRulesRoute: typeof EnRulesRoute
+  EnTeamRoute: typeof EnTeamRoute
+  EnIndexRoute: typeof EnIndexRoute
+  EnBlogsSlugRoute: typeof EnBlogsSlugRoute
+  EnNyheterSlugRoute: typeof EnNyheterSlugRoute
+  EnBlogsIndexRoute: typeof EnBlogsIndexRoute
+  EnNyheterIndexRoute: typeof EnNyheterIndexRoute
+}
+
+const EnRouteChildren: EnRouteChildren = {
+  EnPrivacyRoute: EnPrivacyRoute,
+  EnRulesRoute: EnRulesRoute,
+  EnTeamRoute: EnTeamRoute,
+  EnIndexRoute: EnIndexRoute,
+  EnBlogsSlugRoute: EnBlogsSlugRoute,
+  EnNyheterSlugRoute: EnNyheterSlugRoute,
+  EnBlogsIndexRoute: EnBlogsIndexRoute,
+  EnNyheterIndexRoute: EnNyheterIndexRoute,
+}
+
+const EnRouteWithChildren = EnRoute._addFileChildren(EnRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   ProtectedRoute: ProtectedRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
+  EnRoute: EnRouteWithChildren,
   LoginRoute: LoginRoute,
   ApiHelloRoute: ApiHelloRoute,
   BlogsSlugRoute: BlogsSlugRoute,
@@ -602,12 +797,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

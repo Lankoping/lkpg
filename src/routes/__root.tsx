@@ -2,12 +2,15 @@ import {
   HeadContent,
   Scripts,
   createRootRouteWithContext,
+  useRouterState,
 } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import appCss from '../styles.css?url'
 
 import type { QueryClient } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from 'next-themes'
+import { LanguageSwitcher } from '@/components/language-switcher'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -97,6 +100,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           enableSystem={false}
           disableTransitionOnChange
         >
+          <HtmlLangSync />
+          <LanguageSwitcher />
           {children}
           <Toaster />
         </ThemeProvider>
@@ -104,4 +109,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </body>
     </html>
   )
+}
+
+function HtmlLangSync() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+
+  useEffect(() => {
+    document.documentElement.lang = pathname.startsWith('/en') ? 'en' : 'sv'
+  }, [pathname])
+
+  return null
 }

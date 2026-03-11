@@ -2,7 +2,37 @@
 
 import { motion } from 'motion/react'
 
-export function ComingSoon() {
+type Locale = 'sv' | 'en'
+
+interface ComingSoonProps {
+  locale?: Locale
+}
+
+const contentByLocale = {
+  sv: {
+    headline: 'Snart',
+    sub: 'Vi håller fortfarande på med de sista detaljerna.',
+    cities: ['Norrköping', 'Östergötland', 'Sverige'],
+    rulesLabel: 'Läs Regler',
+    teamLabel: 'Teamet',
+    privacyLabel: 'Dina Uppgifter',
+    rights: 'Alla rättigheter förbehållna',
+  },
+  en: {
+    headline: 'Soon',
+    sub: 'We are still polishing the final details.',
+    cities: ['Norrkoping', 'Ostergotland', 'Sweden'],
+    rulesLabel: 'Read Rules',
+    teamLabel: 'The Team',
+    privacyLabel: 'Your Data',
+    rights: 'All rights reserved',
+  },
+} as const
+
+export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
+  const content = contentByLocale[locale]
+  const basePath = locale === 'en' ? '/en' : ''
+
   return (
     <div className="cs-root">
       {/* Industrial grid overlay */}
@@ -104,7 +134,7 @@ export function ComingSoon() {
           className="cs-headline"
           style={{ opacity: 1, transform: 'none' }}
         >
-          Snart
+          {content.headline}
         </h1>
 
         {/* Sub-headline - Debug simplified */}
@@ -112,7 +142,7 @@ export function ComingSoon() {
           className="cs-sub"
           style={{ opacity: 1, transform: 'none' }}
         >
-          Vi håller fortfarande på med de sista detaljerna.
+          {content.sub}
         </p>
 
         {/* City tags - Debug simplified */}
@@ -120,11 +150,11 @@ export function ComingSoon() {
           className="cs-tags"
           style={{ opacity: 1 }}
         >
-          <span className="cs-tag">Norrköping</span>
+          <span className="cs-tag">{content.cities[0]}</span>
           <span className="cs-tag-sep">×</span>
-          <span className="cs-tag">Östergötland</span>
+          <span className="cs-tag">{content.cities[1]}</span>
           <span className="cs-tag-sep">×</span>
-          <span className="cs-tag">Sverige</span>
+          <span className="cs-tag">{content.cities[2]}</span>
         </div>
 
         {/* Rules Buttons - Debug simplified */}
@@ -132,9 +162,9 @@ export function ComingSoon() {
           className="cs-btn-group"
           style={{ opacity: 1, transform: 'none' }}
         >
-          <a href="/rules" className="cs-rules-btn">Läs Regler</a>
-          <a href="/team" className="cs-rules-btn">Teamet</a>
-          <a href="/privacy" className="cs-rules-btn">Dina Uppgifter</a>
+          <a href={`${basePath}/rules`} className="cs-rules-btn">{content.rulesLabel}</a>
+          <a href={`${basePath}/team`} className="cs-rules-btn">{content.teamLabel}</a>
+          <a href={`${basePath}/privacy`} className="cs-rules-btn">{content.privacyLabel}</a>
         </div>
 
         {/* Socials - Debug with regular div */}
@@ -156,7 +186,7 @@ export function ComingSoon() {
         >
           <span>© 2026 Lankoping.se</span>
           <span className="cs-footer-sep">—</span>
-          <span>Alla rättigheter förbehållna</span>
+          <span>{content.rights}</span>
         </motion.footer>
       </div>
 
