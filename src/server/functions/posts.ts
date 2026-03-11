@@ -177,18 +177,31 @@ export const fixPostSpellingFn = createServerFn({ method: 'POST' })
 
     const ai = new GoogleGenAI({ apiKey })
 
-    const prompt = `You are a careful Swedish+English copy editor.
-Fix spelling and obvious grammar mistakes for the title and markdown body.
-Rules:
-- Preserve original meaning and tone.
-- Keep markdown structure and formatting intact.
-- Do not add new sections or remove content.
-- Return valid JSON only in this shape: {"title":"...","content":"..."}
+    const prompt = `You are a careful Swedish+English copy editor and markdown formatter.
+
+TASK:
+1. Fix ONLY spelling and obvious grammar mistakes
+2. Preserve all existing markdown formatting if present
+3. If content is plain text with NO markdown, add basic markdown formatting:
+   - Use # for main sections
+   - Use ## for subsections
+   - Use - for bullet lists where appropriate
+   - Use **bold** for important terms
+   - Keep natural paragraph breaks
+4. NEVER change proper nouns or brand names (esp. "Lankoping", "Linköping" - use input exactly)
+
+CRITICAL RULES:
+- Preserve EXACT existing markdown: **bold**, *italic*, # headers, - lists, [links](url), \`code\`, etc.
+- Do NOT change proper nouns, company names, or brand names from the input
+- Do NOT remove any markdown formatting
+- Do NOT add new sections, just format plain text as markdown
+- Preserve original meaning, tone, and structure
+- Return valid JSON only: {"title":"...","content":"..."}
 
 TITLE:
 ${data.title}
 
-MARKDOWN_CONTENT:
+CONTENT:
 ${data.content}`
 
     const response = await ai.models.generateContent({
