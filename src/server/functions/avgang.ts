@@ -4,6 +4,7 @@ import { db } from '../db/index'
 import { avgangsRequests, users } from '../db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { z } from 'zod'
+import { GoogleGenAI } from '@google/genai'
 import { lockUserFn } from './auth'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
 
@@ -156,4 +157,73 @@ export const recordPdfGenerationFn = createServerFn({ method: 'POST' })
       .returning()
     const allUsers = await db.select().from(users)
     return enrichRequest(updated[0], allUsers)
+  })
+
+export const fixAvgangSpellingFn = createServerFn({ method: 'POST' })
+  .inputValidator((payload: unknown) =>
+    z
+      .object({
+        namn: z.string().min(1),
+        roll: z.string().min(1),
+        orsak: z.string().min(1),
+      })
+      .parse(payload)
+  )
+  .handler(async ({ data }) => {
+    await requireOrganizerUser()
+
+    const apiKey =
+      process.env.GEMINI_API_KEY ??
+      process.env.GOOGLE_API_KEY ??
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY
+
+    if (!apiKey) {
+      throw new Error(
+        'Missing Gemini API key in environment (set GEMINI_API_KEY, GOOGLE_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY)',
+      )
+    }
+
+    const ai = new GoogleGenAI({ apiKey })
+
+    const prompt = `Du är en svensk språkgranskare för administrativa avgångsunderlag.
+
+INSTRUKTIONER:
+1. Korrigera ENDAST stavning och grammatik.
+  2. Förändra inte sakuppgifter eller innebörden.
+  3. Behåll namn och roller så nära originalet som möjligt.
+4. Returnera ENDAST valid JSON pa exakt format:
+{"namn":"...","roll":"...","orsak":"..."}
+
+NAMN:
+${data.namn}
+
+ROLL:
+${data.roll}
+
+ORSAK:
+${data.orsak}`
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    })
+
+    const text = response.text?.trim()
+    if (!text) {
+      throw new Error('Gemini returned an empty response')
+    }
+
+    const normalized = text
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```$/i, '')
+      .trim()
+
+    return z
+      .object({
+        namn: z.string().min(1),
+        roll: z.string().min(1),
+        orsak: z.string().min(1),
+      })
+      .parse(JSON.parse(normalized))
   })

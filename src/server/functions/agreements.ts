@@ -2,34 +2,73 @@
 import { createServerFn } from '@tanstack/react-start'
 import { desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
+import { GoogleGenAI } from '@google/genai'
 import { db } from '../db/index'
 import { agreements, users } from '../db/schema'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
 
+type AgreementSignatureValue =
+  | boolean
+  | {
+      signed?: boolean
+      nameClarification?: string
+      signedAt?: string
+    }
+
+type AgreementSignaturesState = Record<string, AgreementSignatureValue | string | number>
+
+function getSignatureEntry(state: AgreementSignaturesState, userId: number) {
+  const raw = state[String(userId)]
+  if (raw === true) {
+    return { signed: true, nameClarification: null as string | null }
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    const signed = raw.signed === true
+    const nameClarification = typeof raw.nameClarification === 'string' && raw.nameClarification.trim()
+      ? raw.nameClarification.trim()
+      : null
+    return { signed, nameClarification }
+  }
+  return { signed: false, nameClarification: null as string | null }
+}
+
 async function enrichAgreement(record: typeof agreements.$inferSelect, allUsers: (typeof users.$inferSelect)[]) {
   const signerIds: number[] = JSON.parse(record.requiredSigners || '[]')
-  const digitalSignatures: Record<string, boolean> = JSON.parse(record.digitalSignatures || '{}')
+  const digitalSignatures: AgreementSignaturesState = JSON.parse(record.digitalSignatures || '{}')
 
   const requiredSigners = signerIds.map((id) => {
     const user = allUsers.find((candidate) => candidate.id === id)
+    const signature = getSignatureEntry(digitalSignatures, id)
     return {
       userId: id,
-      name: user?.name || 'Okand anvandare',
+      name: user?.name || 'Okänd användare',
       email: user?.email || '',
-      signed: digitalSignatures[id] === true,
+      signed: signature.signed,
+      nameClarification: signature.nameClarification,
       role: user?.role || 'volunteer',
     }
   })
 
   const createdByUser = record.createdByUserId ? allUsers.find((candidate) => candidate.id === record.createdByUserId) : null
   const generatedByUser = record.generatedBy ? allUsers.find((candidate) => candidate.id === record.generatedBy) : null
+  const deleteRequestedByUserId = Number(digitalSignatures.__deleteRequestedBy || 0) || null
+  const deleteRequestedByUser = deleteRequestedByUserId
+    ? allUsers.find((candidate) => candidate.id === deleteRequestedByUserId)
+    : null
+  const deleteRequestedAt = typeof digitalSignatures.__deleteRequestedAt === 'string'
+    ? digitalSignatures.__deleteRequestedAt
+    : null
 
   return {
     ...record,
     requiredSigners,
     createdByName: createdByUser?.name || null,
     generatedByName: generatedByUser?.name || null,
-    allSigned: signerIds.length > 0 && signerIds.every((id) => digitalSignatures[id] === true),
+    allSigned: signerIds.length > 0 && signerIds.every((id) => getSignatureEntry(digitalSignatures, id).signed),
+    deleteRequestedByUserId,
+    deleteRequestedByName: deleteRequestedByUser?.name || null,
+    deleteRequestedAt,
+    deletePending: Boolean(deleteRequestedByUserId),
   }
 }
 
@@ -97,8 +136,10 @@ export const updateAgreementFn = createServerFn({ method: 'POST' })
       throw new Error('Agreement not found')
     }
 
-    const existingSignatures: Record<string, boolean> = JSON.parse(current[0].digitalSignatures || '{}')
-    const allowedSignatureEntries = Object.entries(existingSignatures).filter(([key]) => data.requiredSignerIds.includes(Number(key)))
+    const existingSignatures: AgreementSignaturesState = JSON.parse(current[0].digitalSignatures || '{}')
+    const allowedSignatureEntries = Object.entries(existingSignatures).filter(([key]) =>
+      key.startsWith('__') || data.requiredSignerIds.includes(Number(key)),
+    )
 
     const updated = await db.update(agreements)
       .set({
@@ -119,7 +160,12 @@ export const updateAgreementFn = createServerFn({ method: 'POST' })
 
 export const addAgreementSignatureFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
-    z.object({ agreementId: z.number() }).parse(data)
+    z
+      .object({
+        agreementId: z.number(),
+        nameClarification: z.string().min(2),
+      })
+      .parse(data)
   )
   .handler(async ({ data }) => {
     const currentUser = await requireStaffUser()
@@ -133,8 +179,12 @@ export const addAgreementSignatureFn = createServerFn({ method: 'POST' })
       throw new Error('You are not a required signer')
     }
 
-    const digitalSignatures: Record<string, boolean> = JSON.parse(current[0].digitalSignatures || '{}')
-    digitalSignatures[currentUser.id] = true
+    const digitalSignatures: AgreementSignaturesState = JSON.parse(current[0].digitalSignatures || '{}')
+    digitalSignatures[currentUser.id] = {
+      signed: true,
+      nameClarification: data.nameClarification.trim(),
+      signedAt: new Date().toISOString(),
+    }
 
     const updated = await db.update(agreements)
       .set({
@@ -146,6 +196,73 @@ export const addAgreementSignatureFn = createServerFn({ method: 'POST' })
 
     const allUsers = await db.select().from(users)
     return enrichAgreement(updated[0], allUsers)
+  })
+
+export const archiveAgreementFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) => z.object({ id: z.number() }).parse(data))
+  .handler(async ({ data }) => {
+    await requireOrganizerUser()
+    const updated = await db.update(agreements)
+      .set({
+        status: 'archived',
+        updatedAt: new Date(),
+      })
+      .where(eq(agreements.id, data.id))
+      .returning()
+
+    if (!updated[0]) {
+      throw new Error('Agreement not found')
+    }
+
+    const allUsers = await db.select().from(users)
+    return enrichAgreement(updated[0], allUsers)
+  })
+
+export const requestAgreementDeleteFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) => z.object({ id: z.number() }).parse(data))
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const current = await db.select().from(agreements).where(eq(agreements.id, data.id)).limit(1)
+    if (!current[0]) {
+      throw new Error('Agreement not found')
+    }
+
+    const signatures: AgreementSignaturesState = JSON.parse(current[0].digitalSignatures || '{}')
+    const requestedBy = Number(signatures.__deleteRequestedBy || 0) || null
+
+    if (!requestedBy) {
+      signatures.__deleteRequestedBy = currentUser.id
+      signatures.__deleteRequestedAt = new Date().toISOString()
+
+      const updated = await db.update(agreements)
+        .set({
+          digitalSignatures: JSON.stringify(signatures),
+          updatedAt: new Date(),
+        })
+        .where(eq(agreements.id, data.id))
+        .returning()
+
+      const allUsers = await db.select().from(users)
+      return {
+        deleted: false,
+        agreement: await enrichAgreement(updated[0], allUsers),
+      }
+    }
+
+    if (requestedBy === currentUser.id) {
+      throw new Error('Radering är redan begärd av dig. Väntar på bekräftelse från en annan admin.')
+    }
+
+    const deletedRows = await db.delete(agreements).where(eq(agreements.id, data.id)).returning()
+
+    if (!deletedRows[0]) {
+      throw new Error('Agreement not found')
+    }
+
+    return {
+      deleted: true,
+      deletedId: data.id,
+    }
   })
 
 export const markAgreementPhysicalFn = createServerFn({ method: 'POST' })
@@ -180,4 +297,74 @@ export const recordAgreementPdfGenerationFn = createServerFn({ method: 'POST' })
 
     const allUsers = await db.select().from(users)
     return enrichAgreement(updated[0], allUsers)
+  })
+
+export const fixAgreementSpellingFn = createServerFn({ method: 'POST' })
+  .inputValidator((payload: unknown) =>
+    z
+      .object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        body: z.string().min(1),
+      })
+      .parse(payload),
+  )
+  .handler(async ({ data }) => {
+    await requireOrganizerUser()
+
+    const apiKey =
+      process.env.GEMINI_API_KEY ??
+      process.env.GOOGLE_API_KEY ??
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY
+
+    if (!apiKey) {
+      throw new Error(
+        'Missing Gemini API key in environment (set GEMINI_API_KEY, GOOGLE_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY)',
+      )
+    }
+
+    const ai = new GoogleGenAI({ apiKey })
+
+    const prompt = `Du är en svensk språkgranskare specialiserad på avtalstexter.
+
+INSTRUKTIONER:
+1. Korrigera ENDAST stavning och grammatik.
+  2. Behåll juridisk innebörd exakt oförändrad.
+  3. Behåll namn, titlar, datum, nummer, punktlistor och radbrytningar.
+  4. Skriv inte om struktur, rubriknivåer eller ton.
+5. Returnera ENDAST valid JSON pa exakt format:
+{"title":"...","description":"...","body":"..."}
+
+TITLE:
+${data.title}
+
+DESCRIPTION:
+${data.description ?? ''}
+
+BODY:
+${data.body}`
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    })
+
+    const text = response.text?.trim()
+    if (!text) {
+      throw new Error('Gemini returned an empty response')
+    }
+
+    const normalized = text
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```$/i, '')
+      .trim()
+
+    return z
+      .object({
+        title: z.string().min(1),
+        description: z.string(),
+        body: z.string().min(1),
+      })
+      .parse(JSON.parse(normalized))
   })

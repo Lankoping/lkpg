@@ -232,7 +232,7 @@ export const fixPostSpellingFn = createServerFn({ method: 'POST' })
 INSTRUCTIONS:
 1. Fix ONLY spelling and grammar mistakes
 2. Preserve ALL existing markdown exactly: **bold**, *italic*, # headers, lists, links, code blocks, etc.
-3. DO NOT change proper nouns: "Lankoping", "Linköping" must stay EXACTLY as typed in input
+3. DO NOT change proper nouns: "Lanköping", "Linköping" must stay EXACTLY as typed in input
 4. Brand names and company names stay UNCHANGED
 ${!hasMarkdown ? `5. THIS CONTENT HAS NO MARKDOWN. Convert it to markdown:
    - Use appropriate # headers for main topics

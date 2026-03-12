@@ -1,5 +1,5 @@
 // Client-side PDF export utility
-// Opens a print-ready window with Lankoping branding
+// Opens a print-ready window with Lanköping branding
 
 const PRINT_STYLES = `
   @page { margin: 2cm; }
@@ -190,10 +190,15 @@ const PRINT_ACTIONS = `
   </style>
   <div class="print-bar no-print">
     <button onclick="window.print()">Skriv ut / Spara PDF</button>
-    <button class="sec" onclick="window.close()">Stang</button>
+    <button class="sec" onclick="window.close()">Stäng</button>
     <span>Att skrivas ut och signeras i person</span>
   </div>
 `
+
+function openPrintWindow() {
+  const url = `${window.location.origin}/dokument/utskrift`
+  return window.open(url, '_blank')
+}
 
 function formatDate(d: Date | string | null): string {
   if (!d) return '—'
@@ -242,7 +247,7 @@ export interface AgreementPdfData {
   createdAt: Date | string | null
   generatedAt: Date | string | null
   generatedByName: string | null
-  requiredSigners: Array<{ userId: number; name: string; email: string; signed: boolean }>
+  requiredSigners: Array<{ userId: number; name: string; email: string; signed: boolean; nameClarification?: string | null }>
   status: string
 }
 
@@ -264,11 +269,11 @@ export function openAvgangPdf(data: AvgangPdfData, generatedByName: string) {
         </div>
         <div class="sig-field">
           <div class="sig-underline"></div>
-          <div class="sig-label">Namnfortydligande</div>
+          <div class="sig-label">Namnförtydligande</div>
         </div>
       </div>
       <div class="digital-status ${s.signed ? 'digital-signed' : 'digital-unsigned'}">
-        Digital forbekraftelse: ${s.signed ? 'Bekraftad' : 'Ej bekraftad'}
+        Digital förbekräftelse: ${s.signed ? 'Bekräftad' : 'Ej bekräftad'}
       </div>
     </div>
   `).join('<hr class="divider">')
@@ -276,7 +281,7 @@ export function openAvgangPdf(data: AvgangPdfData, generatedByName: string) {
   const avgangSignerRow = `
     <div class="sig-block">
       <div class="sig-name">${data.namn}</div>
-      <div class="sig-role">Avgaende person</div>
+      <div class="sig-role">Avgående person</div>
       <div class="sig-line">
         <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Namnteckning</div></div>
         <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Datum</div></div>
@@ -288,7 +293,7 @@ export function openAvgangPdf(data: AvgangPdfData, generatedByName: string) {
 <html lang="sv">
 <head>
   <meta charset="utf-8">
-  <title>Avgangsbrev — Lankoping — Dok. ${data.id}</title>
+  <title>Avgångsbrev — Lanköping — Dok. ${data.id}</title>
   <style>${PRINT_STYLES}</style>
 </head>
 <body>
@@ -296,11 +301,11 @@ ${PRINT_ACTIONS}
 <div class="page">
   <div class="header">
     <div class="brand">
-      <div class="brand-name">Lankoping</div>
+      <div class="brand-name">Lanköping</div>
       <div class="brand-tagline">Officiellt dokument</div>
     </div>
     <div class="doc-meta">
-      <strong>Avgangsbrev</strong><br>
+      <strong>Avgångsbrev</strong><br>
       Dok. nr: AVG-${String(data.id).padStart(4, '0')}<br>
       Genererat: ${formatDateTime(now)}<br>
       Genererat av: ${generatedByName}<br>
@@ -308,12 +313,12 @@ ${PRINT_ACTIONS}
     </div>
   </div>
 
-  <div class="doc-type">Avgangsbrev</div>
-  <h1 class="doc-title">Avgangsbegaran — ${data.namn}</h1>
+  <div class="doc-type">Avgångsbrev</div>
+  <h1 class="doc-title">Avgångsbegäran — ${data.namn}</h1>
 
   <div class="important-notice">
     Detta dokument ska skrivas ut och signeras fysiskt av samtliga parter. 
-    Forvaras i Lankopings officiella arkiv efter signering.
+    Förvaras i Lanköpings officiella arkiv efter signering.
   </div>
 
   <div class="section">
@@ -322,39 +327,39 @@ ${PRINT_ACTIONS}
       <div class="field"><div class="field-key">Namn</div><div class="field-val">${data.namn}</div></div>
       <div class="field"><div class="field-key">Personnummer</div><div class="field-val">${data.pnr}</div></div>
       <div class="field"><div class="field-key">Roll</div><div class="field-val">${data.roll}</div></div>
-      <div class="field"><div class="field-key">Avgangsdatum</div><div class="field-val">${formatDate(data.datum)}</div></div>
+      <div class="field"><div class="field-key">Avgångsdatum</div><div class="field-val">${formatDate(data.datum)}</div></div>
     </div>
   </div>
 
   <hr class="divider">
 
   <div class="section">
-    <div class="section-label">Anledning till avgang</div>
+    <div class="section-label">Anledning till avgång</div>
     <div class="content-body">${data.orsak}</div>
   </div>
 
   <hr class="divider">
 
   <div class="section">
-    <div class="section-label">Avgaende persons underskrift</div>
+    <div class="section-label">Avgående persons underskrift</div>
     ${avgangSignerRow}
   </div>
 
   <hr class="divider">
 
   <div class="section">
-    <div class="section-label">Foreningssignatarer</div>
-    ${signerRows || '<p>Inga signatarer registrerade</p>'}
+    <div class="section-label">Föreningssignatärer</div>
+    ${signerRows || '<p>Inga signatärer registrerade</p>'}
   </div>
 
   <hr class="divider">
 
   <div class="section">
     <div class="section-label">Checklista</div>
-    <div class="checklist-item"><span class="checkbox"></span> Personlig overenskommelse upprattad</div>
-    <div class="checklist-item"><span class="checkbox"></span> Overgangstid avtalad</div>
-    <div class="checklist-item"><span class="checkbox"></span> Utrustning/atkomst aterlamnad</div>
-    <div class="checklist-item"><span class="checkbox"></span> Arkiverat i Lankopings system</div>
+    <div class="checklist-item"><span class="checkbox"></span> Personlig överenskommelse upprättad</div>
+    <div class="checklist-item"><span class="checkbox"></span> Övergångstid avtalad</div>
+    <div class="checklist-item"><span class="checkbox"></span> Utrustning/åtkomst återlämnad</div>
+    <div class="checklist-item"><span class="checkbox"></span> Arkiverat i Lanköpings system</div>
   </div>
 
   <hr class="divider">
@@ -367,13 +372,13 @@ ${PRINT_ACTIONS}
     </div>
   </div>
 
-  ${docFooter(`AVG-${String(data.id).padStart(4, '0')}`, 'Avgangsbrev')}
+  ${docFooter(`AVG-${String(data.id).padStart(4, '0')}`, 'Avgångsbrev')}
 </div>
 </body>
 </html>`
 
-  const w = window.open('', '_blank')
-  if (!w) { alert('Tillat popup-fonster for att oppna dokumentet'); return }
+  const w = openPrintWindow()
+  if (!w) { alert('Tillåt popup-fönster för att öppna dokumentet'); return }
   w.document.write(html)
   w.document.close()
   w.focus()
@@ -392,10 +397,10 @@ export function openStadgarPdf(data: StadgarPdfData, generatedByName: string) {
       <div class="sig-line">
         <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Namnteckning</div></div>
         <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Datum</div></div>
-        <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Namnfortydligande</div></div>
+        <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Namnförtydligande</div></div>
       </div>
       <div class="digital-status ${s.signed ? 'digital-signed' : 'digital-unsigned'}">
-        Digital forbekraftelse: ${s.signed ? 'Bekraftad' : 'Ej bekraftad'}
+        Digital förbekräftelse: ${s.signed ? 'Bekräftad' : 'Ej bekräftad'}
       </div>
     </div>
   `).join('<hr class="divider">')
@@ -404,7 +409,7 @@ export function openStadgarPdf(data: StadgarPdfData, generatedByName: string) {
 <html lang="sv">
 <head>
   <meta charset="utf-8">
-  <title>Stadgar — Lankoping</title>
+  <title>Stadgar — Lanköping</title>
   <style>${PRINT_STYLES}</style>
 </head>
 <body>
@@ -412,19 +417,19 @@ ${PRINT_ACTIONS}
 <div class="page">
   <div class="header">
     <div class="brand">
-      <div class="brand-name">Lankoping</div>
+      <div class="brand-name">Lanköping</div>
       <div class="brand-tagline">Officiellt dokument</div>
     </div>
     <div class="doc-meta">
       <strong>Stadgar</strong><br>
       Genererat: ${formatDateTime(now)}<br>
       Genererat av: ${generatedByName}<br>
-      Senast andrad: ${formatDate(data.updatedAt)}
+      Senast ändrad: ${formatDate(data.updatedAt)}
     </div>
   </div>
 
   <div class="doc-type">Stadgar</div>
-  <h1 class="doc-title">Stadgar for Lankoping</h1>
+  <h1 class="doc-title">Stadgar för Lanköping</h1>
 
   <div class="section">
     <div class="content-body">${content}</div>
@@ -433,8 +438,8 @@ ${PRINT_ACTIONS}
   <hr class="divider">
 
   <div class="section">
-    <div class="section-label">Signatarer</div>
-    ${signerRows || '<p>Inga signatarer registrerade</p>'}
+    <div class="section-label">Signatärer</div>
+    ${signerRows || '<p>Inga signatärer registrerade</p>'}
   </div>
 
   ${docFooter('STADGAR-1', 'Stadgar')}
@@ -442,8 +447,8 @@ ${PRINT_ACTIONS}
 </body>
 </html>`
 
-  const w = window.open('', '_blank')
-  if (!w) { alert('Tillat popup-fonster for att oppna dokumentet'); return }
+  const w = openPrintWindow()
+  if (!w) { alert('Tillåt popup-fönster för att öppna dokumentet'); return }
   w.document.write(html)
   w.document.close()
   w.focus()
@@ -457,10 +462,11 @@ export function openAgreementPdf(data: AgreementPdfData, generatedByName: string
       <div class="sig-line">
         <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Namnteckning</div></div>
         <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Datum</div></div>
-        <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Namnfortydligande</div></div>
+        <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Namnförtydligande</div></div>
       </div>
+      ${s.signed && s.nameClarification ? `<div class="sig-label">Digitalt namnförtydligande: ${s.nameClarification}</div>` : ''}
       <div class="digital-status ${s.signed ? 'digital-signed' : 'digital-unsigned'}">
-        Digital forbekraftelse: ${s.signed ? 'Bekraftad' : 'Ej bekraftad'}
+        Digital förbekräftelse: ${s.signed ? 'Bekräftad' : 'Ej bekräftad'}
       </div>
     </div>
   `).join('<hr class="divider">')
@@ -469,7 +475,7 @@ export function openAgreementPdf(data: AgreementPdfData, generatedByName: string
 <html lang="sv">
 <head>
   <meta charset="utf-8">
-  <title>${data.title} - Lankoping</title>
+  <title>${data.title} - Lanköping</title>
   <style>${PRINT_STYLES}</style>
 </head>
 <body>
@@ -477,7 +483,7 @@ ${PRINT_ACTIONS}
 <div class="page">
   <div class="header">
     <div class="brand">
-      <div class="brand-name">Lankoping</div>
+      <div class="brand-name">Lanköping</div>
       <div class="brand-tagline">Officiellt dokument</div>
     </div>
     <div class="doc-meta">
@@ -502,8 +508,8 @@ ${PRINT_ACTIONS}
   <hr class="divider">
 
   <div class="section">
-    <div class="section-label">Signatarer</div>
-    ${signerRows || '<p>Inga signatarer registrerade</p>'}
+    <div class="section-label">Signatärer</div>
+    ${signerRows || '<p>Inga signatärer registrerade</p>'}
   </div>
 
   <hr class="divider">
@@ -521,8 +527,8 @@ ${PRINT_ACTIONS}
 </body>
 </html>`
 
-  const w = window.open('', '_blank')
-  if (!w) { alert('Tillat popup-fonster for att oppna dokumentet'); return }
+  const w = openPrintWindow()
+  if (!w) { alert('Tillåt popup-fönster för att öppna dokumentet'); return }
   w.document.write(html)
   w.document.close()
   w.focus()

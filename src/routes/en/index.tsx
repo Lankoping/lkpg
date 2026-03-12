@@ -6,21 +6,21 @@ export const Route = createFileRoute('/en/')({
   head: () => ({
     meta: [
       {
-        title: 'Lankoping.se - Coming Soon',
+        title: 'Lanköping.se - Coming Soon',
       },
       {
         name: 'description',
         content:
-          'Lankoping.se is finishing the final details and will be launching soon.',
+          'Lanköping.se is finishing the final details and will be launching soon.',
       },
       {
         property: 'og:title',
-        content: 'Lankoping.se - Coming Soon',
+        content: 'Lanköping.se - Coming Soon',
       },
       {
         property: 'og:description',
         content:
-          'Lankoping.se is finishing the final details and will be launching soon.',
+          'Lanköping.se is finishing the final details and will be launching soon.',
       },
       {
         property: 'og:type',

@@ -4,6 +4,7 @@ import {
   getMyPendingSignaturesFn,
   createAvgangRequestFn,
   addDigitalSignatureFn,
+  fixAvgangSpellingFn,
   updateAvgangStatusFn,
   markPhysicallySignedFn,
   recordPdfGenerationFn,
@@ -57,6 +58,7 @@ function AvgangAdmin() {
   const [targetUserId, setTargetUserId] = useState<number | null>(null)
   const [requiredSignerIds, setRequiredSignerIds] = useState<number[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isFixingSpelling, setIsFixingSpelling] = useState(false)
   const [formError, setFormError] = useState('')
   const [formSuccess, setFormSuccess] = useState(false)
 
@@ -152,6 +154,33 @@ function AvgangAdmin() {
     }
   }
 
+  const handleFixSpelling = async () => {
+    if (!namn.trim() || !roll.trim() || !orsak.trim()) {
+      setFormError('Namn, roll och anledning krävs för stavningskontroll')
+      return
+    }
+
+    setFormError('')
+    setIsFixingSpelling(true)
+    try {
+      const fixed = await fixAvgangSpellingFn({
+        data: {
+          namn,
+          roll,
+          orsak,
+        },
+      })
+
+      setNamn(fixed.namn)
+      setRoll(fixed.roll)
+      setOrsak(fixed.orsak)
+    } catch (err: any) {
+      setFormError(err?.message || 'Kunde inte fixa stavning just nu')
+    } finally {
+      setIsFixingSpelling(false)
+    }
+  }
+
   return (
     <div>
       {/* Page header */}
@@ -183,7 +212,7 @@ function AvgangAdmin() {
                       onClick={() => handleDigitalSign(req.id)}
                       className="shrink-0 px-4 py-2 bg-[#C04A2A] text-white text-[10px] uppercase tracking-[0.15em] font-medium rounded-sm hover:bg-[#A03A1A] transition-all"
                     >
-                      [ ] Bekrafta digitalt
+                      [ ] Bekräfta digitalt
                     </button>
                   ) : (
                     <span className="text-green-400 text-sm font-mono shrink-0">[X] Signerad</span>
@@ -208,7 +237,7 @@ function AvgangAdmin() {
             onClick={() => setFormOpen(!formOpen)}
             className="text-[11px] uppercase tracking-[0.15em] text-[#C04A2A] hover:text-[#F0E8D8] border border-[#C04A2A]/40 hover:border-[#C04A2A] px-4 py-2 rounded-sm transition-colors"
           >
-            {formOpen ? 'Stang formular' : 'Ny avgangsbegaran'}
+            {formOpen ? 'Stäng formulär' : 'Ny avgångsbegäran'}
           </button>
         </div>
       )}
@@ -274,6 +303,16 @@ function AvgangAdmin() {
                 rows={3}
                 className="w-full p-3 bg-[#100E0C] border border-[#C04A2A]/20 focus:border-[#C04A2A]/60 outline-none rounded-sm text-[#F0E8D8] text-sm resize-none"
               />
+              <div className="flex justify-end mt-3">
+                <button
+                  type="button"
+                  disabled={isFixingSpelling || isSubmitting}
+                  onClick={handleFixSpelling}
+                  className="px-4 py-2 bg-[#1A1816] border border-[#C04A2A]/40 text-[#F0E8D8] text-[10px] uppercase tracking-[0.15em] font-medium rounded-sm hover:border-[#C04A2A]/80 hover:text-white transition-all disabled:opacity-50"
+                >
+                  {isFixingSpelling ? 'Fixar text...' : 'Fixa stavning (Gemini Flash)'}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -368,7 +407,7 @@ function AvgangAdmin() {
                         </span>
                         {req.allSigned && !done && (
                           <span className="text-[9px] uppercase tracking-[0.15em] px-2 py-0.5 border border-green-500/30 bg-green-500/10 text-green-400 rounded-sm">
-                            Digitalt bekraftat
+                            Digitalt bekräftat
                           </span>
                         )}
                         {done && (
@@ -400,7 +439,7 @@ function AvgangAdmin() {
                         </div>
                         {req.targetName && (
                           <div>
-                            <p className="text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/50 mb-1">Konto att sparras</p>
+                            <p className="text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/50 mb-1">Konto att spärras</p>
                             <p className="text-sm text-[#C04A2A]">{req.targetName}</p>
                           </div>
                         )}
@@ -466,13 +505,13 @@ function AvgangAdmin() {
                               onClick={() => handleStatusChange(req.id, 'approved')}
                               className="px-4 py-2 bg-green-500/15 text-green-400 border border-green-500/30 text-[10px] uppercase tracking-[0.1em] font-medium rounded-sm hover:bg-green-500/25 transition-colors"
                             >
-                              Godkann
+                              Godkänn
                             </button>
                             <button
                               onClick={() => handleStatusChange(req.id, 'rejected')}
                               className="px-4 py-2 bg-red-500/15 text-red-400 border border-red-500/30 text-[10px] uppercase tracking-[0.1em] font-medium rounded-sm hover:bg-red-500/25 transition-colors"
                             >
-                              Avsla
+                              Avslå
                             </button>
                           </>
                         )}
@@ -508,7 +547,7 @@ function AvgangAdmin() {
                       {done && req.targetName && (
                         <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-sm">
                           <p className="text-blue-400 text-sm">
-                            Kontot for {req.targetName} har sparrats.
+                            Kontot för {req.targetName} har spärrats.
                           </p>
                         </div>
                       )}

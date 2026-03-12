@@ -55,7 +55,7 @@ function RulesPage() {
           >
             Rules & Guidelines
           </motion.h1>
-          <p>For everyone\'s comfort and safety at Lankoping.se</p>
+          <p>For everyone\'s comfort and safety at Lanköping.se</p>
         </header>
 
         <div className="rules-sections">
@@ -111,7 +111,7 @@ function RulesPage() {
         </div>
 
         <footer className="rules-footer">
-          <p>© 2026 Lankoping.se — See you at the event.</p>
+          <p>© 2026 Lanköping.se — See you at the event.</p>
         </footer>
       </motion.div>
 

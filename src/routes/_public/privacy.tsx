@@ -36,7 +36,7 @@ function PrivacyPage() {
           >
             Integritet & Data
           </motion.h1>
-          <p>Hur vi hanterar dina personuppgifter för Lankoping.se</p>
+          <p>Hur vi hanterar dina personuppgifter för Lanköping.se</p>
         </header>
 
         <div className="rules-sections">
@@ -110,7 +110,7 @@ function PrivacyPage() {
         </div>
 
         <footer className="rules-footer">
-          <p>© 2026 Lankoping.se — Din integritet är viktig för oss.</p>
+          <p>© 2026 Lanköping.se — Din integritet är viktig för oss.</p>
         </footer>
       </motion.div>
 

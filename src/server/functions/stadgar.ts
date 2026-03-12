@@ -4,6 +4,7 @@ import { db } from '../db/index'
 import { stadgar, users } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
+import { GoogleGenAI } from '@google/genai'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
 
 export const getStadgarFn = createServerFn({ method: "GET" })
@@ -107,10 +108,8 @@ export const updateSignatureFn = createServerFn({ method: "POST" })
       throw new Error('Signer not found')
     }
 
-    if (currentUser.role !== 'organizer') {
-      if (currentUser.id !== data.userId || data.signed !== true) {
-        throw new Error('Forbidden')
-      }
+    if (currentUser.id !== data.userId || data.signed !== true) {
+      throw new Error('Forbidden')
     }
 
     sigs[data.userId.toString()] = data.signed
@@ -126,6 +125,65 @@ export const updateSignatureFn = createServerFn({ method: "POST" })
       .returning()
 
     return result[0]
+  })
+
+export const fixStadgarSpellingFn = createServerFn({ method: 'POST' })
+  .inputValidator((payload: unknown) =>
+    z
+      .object({
+        content: z.string().min(1),
+      })
+      .parse(payload)
+  )
+  .handler(async ({ data }) => {
+    await requireOrganizerUser()
+
+    const apiKey =
+      process.env.GEMINI_API_KEY ??
+      process.env.GOOGLE_API_KEY ??
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY
+
+    if (!apiKey) {
+      throw new Error(
+        'Missing Gemini API key in environment (set GEMINI_API_KEY, GOOGLE_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY)',
+      )
+    }
+
+    const ai = new GoogleGenAI({ apiKey })
+
+    const prompt = `Du är en svensk språkgranskare för stadgetexter.
+
+INSTRUKTIONER:
+1. Korrigera ENDAST stavning och grammatik.
+  2. Behåll juridisk och organisatorisk innebörd exakt oförändrad.
+  3. Behåll paragrafindelning, punktlistor och radbrytningar.
+4. Returnera ENDAST valid JSON pa exakt format:
+{"content":"..."}
+
+CONTENT:
+${data.content}`
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    })
+
+    const text = response.text?.trim()
+    if (!text) {
+      throw new Error('Gemini returned an empty response')
+    }
+
+    const normalized = text
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```$/i, '')
+      .trim()
+
+    return z
+      .object({
+        content: z.string().min(1),
+      })
+      .parse(JSON.parse(normalized))
   })
 
 export const addSignerFn = createServerFn({ method: "POST" })

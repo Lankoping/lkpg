@@ -16,7 +16,7 @@ function BlogList() {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 text-[#C04A2A]">Lankoping Blog</h1>
+      <h1 className="text-3xl font-bold mb-6 text-[#C04A2A]">Lanköping Blog</h1>
       
       {posts.length === 0 ? (
         <p className="text-gray-500">Inga blogginlägg ännu.</p>

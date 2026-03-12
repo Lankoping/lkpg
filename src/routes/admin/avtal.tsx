@@ -3,10 +3,13 @@ import { useState } from 'react'
 import { getSessionFn, getUsersFn } from '../../server/functions/auth'
 import {
   addAgreementSignatureFn,
+  archiveAgreementFn,
   createAgreementFn,
+  fixAgreementSpellingFn,
   getAgreementsFn,
   getMyPendingAgreementSignaturesFn,
   markAgreementPhysicalFn,
+  requestAgreementDeleteFn,
   recordAgreementPdfGenerationFn,
   updateAgreementFn,
 } from '../../server/functions/agreements'
@@ -39,19 +42,41 @@ function AgreementsAdmin() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [body, setBody] = useState('')
+  const [agreementTemplate, setAgreementTemplate] = useState<'none' | 'purchase'>('none')
+  const [purchaseCost, setPurchaseCost] = useState('')
+  const [purchaseItem, setPurchaseItem] = useState('')
+  const [purchaseMotivation, setPurchaseMotivation] = useState('')
   const [requiredSignerIds, setRequiredSignerIds] = useState<number[]>([])
   const [status, setStatus] = useState<'draft' | 'active'>('draft')
   const [isSaving, setIsSaving] = useState(false)
+  const [isFixingSpelling, setIsFixingSpelling] = useState(false)
   const [error, setError] = useState('')
 
   const isOrganizer = session?.role === 'organizer'
   const myId = session?.id
+
+  const buildPurchaseTemplateBody = () => `Anpassat avtal för köp
+
+Kostnad:
+${purchaseCost}
+
+Sak:
+${purchaseItem}
+
+Motivering:
+${purchaseMotivation}
+
+Parterna bekräftar att uppgifterna ovan är korrekta och att köpet godkänns enligt organisationens rutiner.`
 
   const resetForm = () => {
     setEditingId(null)
     setTitle('')
     setDescription('')
     setBody('')
+    setAgreementTemplate('none')
+    setPurchaseCost('')
+    setPurchaseItem('')
+    setPurchaseMotivation('')
     setRequiredSignerIds([])
     setStatus('draft')
     setError('')
@@ -68,14 +93,35 @@ function AgreementsAdmin() {
     setTitle(agreement.title)
     setDescription(agreement.description || '')
     setBody(agreement.body)
+    setAgreementTemplate('none')
+    setPurchaseCost('')
+    setPurchaseItem('')
+    setPurchaseMotivation('')
     setRequiredSignerIds(agreement.requiredSigners.map((signer) => signer.userId))
     setStatus(agreement.status === 'active' ? 'active' : 'draft')
     setExpandedId(agreement.id)
   }
 
+  const handleApplyPurchaseTemplate = () => {
+    if (!purchaseCost.trim() || !purchaseItem.trim() || !purchaseMotivation.trim()) {
+      setError('Fyll i Kostnad, Sak och Motivering innan du infogar köp-template')
+      return
+    }
+
+    setError('')
+    setBody(buildPurchaseTemplateBody())
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !body.trim()) {
+
+    const finalBody = body.trim()
+      ? body
+      : agreementTemplate === 'purchase' && purchaseCost.trim() && purchaseItem.trim() && purchaseMotivation.trim()
+        ? buildPurchaseTemplateBody()
+        : ''
+
+    if (!title.trim() || !finalBody.trim()) {
       setError('Titel och avtalstext krävs')
       return
     }
@@ -90,7 +136,7 @@ function AgreementsAdmin() {
               id: editingId,
               title,
               description,
-              body,
+              body: finalBody,
               requiredSignerIds,
               status,
             },
@@ -99,7 +145,7 @@ function AgreementsAdmin() {
             data: {
               title,
               description,
-              body,
+              body: finalBody,
               requiredSignerIds,
               status,
             },
@@ -122,8 +168,14 @@ function AgreementsAdmin() {
   }
 
   const handleSign = async (agreementId: number) => {
+    const defaultName = session?.name?.trim() || ''
+    const nameClarification = window.prompt('Ange namnförtydligande för digital signering:', defaultName)
+    if (!nameClarification || !nameClarification.trim()) {
+      return
+    }
+
     try {
-      const updated = await addAgreementSignatureFn({ data: { agreementId } })
+      const updated = await addAgreementSignatureFn({ data: { agreementId, nameClarification: nameClarification.trim() } })
       setAgreements((current) => current.map((agreement) => (agreement.id === agreementId ? updated : agreement)))
       setMyPending((current) => current.filter((agreement) => agreement.id !== agreementId))
       await router.invalidate()
@@ -155,6 +207,33 @@ function AgreementsAdmin() {
     }
   }
 
+  const handleFixSpelling = async () => {
+    if (!title.trim() || !body.trim()) {
+      setError('Titel och avtalstext krävs för stavningskontroll')
+      return
+    }
+
+    setIsFixingSpelling(true)
+    setError('')
+    try {
+      const fixed = await fixAgreementSpellingFn({
+        data: {
+          title,
+          description,
+          body,
+        },
+      })
+
+      setTitle(fixed.title)
+      setDescription(fixed.description)
+      setBody(fixed.body)
+    } catch (err: any) {
+      setError(err?.message || 'Kunde inte fixa stavning just nu')
+    } finally {
+      setIsFixingSpelling(false)
+    }
+  }
+
   const handleMarkPhysical = async (agreementId: number) => {
     if (!window.confirm('Bekräfta att avtalet nu är fysiskt signerat.')) {
       return
@@ -165,6 +244,47 @@ function AgreementsAdmin() {
       await router.invalidate()
     } catch (err: any) {
       alert(err?.message || 'Kunde inte markera avtalet som fysiskt signerat')
+    }
+  }
+
+  const handleArchive = async (agreementId: number) => {
+    if (!window.confirm('Arkivera avtalet?')) {
+      return
+    }
+
+    try {
+      const updated = await archiveAgreementFn({ data: { id: agreementId } })
+      setAgreements((current) => current.map((row) => (row.id === agreementId ? updated : row)))
+      setMyPending((current) => current.filter((agreement) => agreement.id !== agreementId))
+      await router.invalidate()
+    } catch (err: any) {
+      alert(err?.message || 'Kunde inte arkivera avtalet')
+    }
+  }
+
+  const handleDeleteWithApproval = async (agreement: AgreementRow) => {
+    if (!isOrganizer) return
+
+    const isSecondApproval = agreement.deletePending && agreement.deleteRequestedByUserId && agreement.deleteRequestedByUserId !== myId
+    const confirmText = isSecondApproval
+      ? 'En annan admin har begärt radering. Bekräftar du radering tas avtalet bort permanent.'
+      : 'Begär radering av avtalet. En annan admin måste bekräfta innan permanent borttagning.'
+
+    if (!window.confirm(confirmText)) {
+      return
+    }
+
+    try {
+      const result = await requestAgreementDeleteFn({ data: { id: agreement.id } })
+      if (result.deleted) {
+        setAgreements((current) => current.filter((row) => row.id !== agreement.id))
+        setMyPending((current) => current.filter((row) => row.id !== agreement.id))
+      } else {
+        setAgreements((current) => current.map((row) => (row.id === agreement.id ? result.agreement : row)))
+      }
+      await router.invalidate()
+    } catch (err: any) {
+      alert(err?.message || 'Kunde inte hantera radering')
     }
   }
 
@@ -234,9 +354,77 @@ function AgreementsAdmin() {
             <input value={description} onChange={(e) => setDescription(e.target.value)} className="w-full p-3 bg-[#100E0C] border border-[#C04A2A]/20 rounded-sm text-[#F0E8D8] text-sm outline-none focus:border-[#C04A2A]/60" />
           </div>
 
+          <div className="space-y-3 border border-[#C04A2A]/20 rounded-sm p-4 bg-[#100E0C]/40">
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/60 mb-1.5">Template</label>
+              <select
+                value={agreementTemplate}
+                onChange={(e) => setAgreementTemplate(e.target.value as 'none' | 'purchase')}
+                className="w-full p-3 bg-[#100E0C] border border-[#C04A2A]/20 rounded-sm text-[#F0E8D8] text-sm outline-none focus:border-[#C04A2A]/60"
+              >
+                <option value="none">Ingen template</option>
+                <option value="purchase">Anpassat avtal: Köp</option>
+              </select>
+            </div>
+
+            {agreementTemplate === 'purchase' && (
+              <div className="space-y-3">
+                <p className="text-xs text-[#F0E8D8]/55">Fyll i fälten och infoga texten i avtalstexten.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/60 mb-1.5">Kostnad</label>
+                    <input
+                      value={purchaseCost}
+                      onChange={(e) => setPurchaseCost(e.target.value)}
+                      placeholder="t.ex. 12 500 kr"
+                      className="w-full p-3 bg-[#100E0C] border border-[#C04A2A]/20 rounded-sm text-[#F0E8D8] text-sm outline-none focus:border-[#C04A2A]/60"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/60 mb-1.5">Sak</label>
+                    <input
+                      value={purchaseItem}
+                      onChange={(e) => setPurchaseItem(e.target.value)}
+                      placeholder="t.ex. Ljudutrustning"
+                      className="w-full p-3 bg-[#100E0C] border border-[#C04A2A]/20 rounded-sm text-[#F0E8D8] text-sm outline-none focus:border-[#C04A2A]/60"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/60 mb-1.5">Motivering</label>
+                  <textarea
+                    value={purchaseMotivation}
+                    onChange={(e) => setPurchaseMotivation(e.target.value)}
+                    rows={3}
+                    className="w-full p-3 bg-[#100E0C] border border-[#C04A2A]/20 rounded-sm text-[#F0E8D8] text-sm outline-none focus:border-[#C04A2A]/60 resize-y"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleApplyPurchaseTemplate}
+                    className="px-4 py-2 border border-[#C04A2A]/40 text-[#C04A2A] text-[10px] uppercase tracking-[0.1em] rounded-sm hover:bg-[#C04A2A]/10"
+                  >
+                    Infoga köp-template
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="block text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/60 mb-1.5">Avtalstext</label>
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={10} className="w-full p-3 bg-[#100E0C] border border-[#C04A2A]/20 rounded-sm text-[#F0E8D8] text-sm outline-none focus:border-[#C04A2A]/60 resize-y" />
+            <div className="flex justify-end mt-3">
+              <button
+                type="button"
+                disabled={isFixingSpelling || isSaving}
+                onClick={handleFixSpelling}
+                className="px-4 py-2 bg-[#1A1816] border border-[#C04A2A]/40 text-[#F0E8D8] text-[10px] uppercase tracking-[0.15em] font-medium rounded-sm hover:border-[#C04A2A]/80 hover:text-white transition-all disabled:opacity-50"
+              >
+                {isFixingSpelling ? 'Fixar text...' : 'Fixa stavning (Gemini Flash)'}
+              </button>
+            </div>
           </div>
 
           <div>
@@ -298,6 +486,9 @@ function AgreementsAdmin() {
                               <div>
                                 <p className="text-sm text-[#F0E8D8]">{signer.signed ? '[X]' : '[ ]'} {signer.name}</p>
                                 <p className="text-xs text-[#F0E8D8]/45">{signer.email}</p>
+                                {signer.signed && signer.nameClarification && (
+                                  <p className="text-xs text-[#F0E8D8]/55">Namnförtydligande: {signer.nameClarification}</p>
+                                )}
                               </div>
                               {canISign && (
                                 <button onClick={() => handleSign(agreement.id)} className="px-3 py-1.5 border border-[#C04A2A]/40 text-[#C04A2A] text-[10px] uppercase tracking-[0.1em] rounded-sm hover:bg-[#C04A2A]/10">
@@ -331,7 +522,31 @@ function AgreementsAdmin() {
                           Markera fysiskt signerat
                         </button>
                       )}
+                      {isOrganizer && agreement.status !== 'archived' && (
+                        <button onClick={() => handleArchive(agreement.id)} className="px-4 py-2 border border-[#F0E8D8]/20 text-[#F0E8D8]/70 text-[10px] uppercase tracking-[0.1em] rounded-sm hover:border-[#F0E8D8]/40 hover:text-[#F0E8D8]">
+                          Arkivera
+                        </button>
+                      )}
+                      {isOrganizer && (
+                        <button
+                          onClick={() => handleDeleteWithApproval(agreement)}
+                          disabled={agreement.deletePending && agreement.deleteRequestedByUserId === myId}
+                          className="px-4 py-2 border border-red-500/35 text-red-400 text-[10px] uppercase tracking-[0.1em] rounded-sm hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {agreement.deletePending
+                            ? agreement.deleteRequestedByUserId === myId
+                              ? 'Väntar på andra admin'
+                              : 'Bekräfta och radera'
+                            : 'Begär radering (2 admins)'}
+                        </button>
+                      )}
                     </div>
+
+                    {agreement.deletePending && agreement.deleteRequestedByName && (
+                      <p className="text-xs text-yellow-300/80 border border-yellow-500/25 bg-yellow-500/10 rounded-sm p-2">
+                        Radering begärd av {agreement.deleteRequestedByName}. En annan admin måste bekräfta för permanent borttagning.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

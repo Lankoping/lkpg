@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { getStadgarFn, updateStadgarFn, updateSignatureFn, addSignerFn, removeSignerFn } from '../../server/functions/stadgar'
+import { getStadgarFn, updateStadgarFn, updateSignatureFn, addSignerFn, removeSignerFn, fixStadgarSpellingFn } from '../../server/functions/stadgar'
 import { getUsersFn, getSessionFn } from '../../server/functions/auth'
 import { openStadgarPdf } from '../../lib/pdf-export'
 import { useState } from 'react'
@@ -13,6 +13,13 @@ export const Route = createFileRoute('/admin/stadgar')({
   component: StadgarAdmin,
 })
 
+type SignerState = {
+  userId: number
+  name: string
+  email: string
+  signed: boolean
+}
+
 function StadgarAdmin() {
   const { stadgar: initialData, allUsers, session } = Route.useLoaderData()
   const isOrganizer = session?.role === 'organizer'
@@ -20,10 +27,16 @@ function StadgarAdmin() {
   const [content, setContent] = useState(initialData?.content || '')
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
-  const [signers, setSigners] = useState(initialData?.signers || [])
+  const [signers, setSigners] = useState<SignerState[]>(
+    (initialData?.signers || []).map((signer) => ({
+      ...signer,
+      name: signer.name || signer.email || `User ${signer.userId}`,
+    })),
+  )
   const [showAddSigner, setShowAddSigner] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<number | ''>('')
   const [isAddingSigner, setIsAddingSigner] = useState(false)
+  const [isFixingSpelling, setIsFixingSpelling] = useState(false)
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -41,13 +54,30 @@ function StadgarAdmin() {
 
   const handleSignatureToggle = async (userId: number) => {
     const signer = signers.find(s => s.userId === userId)
-    if (!signer) return
+    if (!signer || signer.signed || signer.userId !== session?.id) return
 
     try {
-      await updateSignatureFn({ data: { userId, signed: !signer.signed } })
-      setSigners(signers.map(s => s.userId === userId ? { ...s, signed: !s.signed } : s))
+      await updateSignatureFn({ data: { userId, signed: true } })
+      setSigners(signers.map(s => s.userId === userId ? { ...s, signed: true } : s))
     } catch (err) {
       alert('Kunde inte uppdatera signatur: ' + (err as any)?.message)
+    }
+  }
+
+  const handleFixSpelling = async () => {
+    if (!content.trim()) {
+      alert('Fyll i innehåll först.')
+      return
+    }
+
+    setIsFixingSpelling(true)
+    try {
+      const fixed = await fixStadgarSpellingFn({ data: { content } })
+      setContent(fixed.content)
+    } catch (err) {
+      alert('Kunde inte fixa stavning just nu: ' + (err as any)?.message)
+    } finally {
+      setIsFixingSpelling(false)
     }
   }
 
@@ -62,7 +92,7 @@ function StadgarAdmin() {
       await addSignerFn({ data: { userId: Number(selectedUserId) } })
       const user = allUsers.find(u => u.id === Number(selectedUserId))
       if (user) {
-        setSigners([...signers, { userId: user.id, name: user.name, email: user.email, signed: false }])
+        setSigners([...signers, { userId: user.id, name: user.name || user.email, email: user.email, signed: false }])
       }
       setSelectedUserId('')
       setShowAddSigner(false)
@@ -125,7 +155,7 @@ function StadgarAdmin() {
               onClick={() => setShowAddSigner(!showAddSigner)}
               className="text-[11px] uppercase tracking-[0.15em] text-[#C04A2A] hover:text-white transition-colors"
             >
-              {showAddSigner ? 'Stang' : 'Lagg till'}
+              {showAddSigner ? 'Stäng' : 'Lägg till'}
             </button>
           )}
         </div>
@@ -181,14 +211,14 @@ function StadgarAdmin() {
                 </div>
                 <button
                   onClick={() => handleSignatureToggle(signer.userId)}
-                  disabled={!isOrganizer && signer.userId !== session?.id}
+                  disabled={signer.signed || signer.userId !== session?.id}
                   className={`w-full py-2 text-[11px] uppercase tracking-[0.1em] font-medium rounded-sm transition-all border ${
                     signer.signed
-                      ? 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30'
+                      ? 'bg-green-500/20 text-green-400 border-green-500/30'
                       : 'bg-transparent text-[#C04A2A]/60 border-[#C04A2A]/30 hover:border-[#C04A2A]/60'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  {signer.signed ? '[X] Signerad' : '[ ] Signera'}
+                  {signer.signed ? '[X] Signerad' : signer.userId === session?.id ? '[ ] Signera' : '[ ] Väntar på signatur'}
                 </button>
               </div>
             ))
@@ -198,7 +228,7 @@ function StadgarAdmin() {
 
       {/* Editor section */}
       <div className="bg-[#141210]/80 border border-[#C04A2A]/20 p-6 rounded-sm mb-8">
-        <h3 className="font-display text-lg tracking-wide text-[#F0E8D8] mb-4">Innehål</h3>
+        <h3 className="font-display text-lg tracking-wide text-[#F0E8D8] mb-4">Innehåll</h3>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -206,6 +236,18 @@ function StadgarAdmin() {
           className="w-full h-96 p-4 bg-[#100E0C] border border-[#C04A2A]/20 focus:border-[#C04A2A]/60 outline-none rounded-sm text-[#F0E8D8] text-sm font-mono resize-none disabled:opacity-60"
           placeholder="Stadgar-innehållet..."
         />
+        {isOrganizer && (
+          <div className="flex justify-end mt-3">
+            <button
+              type="button"
+              disabled={isFixingSpelling || isSaving}
+              onClick={handleFixSpelling}
+              className="px-4 py-2 bg-[#1A1816] border border-[#C04A2A]/40 text-[#F0E8D8] text-[10px] uppercase tracking-[0.15em] font-medium rounded-sm hover:border-[#C04A2A]/80 hover:text-white transition-all disabled:opacity-50"
+            >
+              {isFixingSpelling ? 'Fixar text...' : 'Fixa stavning (Gemini Flash)'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
@@ -216,7 +258,7 @@ function StadgarAdmin() {
             disabled={isSaving}
             className="px-6 py-3 bg-[#C04A2A] text-white text-[11px] uppercase tracking-[0.15em] font-medium rounded-sm hover:bg-[#A03A1A] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(192,74,42,0.3)]"
           >
-            {isSaving ? 'Sparar...' : 'Spara andringar'}
+            {isSaving ? 'Sparar...' : 'Spara ändringar'}
           </button>
         )}
         <button

@@ -91,7 +91,7 @@ function TeamPage() {
         </div>
 
         <footer className="rules-footer">
-          <p>© 2026 Lankoping.se — Skapat med ❤️ av el4s & nauticalis.</p>
+          <p>© 2026 Lanköping.se — Skapat med ❤️ av el4s & nauticalis.</p>
         </footer>
       </motion.div>
 
