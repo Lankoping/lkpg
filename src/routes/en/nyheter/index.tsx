@@ -3,8 +3,12 @@ import { getPostsTranslatedToEnglishFn } from '../../../server/functions/posts'
 
 export const Route = createFileRoute('/en/nyheter/')({
   loader: async () => {
-    return {
-      posts: await getPostsTranslatedToEnglishFn({ data: 'news' }),
+    try {
+      return {
+        posts: await getPostsTranslatedToEnglishFn({ data: 'news' }),
+      }
+    } catch {
+      return { posts: [] }
     }
   },
   component: NewsList,

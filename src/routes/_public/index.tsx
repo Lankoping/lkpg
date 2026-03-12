@@ -4,14 +4,21 @@ import { getPostsFn } from '../../server/functions/posts'
 
 export const Route = createFileRoute('/_public/')({
   loader: async () => {
-    const [blogs, news] = await Promise.all([
-      getPostsFn({ data: 'blog' }),
-      getPostsFn({ data: 'news' }),
-    ])
+    try {
+      const [blogs, news] = await Promise.all([
+        getPostsFn({ data: 'blog' }),
+        getPostsFn({ data: 'news' }),
+      ])
 
-    return {
-      latestBlog: blogs[0] ?? null,
-      latestNews: news[0] ?? null,
+      return {
+        latestBlog: blogs[0] ?? null,
+        latestNews: news[0] ?? null,
+      }
+    } catch {
+      return {
+        latestBlog: null,
+        latestNews: null,
+      }
     }
   },
   component: Index,

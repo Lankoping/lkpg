@@ -4,8 +4,12 @@ import { useQuery } from '@tanstack/react-query'
 
 export const Route = createFileRoute('/nyheter/')({
   loader: async () => {
-    return {
-      posts: await getPostsFn({ data: 'news' }),
+    try {
+      return {
+        posts: await getPostsFn({ data: 'news' }),
+      }
+    } catch {
+      return { posts: [] }
     }
   },
   component: NewsList,

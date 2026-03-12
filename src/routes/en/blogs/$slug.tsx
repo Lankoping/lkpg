@@ -4,11 +4,15 @@ import { MarkdownContent } from '../../../components/markdown-content'
 
 export const Route = createFileRoute('/en/blogs/$slug')({
   loader: async ({ params }) => {
-    const post = await getPostBySlugTranslatedToEnglishFn({ data: params.slug })
-    if (!post) {
+    try {
+      const post = await getPostBySlugTranslatedToEnglishFn({ data: params.slug })
+      if (!post) {
+        throw new Error('Post not found')
+      }
+      return { post }
+    } catch (e) {
       throw new Error('Post not found')
     }
-    return { post }
   },
   component: BlogPost,
 })

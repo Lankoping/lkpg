@@ -33,14 +33,21 @@ export const Route = createFileRoute('/en/')({
     ],
   }),
   loader: async () => {
-    const [blogs, news] = await Promise.all([
-      getPostsTranslatedToEnglishFn({ data: 'blog' }),
-      getPostsTranslatedToEnglishFn({ data: 'news' }),
-    ])
+    try {
+      const [blogs, news] = await Promise.all([
+        getPostsTranslatedToEnglishFn({ data: 'blog' }),
+        getPostsTranslatedToEnglishFn({ data: 'news' }),
+      ])
 
-    return {
-      latestBlog: blogs[0] ?? null,
-      latestNews: news[0] ?? null,
+      return {
+        latestBlog: blogs[0] ?? null,
+        latestNews: news[0] ?? null,
+      }
+    } catch {
+      return {
+        latestBlog: null,
+        latestNews: null,
+      }
     }
   },
   component: Index,
