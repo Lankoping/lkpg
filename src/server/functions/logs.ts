@@ -51,8 +51,15 @@ export const getActivityLogsFn = createServerFn({ method: 'GET' })
       return rows
     } catch (error) {
       if (isMissingActivityLogsTableError(error)) {
-        await ensureActivityLogsTable()
-        return await queryActivityLogs(data.limit)
+        try {
+          await ensureActivityLogsTable()
+          return await queryActivityLogs(data.limit)
+        } catch (retryError) {
+          if (isMissingActivityLogsTableError(retryError)) {
+            return []
+          }
+          throw retryError
+        }
       }
       throw error
     }
@@ -120,14 +127,35 @@ async function ensureActivityLogsTable() {
 }
 
 function isMissingActivityLogsTableError(error: unknown) {
-  if (!error || typeof error !== 'object') return false
+  const pgCode = findPgCode(error)
+  if (pgCode === '42P01') return true
 
-  const maybeCode = 'code' in error ? (error as { code?: unknown }).code : undefined
-  if (maybeCode === '42P01') return true
+  const messages = findMessages(error)
+  return messages.some((message) => {
+    const m = message.toLowerCase()
+    return m.includes('activity_logs') && (m.includes('does not exist') || m.includes('relation'))
+  })
+}
 
-  const maybeMessage = 'message' in error ? (error as { message?: unknown }).message : undefined
-  if (typeof maybeMessage !== 'string') return false
+function findPgCode(error: unknown): string | null {
+  let cursor: unknown = error
+  for (let i = 0; i < 6 && cursor && typeof cursor === 'object'; i += 1) {
+    const maybeCode = (cursor as { code?: unknown }).code
+    if (typeof maybeCode === 'string') return maybeCode
+    cursor = (cursor as { cause?: unknown }).cause
+  }
+  return null
+}
 
-  const message = maybeMessage.toLowerCase()
-  return message.includes('activity_logs') && message.includes('does not exist')
+function findMessages(error: unknown): string[] {
+  const messages: string[] = []
+  let cursor: unknown = error
+  for (let i = 0; i < 6 && cursor && typeof cursor === 'object'; i += 1) {
+    const maybeMessage = (cursor as { message?: unknown }).message
+    if (typeof maybeMessage === 'string') {
+      messages.push(maybeMessage)
+    }
+    cursor = (cursor as { cause?: unknown }).cause
+  }
+  return messages
 }
