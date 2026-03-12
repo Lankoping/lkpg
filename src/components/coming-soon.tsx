@@ -1,7 +1,5 @@
 'use client'
 
-import { motion } from 'motion/react'
-
 type Locale = 'sv' | 'en'
 
 interface ComingSoonProps {
@@ -41,41 +39,23 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
       {/* River light bleed */}
       <div className="cs-river-glow" />
 
-      {/* Animated Floating Particles */}
+      {/* Decorative Particles */}
       {[...Array(6)].map((_, i) => (
-        <motion.div
+        <div
           key={i}
           className="cs-particle"
-          initial={{ 
-            x: Math.random() * 100 + "%", 
-            y: Math.random() * 100 + "%",
-            opacity: 0 
-          }}
-          animate={{ 
-            y: [null, "-20%"],
-            opacity: [0, 0.3, 0],
-            scale: [0.8, 1.2, 0.8]
-          }}
-          transition={{ 
-            duration: 10 + i * 2, 
-            repeat: Infinity, 
-            ease: "linear",
-            delay: i * 1.5
-          }}
           style={{
             left: (i * 15) + "%",
+            top: (10 + i * 14) + "%",
             width: (2 + i % 3) + "px",
             height: (2 + i % 3) + "px",
+            opacity: 0.15,
           }}
         />
       ))}
 
       {/* Scanning Laser Line */}
-      <motion.div 
-        className="cs-scanner"
-        animate={{ top: ["-10%", "110%"] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-      />
+      <div className="cs-scanner" style={{ top: '50%' }} />
 
       {/* Brick texture band */}
       <div className="cs-brick-band" />
@@ -91,65 +71,34 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
 
       <div className="cs-content">
         {/* City marker */}
-        <motion.div
-          className="cs-eyebrow"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ 
-            duration: 1.2, 
-            ease: [0.16, 1, 0.3, 1], 
-            delay: 0.2 
-          }}
-        >
+        <div className="cs-eyebrow">
           <span className="cs-marker-line" />
-          <motion.span
-            animate={{ opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          >
-            NORRKÖPING
-          </motion.span>
+          <span>NORRKÖPING</span>
           <span className="cs-marker-line" />
-        </motion.div>
+        </div>
 
-        {/* Logo - Debug simplified */}
-        <div
-          className="cs-logo-wrap"
-          style={{ opacity: 1, transform: 'none' }}
-        >
+        {/* Logo */}
+        <div className="cs-logo-wrap">
           <span className="cs-logo-l">L</span>
           <span className="cs-logo-rest">ANKOPING</span>
           <span className="cs-logo-se">.SE</span>
         </div>
 
         {/* Industrial rule */}
-        <motion.div
-          className="cs-rule"
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{ duration: 1.2, ease: 'easeOut', delay: 0.5 }}
-        />
+        <div className="cs-rule" />
 
-        {/* Headline - Debug simplified */}
-        <h1
-          className="cs-headline"
-          style={{ opacity: 1, transform: 'none' }}
-        >
+        {/* Headline */}
+        <h1 className="cs-headline">
           {content.headline}
         </h1>
 
-        {/* Sub-headline - Debug simplified */}
-        <p
-          className="cs-sub"
-          style={{ opacity: 1, transform: 'none' }}
-        >
+        {/* Sub-headline */}
+        <p className="cs-sub">
           {content.sub}
         </p>
 
-        {/* City tags - Debug simplified */}
-        <div
-          className="cs-tags"
-          style={{ opacity: 1 }}
-        >
+        {/* City tags */}
+        <div className="cs-tags">
           <span className="cs-tag">{content.cities[0]}</span>
           <span className="cs-tag-sep">×</span>
           <span className="cs-tag">{content.cities[1]}</span>
@@ -157,37 +106,26 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
           <span className="cs-tag">{content.cities[2]}</span>
         </div>
 
-        {/* Rules Buttons - Debug simplified */}
-        <div
-          className="cs-btn-group"
-          style={{ opacity: 1, transform: 'none' }}
-        >
+        {/* Rules Buttons */}
+        <div className="cs-btn-group">
           <a href={`${basePath}/rules`} className="cs-rules-btn">{content.rulesLabel}</a>
           <a href={`${basePath}/team`} className="cs-rules-btn">{content.teamLabel}</a>
           <a href={`${basePath}/privacy`} className="cs-rules-btn">{content.privacyLabel}</a>
         </div>
 
-        {/* Socials - Debug with regular div */}
-        <div 
-            className="cs-socials"
-            style={{ opacity: 1, transition: 'opacity 1s ease 1.35s' }}
-        >
+        {/* Socials */}
+        <div className="cs-socials">
             <a href="https://discord.gg/h8wuaqyBwT" target="_blank" rel="noopener noreferrer" className="cs-social-link">Discord</a>
             <span className="cs-social-sep">•</span>
             <a href="https://www.youtube.com/@LANKPNG" target="_blank" rel="noopener noreferrer" className="cs-social-link">Youtube</a>
         </div>
 
         {/* Footer */}
-        <motion.footer
-          className="cs-footer"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 1.4 }}
-        >
+        <footer className="cs-footer">
           <span>© 2026 Lankoping.se</span>
           <span className="cs-footer-sep">—</span>
           <span>{content.rights}</span>
-        </motion.footer>
+        </footer>
       </div>
 
       <style>{`

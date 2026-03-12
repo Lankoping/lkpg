@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { motion } from 'motion/react'
 import { ArrowLeft, ShieldCheck, Info } from 'lucide-react'
 
 export const Route = createFileRoute('/_public/privacy')({
@@ -17,35 +16,19 @@ function PrivacyPage() {
       <div className="rules-grid" />
       <div className="rules-grain" />
 
-      <motion.div 
-        className="rules-container"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
+      <div className="rules-container">
         <Link to="/" className="back-button">
           <ArrowLeft size={18} />
           <span>Tillbaka</span>
         </Link>
 
         <header className="rules-header">
-          <motion.h1 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            Integritet & Data
-          </motion.h1>
+          <h1>Integritet & Data</h1>
           <p>Hur vi hanterar dina personuppgifter för Lanköping.se</p>
         </header>
 
         <div className="rules-sections">
-          <motion.section 
-            className="rules-section"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+          <section className="rules-section">
             <h2>
               <ShieldCheck className="section-icon" />
               Insamling av personuppgifter
@@ -53,15 +36,10 @@ function PrivacyPage() {
             <p className="mb-6 opacity-80 border-b border-white/5 pb-4">
               För att vi ska kunna genomföra ett säkert och välorganiserat event samlar vi in och behandlar följande uppgifter från våra deltagare:
             </p>
-            
+
             <ul className="rules-list">
               {collectionItems.map((item, i) => (
-                <motion.li 
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + (i * 0.05) }}
-                >
+                <li key={i}>
                   <span className="rule-number">
                     <Info size={12} />
                   </span>
@@ -69,50 +47,40 @@ function PrivacyPage() {
                     <p style={{ color: '#C04A2A', fontWeight: 'bold', fontSize: '14px', marginBottom: '2px' }}>{item.title}</p>
                     <p style={{ fontSize: '15px' }}>{item.desc}</p>
                   </div>
-                </motion.li>
+                </li>
               ))}
             </ul>
-          </motion.section>
+          </section>
 
-          <motion.section 
-            className="rules-section"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-          >
+          <section className="rules-section">
             <h2>Varför samlar vi in detta?</h2>
             <div className="opacity-70 leading-relaxed space-y-4">
               <p>Uppgifterna används uteslutande för administration av eventet, säkerhetsåtgärder och verifiering av din biljett.</p>
               <p>Eftersom biljettköp hanteras manuellt lagras inga betalningsuppgifter på denna webbplats.</p>
               <p>Vi delar aldrig dina uppgifter med tredje part i vinstdrivande syfte. Information kan dock komma att delas med myndigheter (t.ex. polis eller sjukvård) om en nödsituation uppstår.</p>
             </div>
-          </motion.section>
+          </section>
 
-          <motion.section 
-            className="rules-section"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-          >
+          <section className="rules-section">
             <h2>Vad händer efter eventet?</h2>
             <div className="opacity-70 leading-relaxed space-y-4">
               <p>
-                Om allt är grönt (inga regelbrott) så tas dina personuppgifter bort från våra servrar. 
+                Om allt är grönt (inga regelbrott) så tas dina personuppgifter bort från våra servrar.
                 Det innebär att de lagras <strong>max 30 dagar</strong> efter avslutat event.
               </p>
               <h3 style={{ color: '#C04A2A', fontFamily: 'Bebas Neue', fontSize: '24px', marginTop: '20px' }}>Information som vi inte tar bort:</h3>
               <p>
-                Vi tar bort all information såvida vi inte behöver behålla den. Exempelvis om du har brutit mot eventets regler så sparar vi den informationen. 
+                Vi tar bort all information såvida vi inte behöver behålla den. Exempelvis om du har brutit mot eventets regler så sparar vi den informationen.
                 Detta betyder att du kan bli portad från framtida events.
               </p>
             </div>
-          </motion.section>
+          </section>
         </div>
 
         <footer className="rules-footer">
           <p>© 2026 Lanköping.se — Din integritet är viktig för oss.</p>
         </footer>
-      </motion.div>
+      </div>
 
       <style>{`
         /* Återanvänder Rules CSS stilar via rules.tsx struktur */

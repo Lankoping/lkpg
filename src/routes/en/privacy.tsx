@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { motion } from 'motion/react'
 import { ArrowLeft, ShieldCheck, Info } from 'lucide-react'
 
 export const Route = createFileRoute('/en/privacy')({
@@ -17,35 +16,19 @@ function PrivacyPage() {
       <div className="rules-grid" />
       <div className="rules-grain" />
 
-      <motion.div
-        className="rules-container"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
+      <div className="rules-container">
         <Link to="/en" className="back-button">
           <ArrowLeft size={18} />
           <span>Back</span>
         </Link>
 
         <header className="rules-header">
-          <motion.h1
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            Privacy & Data
-          </motion.h1>
+          <h1>Privacy & Data</h1>
           <p>How we handle your personal data for Lanköping.se</p>
         </header>
 
         <div className="rules-sections">
-          <motion.section
-            className="rules-section"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+          <section className="rules-section">
             <h2>
               <ShieldCheck className="section-icon" />
               Collected personal data
@@ -56,12 +39,7 @@ function PrivacyPage() {
 
             <ul className="rules-list">
               {collectionItems.map((item, i) => (
-                <motion.li
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + i * 0.05 }}
-                >
+                <li key={i}>
                   <span className="rule-number">
                     <Info size={12} />
                   </span>
@@ -69,31 +47,21 @@ function PrivacyPage() {
                     <p style={{ color: '#C04A2A', fontWeight: 'bold', fontSize: '14px', marginBottom: '2px' }}>{item.title}</p>
                     <p style={{ fontSize: '15px' }}>{item.desc}</p>
                   </div>
-                </motion.li>
+                </li>
               ))}
             </ul>
-          </motion.section>
+          </section>
 
-          <motion.section
-            className="rules-section"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-          >
+          <section className="rules-section">
             <h2>Why do we collect this?</h2>
             <div className="opacity-70 leading-relaxed space-y-4">
               <p>The data is used only for event administration, safety measures, and ticket verification.</p>
               <p>Since ticket purchases are handled manually, no payment details are stored on this website.</p>
               <p>We never share your data with third parties for profit. Information may be shared with authorities in emergencies.</p>
             </div>
-          </motion.section>
+          </section>
 
-          <motion.section
-            className="rules-section"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-          >
+          <section className="rules-section">
             <h2>What happens after the event?</h2>
             <div className="opacity-70 leading-relaxed space-y-4">
               <p>
@@ -106,13 +74,13 @@ function PrivacyPage() {
                 that information can be retained and may affect access to future events.
               </p>
             </div>
-          </motion.section>
+          </section>
         </div>
 
         <footer className="rules-footer">
           <p>© 2026 Lanköping.se — Your privacy matters to us.</p>
         </footer>
-      </motion.div>
+      </div>
 
       <style>{`
         .rules-root {
