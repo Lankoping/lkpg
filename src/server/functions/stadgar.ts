@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { GoogleGenAI } from '@google/genai'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
+import { writeActivityLog } from './logs'
 
 export const getStadgarFn = createServerFn({ method: "GET" })
   .handler(async () => {
@@ -71,6 +72,15 @@ export const updateStadgarFn = createServerFn({ method: "POST" })
         })
         .where(eq(stadgar.id, existing[0].id))
         .returning()
+
+      await writeActivityLog({
+        actorUserId: currentUser.id,
+        actorRole: currentUser.role,
+        action: 'stadgar.update',
+        entityType: 'stadgar',
+        entityId: result[0].id,
+      })
+
       return result[0]
     } else {
       const result = await db
@@ -81,6 +91,15 @@ export const updateStadgarFn = createServerFn({ method: "POST" })
           signatures: JSON.stringify({}),
         })
         .returning()
+
+      await writeActivityLog({
+        actorUserId: currentUser.id,
+        actorRole: currentUser.role,
+        action: 'stadgar.create',
+        entityType: 'stadgar',
+        entityId: result[0].id,
+      })
+
       return result[0]
     }
   })
@@ -123,6 +142,15 @@ export const updateSignatureFn = createServerFn({ method: "POST" })
       })
       .where(eq(stadgar.id, existing[0].id))
       .returning()
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'stadgar.sign',
+      entityType: 'stadgar',
+      entityId: result[0].id,
+      details: { userId: data.userId },
+    })
 
     return result[0]
   })
@@ -222,6 +250,16 @@ export const addSignerFn = createServerFn({ method: "POST" })
         })
         .where(eq(stadgar.id, existing[0].id))
         .returning()
+
+      await writeActivityLog({
+        actorUserId: currentUser.id,
+        actorRole: currentUser.role,
+        action: 'stadgar.signer.add',
+        entityType: 'stadgar',
+        entityId: result[0].id,
+        details: { userId: data.userId },
+      })
+
       return result[0]
     } else {
       const result = await db
@@ -232,6 +270,16 @@ export const addSignerFn = createServerFn({ method: "POST" })
           signatures: JSON.stringify(sigs),
         })
         .returning()
+
+      await writeActivityLog({
+        actorUserId: currentUser.id,
+        actorRole: currentUser.role,
+        action: 'stadgar.create',
+        entityType: 'stadgar',
+        entityId: result[0].id,
+        details: { initialSignerUserId: data.userId },
+      })
+
       return result[0]
     }
   })
@@ -265,17 +313,34 @@ export const removeSignerFn = createServerFn({ method: "POST" })
       .where(eq(stadgar.id, existing[0].id))
       .returning()
 
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'stadgar.signer.remove',
+      entityType: 'stadgar',
+      entityId: result[0].id,
+      details: { userId: data.userId },
+    })
+
     return result[0]
   })
 
 export const exportStadgarPdfFn = createServerFn({ method: "POST" })
   .handler(async () => {
-    await requireStaffUser()
+    const currentUser = await requireStaffUser()
 
     const data = await db.select().from(stadgar).limit(1)
     if (!data[0]) {
       throw new Error('Stadgar not found')
     }
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'stadgar.export.pdf',
+      entityType: 'stadgar',
+      entityId: data[0].id,
+    })
 
     return {
       success: true,

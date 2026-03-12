@@ -76,12 +76,12 @@ function AdminLayout() {
         <h2 className="font-display tracking-widest text-xl md:text-3xl text-[#C04A2A] md:mb-12">Admin</h2>
         
         <nav className="flex md:flex-col space-x-6 md:space-x-0 md:space-y-6 md:flex-1 w-full md:w-full overflow-x-auto justify-end md:justify-start items-center md:items-start ml-4 md:ml-0 scrollbar-hide">
-          {isOrganizer && <a href="/admin" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Oversikt</a>}
-          {isOrganizer && <a href="/admin/posts" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Posts</a>}
-          {isOrganizer && <a href="/admin/users" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Users</a>}
+          {isOrganizer && <a href="/admin" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Översikt</a>}
+          {isOrganizer && <a href="/admin/posts" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Inlägg</a>}
+          {isOrganizer && <a href="/admin/users" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Användare</a>}
           {isOrganizer && <a href="/admin/stadgar" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Stadgar</a>}
           <a href="/admin/avgang" className="flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">
-            Avgang
+            Avgång
             {pendingCount > 0 && (
               <span className="inline-flex items-center justify-center w-4 h-4 bg-[#C04A2A] text-white text-[8px] font-bold rounded-full leading-none">
                 {pendingCount > 9 ? '9+' : pendingCount}
@@ -96,9 +96,10 @@ function AdminLayout() {
               </span>
             )}
           </a>
-          <a href="/admin/tickets" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Tickets</a>
+          {isOrganizer && <a href="/admin/logs" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Loggar</a>}
+          <a href="/admin/tickets" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Biljetter</a>
           <div className="hidden md:block flex-1" />
-          <button onClick={handleLogout} className="text-[11px] uppercase tracking-[0.1em] text-red-500/70 hover:text-red-400 block w-full text-left transition-colors whitespace-nowrap">Logout</button>
+          <button onClick={handleLogout} className="text-[11px] uppercase tracking-[0.1em] text-red-500/70 hover:text-red-400 block w-full text-left transition-colors whitespace-nowrap">Logga ut</button>
         </nav>
       </div>
 
@@ -132,7 +133,7 @@ function AdminLayout() {
               </div>
             ) : (
               <button onClick={() => setEditingName(true)} className="text-[11px] uppercase tracking-[0.15em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors">
-                Andra visningsnamn
+                Ändra visningsnamn
               </button>
             )}
           </div>

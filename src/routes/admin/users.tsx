@@ -202,8 +202,8 @@ function AdminUsers() {
             onChange={(e) => setRole(e.target.value as 'organizer' | 'volunteer')}
             className="w-full p-3 bg-[#100E0C] border border-[#C04A2A]/20 focus:border-[#C04A2A]/60 outline-none rounded-sm text-[#F0E8D8] text-[11px] uppercase tracking-[0.2em]"
           >
-            <option value="volunteer">Volunteer</option>
-            <option value="organizer">Organizer</option>
+            <option value="volunteer">Volontär</option>
+            <option value="organizer">Organisatör</option>
           </select>
         </div>
         
@@ -213,7 +213,7 @@ function AdminUsers() {
             disabled={isSaving}
             className="px-6 py-3 bg-[#C04A2A] text-white text-[11px] uppercase tracking-[0.15em] font-medium rounded-sm hover:bg-[#A03A1A] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_15px_rgba(192,74,42,0.3)] disabled:opacity-50 disabled:hover:scale-100 w-full sm:w-auto"
           >
-            {isSaving ? 'Skapar...' : 'Skapa Användare'}
+            {isSaving ? 'Skapar...' : 'Skapa användare'}
           </button>
           {error && <p className="text-red-400/80 text-[11px] tracking-wide uppercase font-medium">{error}</p>}
         </div>
@@ -238,14 +238,14 @@ function AdminUsers() {
             <div className="absolute right-0 top-0 bottom-0 w-[1px] bg-[#C04A2A] opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <p className="font-display text-xl tracking-wide text-[#F0E8D8] mb-1">{user.name || 'Unnamed user'}</p>
+                <p className="font-display text-xl tracking-wide text-[#F0E8D8] mb-1">{user.name || 'Namnlös användare'}</p>
                 <p className="text-xs text-[#F0E8D8]/40 font-mono tracking-tight">{user.email}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/35">
                   <span>ID {user.id}</span>
                   <button onClick={() => handleCopyId(user.id)} className="text-[#C04A2A] hover:text-[#F0E8D8] transition-colors">
                     {copiedId === user.id ? 'Kopierat' : 'Kopiera ID'}
                   </button>
-                  {user.active === false && <span className="text-red-400">Last</span>}
+                  {user.active === false && <span className="text-red-400">Låst</span>}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">

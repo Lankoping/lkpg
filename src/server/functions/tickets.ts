@@ -7,10 +7,11 @@ import { z } from 'zod'
 import { getCookie } from '@tanstack/react-start/server'
 import { nanoid } from 'nanoid'
 import { requireStaffUser } from '../lib/access'
+import { writeActivityLog } from './logs'
 
 async function checkAdmin() {
   const user = await requireStaffUser()
-  return user.id
+  return user
 }
 
 export const getEventsFn = createServerFn({ method: 'GET' })
@@ -31,19 +32,38 @@ export const createEventFn = createServerFn({ method: "POST" })
     }).parse(data)
   )
   .handler(async ({ data }) => {
-    await checkAdmin()
+    const admin = await checkAdmin()
     const result = await db.insert(events).values({
       ...data,
       date: new Date(data.date),
     }).returning()
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'event.create',
+      entityType: 'event',
+      entityId: result[0].id,
+      details: { title: result[0].title },
+    })
+
     return result[0]
   })
 
 export const deleteEventFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.number().parse(data))
   .handler(async ({ data: id }) => {
-    await checkAdmin()
+    const admin = await checkAdmin()
     await db.delete(events).where(eq(events.id, id))
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'event.delete',
+      entityType: 'event',
+      entityId: id,
+    })
+
     return { success: true }
   })
 
@@ -62,16 +82,35 @@ export const createTicketTypeFn = createServerFn({ method: "POST" })
     }).parse(data)
   )
   .handler(async ({ data }) => {
-    await checkAdmin()
+    const admin = await checkAdmin()
     const result = await db.insert(ticketTypes).values(data).returning()
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'ticket_type.create',
+      entityType: 'ticket_type',
+      entityId: result[0].id,
+      details: { name: result[0].name },
+    })
+
     return result[0]
   })
 
 export const deleteTicketTypeFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.number().parse(data))
   .handler(async ({ data: id }) => {
-    await checkAdmin()
+    const admin = await checkAdmin()
     await db.delete(ticketTypes).where(eq(ticketTypes.id, id))
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'ticket_type.delete',
+      entityType: 'ticket_type',
+      entityId: id,
+    })
+
     return { success: true }
   })
 
@@ -117,7 +156,7 @@ export const issueTicketFn = createServerFn({ method: 'POST' })
     }).parse(data)
   )
   .handler(async ({ data }) => {
-    const adminId = await checkAdmin()
+    const admin = await checkAdmin()
     
     const ticketCode = `TKT-${nanoid(8).toUpperCase()}`
     
@@ -128,8 +167,20 @@ export const issueTicketFn = createServerFn({ method: 'POST' })
       ticketType: data.ticketType,
       pricePaid: data.pricePaid,
       ticketCode,
-      issuedBy: adminId,
+      issuedBy: admin.id,
     }).returning()
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'ticket.issue',
+      entityType: 'ticket',
+      entityId: newTicket[0].id,
+      details: {
+        code: newTicket[0].ticketCode,
+        eventId: newTicket[0].eventId,
+      },
+    })
 
     return newTicket[0]
   })
@@ -142,25 +193,44 @@ export const updateTicketStatusFn = createServerFn({ method: "POST" })
     }).parse(data)
   )
   .handler(async ({ data }) => {
-    const adminId = await checkAdmin()
+    const admin = await checkAdmin()
     const scanDate = data.status === 'used' ? new Date() : null
     const updated = await db.update(tickets)
       .set({ 
         status: data.status, 
         scannedAt: scanDate,
-        scannedBy: data.status === 'used' ? adminId : null,
+        scannedBy: data.status === 'used' ? admin.id : null,
         updatedAt: new Date() 
       })
       .where(eq(tickets.id, data.ticketId))
       .returning()
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'ticket.status.update',
+      entityType: 'ticket',
+      entityId: data.ticketId,
+      details: { status: data.status },
+    })
+
     return updated[0]
   })
 
 export const deleteTicketFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.number().parse(data))
   .handler(async ({ data: ticketId }) => {
-    await checkAdmin()
+    const admin = await checkAdmin()
     await db.delete(tickets).where(eq(tickets.id, ticketId))
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'ticket.delete',
+      entityType: 'ticket',
+      entityId: ticketId,
+    })
+
     return { success: true }
   })
 
@@ -174,8 +244,11 @@ export const verifyTicketByCodeFn = createServerFn({ method: "POST" })
   .handler(async ({ data: { code, markAsUsed } }) => {
     // Try to get adminId if they're logged in
     let adminId: number | null = null
+    let adminRole: 'organizer' | 'volunteer' | null = null
     try {
-      adminId = await checkAdmin()
+      const admin = await checkAdmin()
+      adminId = admin.id
+      adminRole = admin.role
     } catch (e) {
       // Not logged in or not admin, that's fine for public verification
     }
@@ -198,6 +271,17 @@ export const verifyTicketByCodeFn = createServerFn({ method: "POST" })
           updatedAt: scanDate 
         })
         .where(eq(tickets.id, ticket.id))
+
+      if (adminId && adminRole) {
+        await writeActivityLog({
+          actorUserId: adminId,
+          actorRole: adminRole,
+          action: 'ticket.verify.checkin',
+          entityType: 'ticket',
+          entityId: ticket.id,
+          details: { code },
+        })
+      }
       
       // Update local object for response
       ticket.status = 'used'

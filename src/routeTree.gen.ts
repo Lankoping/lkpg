@@ -30,6 +30,7 @@ import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminStadgarRouteImport } from './routes/admin/stadgar'
 import { Route as AdminPostsRouteImport } from './routes/admin/posts'
 import { Route as AdminNewRouteImport } from './routes/admin/new'
+import { Route as AdminLogsRouteImport } from './routes/admin/logs'
 import { Route as AdminAvtalRouteImport } from './routes/admin/avtal'
 import { Route as AdminAvgangRouteImport } from './routes/admin/avgang'
 import { Route as PublicTeamRouteImport } from './routes/_public/team'
@@ -152,6 +153,11 @@ const AdminNewRoute = AdminNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminLogsRoute = AdminLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAvtalRoute = AdminAvtalRouteImport.update({
   id: '/avtal',
   path: '/avtal',
@@ -257,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof PublicTeamRoute
   '/admin/avgang': typeof AdminAvgangRoute
   '/admin/avtal': typeof AdminAvtalRoute
+  '/admin/logs': typeof AdminLogsRoute
   '/admin/new': typeof AdminNewRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/stadgar': typeof AdminStadgarRoute
@@ -294,6 +301,7 @@ export interface FileRoutesByTo {
   '/team': typeof PublicTeamRoute
   '/admin/avgang': typeof AdminAvgangRoute
   '/admin/avtal': typeof AdminAvtalRoute
+  '/admin/logs': typeof AdminLogsRoute
   '/admin/new': typeof AdminNewRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/stadgar': typeof AdminStadgarRoute
@@ -335,6 +343,7 @@ export interface FileRoutesById {
   '/_public/team': typeof PublicTeamRoute
   '/admin/avgang': typeof AdminAvgangRoute
   '/admin/avtal': typeof AdminAvtalRoute
+  '/admin/logs': typeof AdminLogsRoute
   '/admin/new': typeof AdminNewRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/stadgar': typeof AdminStadgarRoute
@@ -377,6 +386,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/admin/avgang'
     | '/admin/avtal'
+    | '/admin/logs'
     | '/admin/new'
     | '/admin/posts'
     | '/admin/stadgar'
@@ -414,6 +424,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/admin/avgang'
     | '/admin/avtal'
+    | '/admin/logs'
     | '/admin/new'
     | '/admin/posts'
     | '/admin/stadgar'
@@ -454,6 +465,7 @@ export interface FileRouteTypes {
     | '/_public/team'
     | '/admin/avgang'
     | '/admin/avtal'
+    | '/admin/logs'
     | '/admin/new'
     | '/admin/posts'
     | '/admin/stadgar'
@@ -646,6 +658,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNewRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/logs': {
+      id: '/admin/logs'
+      path: '/logs'
+      fullPath: '/admin/logs'
+      preLoaderRoute: typeof AdminLogsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/avtal': {
       id: '/admin/avtal'
       path: '/avtal'
@@ -809,6 +828,7 @@ const PublicRouteWithChildren =
 interface AdminRouteChildren {
   AdminAvgangRoute: typeof AdminAvgangRoute
   AdminAvtalRoute: typeof AdminAvtalRoute
+  AdminLogsRoute: typeof AdminLogsRoute
   AdminNewRoute: typeof AdminNewRoute
   AdminPostsRoute: typeof AdminPostsRoute
   AdminStadgarRoute: typeof AdminStadgarRoute
@@ -825,6 +845,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAvgangRoute: AdminAvgangRoute,
   AdminAvtalRoute: AdminAvtalRoute,
+  AdminLogsRoute: AdminLogsRoute,
   AdminNewRoute: AdminNewRoute,
   AdminPostsRoute: AdminPostsRoute,
   AdminStadgarRoute: AdminStadgarRoute,
@@ -881,3 +902,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

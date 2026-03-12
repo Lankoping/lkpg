@@ -105,3 +105,14 @@ export const agreements = pgTable('agreements', {
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })
+
+export const activityLogs = pgTable('activity_logs', {
+  id: serial('id').primaryKey(),
+  actorUserId: integer('actor_user_id').references(() => users.id).notNull(),
+  actorRole: text('actor_role', { enum: ['organizer', 'volunteer'] }).notNull(),
+  action: text('action').notNull(),
+  entityType: text('entity_type').notNull(),
+  entityId: integer('entity_id'),
+  details: text('details'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})

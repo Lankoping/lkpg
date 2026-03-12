@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie, getCookie, deleteCookie } from '@tanstack/react-start/server'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
+import { writeActivityLog } from './logs'
 
 export const loginFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ email: z.string(), passwordHash: z.string() }).parse(data))
@@ -35,11 +36,32 @@ export const loginFn = createServerFn({ method: "POST" })
       path: '/',
     })
 
+    await writeActivityLog({
+      actorUserId: user[0].id,
+      actorRole: user[0].role,
+      action: 'auth.login',
+      entityType: 'session',
+      details: { email: user[0].email },
+    })
+
     return { success: true, user: user[0] }
   })
 
 export const logoutFn = createServerFn({ method: "POST" })
   .handler(async () => {
+    const userId = getCookie('session')
+    if (userId) {
+      const user = await db.select().from(users).where(eq(users.id, parseInt(userId))).limit(1)
+      if (user[0]) {
+        await writeActivityLog({
+          actorUserId: user[0].id,
+          actorRole: user[0].role,
+          action: 'auth.logout',
+          entityType: 'session',
+        })
+      }
+    }
+
     deleteCookie('session', { path: '/' })
     return { success: true }
   })
@@ -73,7 +95,7 @@ export const createUserFn = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => {
-    await requireOrganizerUser()
+    const currentUser = await requireOrganizerUser()
 
     const existing = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
     if (existing.length > 0) {
@@ -90,6 +112,18 @@ export const createUserFn = createServerFn({ method: "POST" })
         active: true,
       })
       .returning()
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'user.create',
+      entityType: 'user',
+      entityId: created[0].id,
+      details: {
+        email: created[0].email,
+        role: created[0].role,
+      },
+    })
 
     return created[0]
   })
@@ -123,6 +157,17 @@ export const changePasswordFn = createServerFn({ method: "POST" })
       .set({ passwordHash: data.newPassword })
       .where(eq(users.id, data.userId))
 
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'user.password.change',
+      entityType: 'user',
+      entityId: data.userId,
+      details: {
+        selfService: currentUser.id === data.userId,
+      },
+    })
+
     return { success: true }
   })
 
@@ -139,9 +184,26 @@ export const deleteUserFn = createServerFn({ method: "POST" })
       throw new Error('Forbidden: Cannot delete yourself')
     }
 
+    const targetUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, data.userId))
+      .limit(1)
+
     await db
       .delete(users)
       .where(eq(users.id, data.userId))
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'user.delete',
+      entityType: 'user',
+      entityId: data.userId,
+      details: {
+        email: targetUser[0]?.email ?? null,
+      },
+    })
 
     return { success: true }
   })
@@ -157,6 +219,15 @@ export const lockUserFn = createServerFn({ method: "POST" })
     if (currentUser.id === data.userId) throw new Error('Forbidden: Cannot lock yourself')
 
     await db.update(users).set({ active: false }).where(eq(users.id, data.userId))
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'user.lock',
+      entityType: 'user',
+      entityId: data.userId,
+    })
+
     return { success: true }
   })
 
@@ -173,6 +244,15 @@ export const updateProfileFn = createServerFn({ method: 'POST' })
       .set({ name: data.name })
       .where(eq(users.id, currentUser.id))
       .returning()
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'profile.update',
+      entityType: 'user',
+      entityId: currentUser.id,
+      details: { name: data.name },
+    })
 
     return updated[0]
   })
@@ -201,6 +281,18 @@ export const updateUserFn = createServerFn({ method: 'POST' })
       })
       .where(eq(users.id, data.userId))
       .returning()
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'user.update',
+      entityType: 'user',
+      entityId: data.userId,
+      details: {
+        role: data.role,
+        active: data.active,
+      },
+    })
 
     return updated[0]
   })

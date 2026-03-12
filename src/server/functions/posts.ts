@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getCookie } from '@tanstack/react-start/server'
 import { GoogleGenAI } from '@google/genai'
 import { requireOrganizerUser } from '../lib/access'
+import { writeActivityLog } from './logs'
 
 export const typeValidator = z.union([z.literal('blog'), z.literal('news')])
 
@@ -152,7 +153,7 @@ export const updatePostFn = createServerFn({ method: "POST" })
     }).parse(post)
   })
   .handler(async ({ data }) => {
-    await requireOrganizerUser()
+    const currentUser = await requireOrganizerUser()
 
     const updatedPost = await db.update(posts).set({
       title: data.title,
@@ -161,6 +162,18 @@ export const updatePostFn = createServerFn({ method: "POST" })
       type: data.type,
       slug: data.slug,
     }).where(eq(posts.id, data.id)).returning()
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'post.update',
+      entityType: 'post',
+      entityId: data.id,
+      details: {
+        slug: data.slug,
+        type: data.type,
+      },
+    })
 
     return updatedPost[0]
   })
@@ -184,17 +197,44 @@ export const createPostFn = createServerFn({ method: "POST" })
       authorId: currentUser.id,
       published: true, // Auto publish for now
     }).returning()
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'post.create',
+      entityType: 'post',
+      entityId: newPost[0].id,
+      details: {
+        slug: newPost[0].slug,
+        type: newPost[0].type,
+      },
+    })
+
     return newPost[0]
   })
 
 export const deletePostFn = createServerFn({ method: "POST" })
   .inputValidator((id: number) => z.number().parse(id))
   .handler(async ({ data: id }) => {
-    await requireOrganizerUser()
+    const currentUser = await requireOrganizerUser()
 
     const deletedPost = await db.delete(posts)
       .where(eq(posts.id, id))
       .returning()
+
+    if (deletedPost[0]) {
+      await writeActivityLog({
+        actorUserId: currentUser.id,
+        actorRole: currentUser.role,
+        action: 'post.delete',
+        entityType: 'post',
+        entityId: deletedPost[0].id,
+        details: {
+          slug: deletedPost[0].slug,
+          type: deletedPost[0].type,
+        },
+      })
+    }
       
     return deletedPost[0]
   })

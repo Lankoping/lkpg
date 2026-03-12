@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { GoogleGenAI } from '@google/genai'
 import { lockUserFn } from './auth'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
+import { writeActivityLog } from './logs'
 
 async function enrichRequest(req: typeof avgangsRequests.$inferSelect, allUsers: (typeof users.$inferSelect)[]) {
   const signerIds: number[] = JSON.parse(req.requiredSigners || '[]')
@@ -76,6 +77,19 @@ export const createAvgangRequestFn = createServerFn({ method: 'POST' })
       requiredSigners: JSON.stringify(data.requiredSignerIds),
       digitalSignatures: '{}',
     }).returning()
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'avgang.create',
+      entityType: 'avgang_request',
+      entityId: req[0].id,
+      details: {
+        namn: req[0].namn,
+        targetUserId: req[0].targetUserId,
+      },
+    })
+
     const allUsers = await db.select().from(users)
     return enrichRequest(req[0], allUsers)
   })
@@ -100,6 +114,14 @@ export const addDigitalSignatureFn = createServerFn({ method: 'POST' })
       .where(eq(avgangsRequests.id, data.requestId))
       .returning()
 
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'avgang.sign.digital',
+      entityType: 'avgang_request',
+      entityId: data.requestId,
+    })
+
     const allUsers = await db.select().from(users)
     return enrichRequest(updated[0], allUsers)
   })
@@ -117,6 +139,16 @@ export const updateAvgangStatusFn = createServerFn({ method: 'POST' })
       .set({ status: data.status, reviewedBy: admin.id, updatedAt: new Date() })
       .where(eq(avgangsRequests.id, data.id))
       .returning()
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'avgang.status.update',
+      entityType: 'avgang_request',
+      entityId: data.id,
+      details: { status: data.status },
+    })
+
     const allUsers = await db.select().from(users)
     return enrichRequest(updated[0], allUsers)
   })
@@ -126,7 +158,7 @@ export const markPhysicallySignedFn = createServerFn({ method: 'POST' })
     z.object({ id: z.number() }).parse(data)
   )
   .handler(async ({ data }) => {
-    await requireOrganizerUser()
+    const admin = await requireOrganizerUser()
     const req = await db.select().from(avgangsRequests).where(eq(avgangsRequests.id, data.id)).limit(1)
     if (!req[0]) throw new Error('Not found')
     if (req[0].status !== 'approved') throw new Error('Must be approved first')
@@ -140,6 +172,17 @@ export const markPhysicallySignedFn = createServerFn({ method: 'POST' })
     if (req[0].targetUserId) {
       await lockUserFn({ data: { userId: req[0].targetUserId } })
     }
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'avgang.mark.physical_signed',
+      entityType: 'avgang_request',
+      entityId: data.id,
+      details: {
+        targetUserId: req[0].targetUserId,
+      },
+    })
 
     const allUsers = await db.select().from(users)
     return enrichRequest(updated[0], allUsers)
@@ -155,6 +198,15 @@ export const recordPdfGenerationFn = createServerFn({ method: 'POST' })
       .set({ generatedAt: new Date(), generatedBy: admin.id, updatedAt: new Date() })
       .where(eq(avgangsRequests.id, data.id))
       .returning()
+
+    await writeActivityLog({
+      actorUserId: admin.id,
+      actorRole: admin.role,
+      action: 'avgang.pdf.generated',
+      entityType: 'avgang_request',
+      entityId: data.id,
+    })
+
     const allUsers = await db.select().from(users)
     return enrichRequest(updated[0], allUsers)
   })

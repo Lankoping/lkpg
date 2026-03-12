@@ -6,6 +6,7 @@ import { GoogleGenAI } from '@google/genai'
 import { db } from '../db/index'
 import { agreements, users } from '../db/schema'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
+import { writeActivityLog } from './logs'
 
 type AgreementSignatureValue =
   | boolean
@@ -114,6 +115,18 @@ export const createAgreementFn = createServerFn({ method: 'POST' })
       digitalSignatures: '{}',
     }).returning()
 
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'agreement.create',
+      entityType: 'agreement',
+      entityId: inserted[0].id,
+      details: {
+        title: inserted[0].title,
+        status: inserted[0].status,
+      },
+    })
+
     const allUsers = await db.select().from(users)
     return enrichAgreement(inserted[0], allUsers)
   })
@@ -130,7 +143,7 @@ export const updateAgreementFn = createServerFn({ method: 'POST' })
     }).parse(data)
   )
   .handler(async ({ data }) => {
-    await requireOrganizerUser()
+    const currentUser = await requireOrganizerUser()
     const current = await db.select().from(agreements).where(eq(agreements.id, data.id)).limit(1)
     if (!current[0]) {
       throw new Error('Agreement not found')
@@ -153,6 +166,18 @@ export const updateAgreementFn = createServerFn({ method: 'POST' })
       })
       .where(eq(agreements.id, data.id))
       .returning()
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'agreement.update',
+      entityType: 'agreement',
+      entityId: data.id,
+      details: {
+        status: data.status,
+        signerCount: data.requiredSignerIds.length,
+      },
+    })
 
     const allUsers = await db.select().from(users)
     return enrichAgreement(updated[0], allUsers)
@@ -194,6 +219,14 @@ export const addAgreementSignatureFn = createServerFn({ method: 'POST' })
       .where(eq(agreements.id, data.agreementId))
       .returning()
 
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'agreement.sign.digital',
+      entityType: 'agreement',
+      entityId: data.agreementId,
+    })
+
     const allUsers = await db.select().from(users)
     return enrichAgreement(updated[0], allUsers)
   })
@@ -201,7 +234,7 @@ export const addAgreementSignatureFn = createServerFn({ method: 'POST' })
 export const archiveAgreementFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ id: z.number() }).parse(data))
   .handler(async ({ data }) => {
-    await requireOrganizerUser()
+    const currentUser = await requireOrganizerUser()
     const updated = await db.update(agreements)
       .set({
         status: 'archived',
@@ -213,6 +246,14 @@ export const archiveAgreementFn = createServerFn({ method: 'POST' })
     if (!updated[0]) {
       throw new Error('Agreement not found')
     }
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'agreement.archive',
+      entityType: 'agreement',
+      entityId: data.id,
+    })
 
     const allUsers = await db.select().from(users)
     return enrichAgreement(updated[0], allUsers)
@@ -242,6 +283,14 @@ export const requestAgreementDeleteFn = createServerFn({ method: 'POST' })
         .where(eq(agreements.id, data.id))
         .returning()
 
+      await writeActivityLog({
+        actorUserId: currentUser.id,
+        actorRole: currentUser.role,
+        action: 'agreement.delete.requested',
+        entityType: 'agreement',
+        entityId: data.id,
+      })
+
       const allUsers = await db.select().from(users)
       return {
         deleted: false,
@@ -259,6 +308,17 @@ export const requestAgreementDeleteFn = createServerFn({ method: 'POST' })
       throw new Error('Agreement not found')
     }
 
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'agreement.delete.confirmed',
+      entityType: 'agreement',
+      entityId: data.id,
+      details: {
+        deletedBySecondApprover: true,
+      },
+    })
+
     return {
       deleted: true,
       deletedId: data.id,
@@ -268,7 +328,7 @@ export const requestAgreementDeleteFn = createServerFn({ method: 'POST' })
 export const markAgreementPhysicalFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ id: z.number() }).parse(data))
   .handler(async ({ data }) => {
-    await requireOrganizerUser()
+    const currentUser = await requireOrganizerUser()
     const updated = await db.update(agreements)
       .set({
         physicalSigned: true,
@@ -277,6 +337,14 @@ export const markAgreementPhysicalFn = createServerFn({ method: 'POST' })
       })
       .where(eq(agreements.id, data.id))
       .returning()
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'agreement.mark.physical_signed',
+      entityType: 'agreement',
+      entityId: data.id,
+    })
 
     const allUsers = await db.select().from(users)
     return enrichAgreement(updated[0], allUsers)
@@ -294,6 +362,14 @@ export const recordAgreementPdfGenerationFn = createServerFn({ method: 'POST' })
       })
       .where(eq(agreements.id, data.id))
       .returning()
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'agreement.pdf.generated',
+      entityType: 'agreement',
+      entityId: data.id,
+    })
 
     const allUsers = await db.select().from(users)
     return enrichAgreement(updated[0], allUsers)
