@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SeRouteImport } from './routes/se'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as EnRouteImport } from './routes/en'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -48,6 +49,11 @@ import { Route as AdminTicketsEventsRouteImport } from './routes/admin/tickets/e
 import { Route as AdminEditIdRouteImport } from './routes/admin/edit/$id'
 import { Route as PublicBiljettCodeRouteImport } from './routes/_public/biljett/$code'
 
+const SeRoute = SeRouteImport.update({
+  id: '/se',
+  path: '/se',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/en': typeof EnRouteWithChildren
   '/login': typeof LoginRoute
+  '/se': typeof SeRoute
   '/hello': typeof ApiHelloRoute
   '/example-protected-route': typeof ProtectedExampleProtectedRouteRoute
   '/privacy': typeof PublicPrivacyRoute
@@ -279,6 +286,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/login': typeof LoginRoute
+  '/se': typeof SeRoute
   '/hello': typeof ApiHelloRoute
   '/example-protected-route': typeof ProtectedExampleProtectedRouteRoute
   '/privacy': typeof PublicPrivacyRoute
@@ -319,6 +327,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/en': typeof EnRouteWithChildren
   '/login': typeof LoginRoute
+  '/se': typeof SeRoute
   '/_api/hello': typeof ApiHelloRoute
   '/_protected/example-protected-route': typeof ProtectedExampleProtectedRouteRoute
   '/_public/privacy': typeof PublicPrivacyRoute
@@ -360,6 +369,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/en'
     | '/login'
+    | '/se'
     | '/hello'
     | '/example-protected-route'
     | '/privacy'
@@ -396,6 +406,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/se'
     | '/hello'
     | '/example-protected-route'
     | '/privacy'
@@ -435,6 +446,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/en'
     | '/login'
+    | '/se'
     | '/_api/hello'
     | '/_protected/example-protected-route'
     | '/_public/privacy'
@@ -476,6 +488,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   EnRoute: typeof EnRouteWithChildren
   LoginRoute: typeof LoginRoute
+  SeRoute: typeof SeRoute
   ApiHelloRoute: typeof ApiHelloRoute
   BlogsSlugRoute: typeof BlogsSlugRoute
   NyheterSlugRoute: typeof NyheterSlugRoute
@@ -486,6 +499,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/se': {
+      id: '/se'
+      path: '/se'
+      fullPath: '/se'
+      preLoaderRoute: typeof SeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -850,6 +870,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   EnRoute: EnRouteWithChildren,
   LoginRoute: LoginRoute,
+  SeRoute: SeRoute,
   ApiHelloRoute: ApiHelloRoute,
   BlogsSlugRoute: BlogsSlugRoute,
   NyheterSlugRoute: NyheterSlugRoute,
@@ -860,12 +881,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
