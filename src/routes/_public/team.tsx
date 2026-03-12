@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { motion } from 'motion/react'
 import { ArrowLeft, Users, Code, Crown } from 'lucide-react'
 
 export const Route = createFileRoute('/_public/team')({
@@ -8,15 +7,15 @@ export const Route = createFileRoute('/_public/team')({
 
 function TeamPage() {
   const teamMembers = [
-    { 
-      name: 'Nauticalis', 
-      role: 'Organisatör', 
+    {
+      name: 'Nauticalis',
+      role: 'Organisatör',
       desc: 'Driver visionen och koordinerar arbetet kring Lanköping.',
       icon: <Crown size={24} className="section-icon" />
     },
-    { 
-      name: 'El4s', 
-      role: 'Organisatör', 
+    {
+      name: 'El4s',
+      role: 'Organisatör',
       desc: 'Hjärnan bakom koden och arkitekturen för denna webbplats.',
       icon: <Code size={24} className="section-icon" />
     },
@@ -27,35 +26,19 @@ function TeamPage() {
       <div className="rules-grid" />
       <div className="rules-grain" />
 
-      <motion.div 
-        className="rules-container"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
+      <div className="rules-container">
         <Link to="/" className="back-button">
           <ArrowLeft size={18} />
           <span>Tillbaka</span>
         </Link>
 
         <header className="rules-header">
-          <motion.h1 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            Teamet
-          </motion.h1>
+          <h1>Teamet</h1>
           <p>Vilka är vi som bygger Lanköping?</p>
         </header>
 
         <div className="rules-sections">
-          <motion.section 
-            className="rules-section"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+          <section className="rules-section">
             <h2>
               <Users className="section-icon" />
               Två personers passion
@@ -63,15 +46,10 @@ function TeamPage() {
             <p className="mb-6 opacity-80 border-b border-white/5 pb-4">
               Lanköping drivs av ett litet men dedikerat team som älskar att skapa digitala upplevelser.
             </p>
-            
+
             <ul className="rules-list">
               {teamMembers.map((member, i) => (
-                <motion.li 
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + (i * 0.1) }}
-                >
+                <li key={i}>
                   <div className="rule-number">
                     {member.icon}
                   </div>
@@ -84,16 +62,16 @@ function TeamPage() {
                     </p>
                     <p style={{ fontSize: '15px' }}>{member.desc}</p>
                   </div>
-                </motion.li>
+                </li>
               ))}
             </ul>
-          </motion.section>
+          </section>
         </div>
 
         <footer className="rules-footer">
           <p>© 2026 Lanköping.se — Skapat med ❤️ av el4s & nauticalis.</p>
         </footer>
-      </motion.div>
+      </div>
 
       <style>{`
         .rules-root {

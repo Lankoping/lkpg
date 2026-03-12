@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { motion } from 'motion/react'
 import { ArrowLeft, ShieldAlert, MessageSquareText } from 'lucide-react'
 
 export const Route = createFileRoute('/_public/rules')({
@@ -36,84 +35,53 @@ function RulesPage() {
       <div className="rules-grid" />
       <div className="rules-grain" />
 
-      <motion.div 
-        className="rules-container"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
+      <div className="rules-container">
         <Link to="/" className="back-button">
           <ArrowLeft size={18} />
           <span>Tillbaka</span>
         </Link>
 
         <header className="rules-header">
-          <motion.h1 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            Regler & Riktlinjer
-          </motion.h1>
+          <h1>Regler & Riktlinjer</h1>
           <p>För allas trivsel och säkerhet under Lanköping.se</p>
         </header>
 
         <div className="rules-sections">
-          <motion.section 
-            className="rules-section"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+          <section className="rules-section">
             <h2>
               <ShieldAlert className="section-icon" />
               Event Regler
             </h2>
             <ul className="rules-list">
               {eventRules.map((rule, i) => (
-                <motion.li 
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + (i * 0.05) }}
-                >
+                <li key={i}>
                   <span className="rule-number">{i + 1}</span>
                   <p>{rule}</p>
-                </motion.li>
+                </li>
               ))}
             </ul>
-          </motion.section>
+          </section>
 
-          <motion.section 
-            className="rules-section"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
+          <section className="rules-section">
             <h2>
               <MessageSquareText className="section-icon" />
               Discord Regler
             </h2>
             <ul className="rules-list">
               {discordRules.map((rule, i) => (
-                <motion.li 
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.6 + (i * 0.05) }}
-                >
+                <li key={i}>
                   <span className="rule-number">{i + 1}</span>
                   <p>{rule}</p>
-                </motion.li>
+                </li>
               ))}
             </ul>
-          </motion.section>
+          </section>
         </div>
 
         <footer className="rules-footer">
           <p>© 2025 Lanköping.se — Vi ses på eventet!</p>
         </footer>
-      </motion.div>
+      </div>
 
       <style>{`
         .rules-root {
