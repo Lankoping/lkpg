@@ -1,7 +1,7 @@
 import { getCookie } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db/runtime'
-import { users } from '../db/schema'
+import { agreements, users } from '../db/schema'
 
 export type StaffRole = 'organizer' | 'volunteer'
 export const DEMO_TESTER_EMAIL = (process.env.DEMO_TESTER_EMAIL ?? 'tester@lankoping.se').trim().toLowerCase()
@@ -59,6 +59,52 @@ export function scopeSignerIdsForUser(
   return Array.from(new Set(signerIds))
 }
 
+type AgreementSignatureValue =
+  | boolean
+  | {
+      signed?: boolean
+      nameClarification?: string
+      signedAt?: string
+    }
+
+function isConfidentialityAgreement(agreement: { title: string | null; body: string | null }) {
+  const haystack = `${agreement.title ?? ''}\n${agreement.body ?? ''}`.toLowerCase()
+  return haystack.includes('sekretessavtal') || haystack.includes('confidentiality')
+}
+
+function hasSignedAgreementSignature(digitalSignaturesRaw: string | null, userId: number) {
+  const digitalSignatures = JSON.parse(digitalSignaturesRaw || '{}') as Record<string, AgreementSignatureValue>
+  const rawSignature = digitalSignatures[String(userId)]
+
+  if (rawSignature === true) {
+    return true
+  }
+
+  if (typeof rawSignature === 'object' && rawSignature !== null) {
+    return rawSignature.signed === true
+  }
+
+  return false
+}
+
+export async function hasPendingConfidentialityAgreement(userId: number) {
+  const db = await getDb()
+  const rows = await db.select().from(agreements)
+
+  return rows.some((agreement) => {
+    if (agreement.status === 'archived' || !isConfidentialityAgreement(agreement)) {
+      return false
+    }
+
+    const signerIds: number[] = JSON.parse(agreement.requiredSigners || '[]')
+    if (!signerIds.includes(userId)) {
+      return false
+    }
+
+    return !hasSignedAgreementSignature(agreement.digitalSignatures, userId)
+  })
+}
+
 export async function ensureDemoTesterUser() {
   const db = await getDb()
   const existing = await db.select().from(users).where(eq(users.email, DEMO_TESTER_EMAIL)).limit(1)
@@ -80,7 +126,7 @@ export async function ensureDemoTesterUser() {
   return inserted[0]
 }
 
-export async function requireStaffUser() {
+export async function requireStaffUser(options?: { allowPendingConfidentiality?: boolean }) {
   const userId = getCookie('session')
   if (!userId) {
     throw new Error('Unauthorized')
@@ -91,6 +137,13 @@ export async function requireStaffUser() {
   const user = result[0]
   if (!user || user.active === false || (user.role !== 'organizer' && user.role !== 'volunteer')) {
     throw new Error('Forbidden')
+  }
+
+  if (!options?.allowPendingConfidentiality) {
+    const mustSignConfidentiality = await hasPendingConfidentialityAgreement(user.id)
+    if (mustSignConfidentiality) {
+      throw new Error('Confidentiality agreement required before account access')
+    }
   }
 
   return user

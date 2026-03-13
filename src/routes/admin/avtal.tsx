@@ -84,6 +84,30 @@ function AgreementsAdmin() {
   const filteredAgreements = agreements.filter(matchesAgreement)
   const filteredMyPending = myPending.filter(matchesAgreement)
 
+  const parsePhysicalSignatureMetadata = (agreement: AgreementRow) => {
+    const raw = (agreement as any).digitalSignatures
+    if (!raw || typeof raw !== 'string') {
+      return null
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>
+      return {
+        adminPhysicalNameClarification:
+          typeof parsed.__physicalSignedByAdminNameClarification === 'string'
+            ? parsed.__physicalSignedByAdminNameClarification
+            : null,
+        printedCopyConfirmed: parsed.__printedCopyConfirmed === true,
+        recipientIsUnder18: parsed.__recipientIsUnder18 === true,
+        guardianNameClarification:
+          typeof parsed.__guardianNameClarification === 'string' ? parsed.__guardianNameClarification : null,
+        guardianSignatureConfirmed: parsed.__guardianSignatureConfirmed === true,
+      }
+    } catch {
+      return null
+    }
+  }
+
   const buildPurchaseTemplateBody = () => `Anpassat avtal för köp
 
 Kostnad:
@@ -330,11 +354,60 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
   }
 
   const handleMarkPhysical = async (agreementId: number) => {
-    if (!window.confirm('Bekräfta att avtalet nu är fysiskt signerat.')) {
+    if (!window.confirm('Bekräfta att en fysisk kopia skrivs ut nu och signeras med penna av parterna.')) {
       return
     }
+
+    const adminDefaultName = session?.name?.trim() || ''
+    const adminPhysicalNameClarification = window.prompt(
+      'Ange namnförtydligande för den fysiskt signerande administratören:',
+      adminDefaultName,
+    )
+
+    if (!adminPhysicalNameClarification || adminPhysicalNameClarification.trim().length < 2) {
+      alert('Admin namnförtydligande krävs för fysisk signering')
+      return
+    }
+
+    const recipientIsUnder18 = window.confirm(
+      'Är mottagaren under 18 år? Klicka OK för Ja, Avbryt för Nej.',
+    )
+
+    let guardianNameClarification = ''
+    let guardianSignatureConfirmed = false
+
+    if (recipientIsUnder18) {
+      const guardianName = window.prompt('Mottagaren är under 18. Ange målsmans namnförtydligande:')
+      if (!guardianName || guardianName.trim().length < 2) {
+        alert('Målsmans namnförtydligande krävs när mottagaren är under 18 år')
+        return
+      }
+
+      const guardianSigned = window.confirm('Bekräfta att målsman har signerat den fysiska kopian.')
+      if (!guardianSigned) {
+        alert('Målsmans signatur måste vara bekräftad för mottagare under 18 år')
+        return
+      }
+
+      guardianNameClarification = guardianName.trim()
+      guardianSignatureConfirmed = true
+    }
+
+    if (!window.confirm('Slutlig bekräftelse: fysisk kopia är utskriven och signerad enligt kraven.')) {
+      return
+    }
+
     try {
-      const updated = await markAgreementPhysicalFn({ data: { id: agreementId } })
+      const updated = await markAgreementPhysicalFn({
+        data: {
+          id: agreementId,
+          printedCopyConfirmed: true,
+          adminPhysicalNameClarification: adminPhysicalNameClarification.trim(),
+          recipientIsUnder18,
+          guardianNameClarification: recipientIsUnder18 ? guardianNameClarification : undefined,
+          guardianSignatureConfirmed: recipientIsUnder18 ? guardianSignatureConfirmed : undefined,
+        },
+      })
       setAgreements((current) => current.map((row) => (row.id === agreementId ? updated : row)))
       await router.invalidate()
     } catch (err: any) {
@@ -614,6 +687,7 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
             const isExpanded = expandedId === agreement.id
             const mySignature = agreement.requiredSigners.find((signer) => signer.userId === myId)
             const canGeneratePdf = agreement.allSigned && agreement.status !== 'archived'
+            const physicalMeta = parsePhysicalSignatureMetadata(agreement)
             return (
               <div key={agreement.id} className="border border-[#C04A2A]/20 rounded-sm overflow-hidden">
                 <div className="p-4 flex items-center gap-3 cursor-pointer hover:bg-[#1A1816]/60" onClick={() => setExpandedId(isExpanded ? null : agreement.id)}>
@@ -710,6 +784,31 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
                         </button>
                       )}
                     </div>
+
+                    {agreement.physicalSigned && physicalMeta && (
+                      <div className="p-3 rounded-sm border border-green-500/25 bg-green-500/10 space-y-1">
+                        <p className="text-xs text-green-300/90 uppercase tracking-[0.12em]">Fysisk signeringsinformation</p>
+                        <p className="text-xs text-[#F0E8D8]/70">
+                          Utskriven kopia: {physicalMeta.printedCopyConfirmed ? 'Ja' : 'Nej'}
+                        </p>
+                        <p className="text-xs text-[#F0E8D8]/70">
+                          Signerande admin (namnförtydligande): {physicalMeta.adminPhysicalNameClarification || 'Ej angivet'}
+                        </p>
+                        <p className="text-xs text-[#F0E8D8]/70">
+                          Mottagare under 18: {physicalMeta.recipientIsUnder18 ? 'Ja' : 'Nej'}
+                        </p>
+                        {physicalMeta.recipientIsUnder18 && (
+                          <>
+                            <p className="text-xs text-[#F0E8D8]/70">
+                              Målsmans namnförtydligande: {physicalMeta.guardianNameClarification || 'Ej angivet'}
+                            </p>
+                            <p className="text-xs text-[#F0E8D8]/70">
+                              Målsmans signatur bekräftad: {physicalMeta.guardianSignatureConfirmed ? 'Ja' : 'Nej'}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     {agreement.deletePending && agreement.deleteRequestedByName && (
                       <p className="text-xs text-yellow-300/80 border border-yellow-500/25 bg-yellow-500/10 rounded-sm p-2">

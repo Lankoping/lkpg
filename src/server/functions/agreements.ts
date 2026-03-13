@@ -6,6 +6,7 @@ import { GoogleGenAI } from '@google/genai'
 import { getDb } from '../db/runtime'
 import { agreements, users } from '../db/schema'
 import {
+  hasPendingConfidentialityAgreement,
   isDemoTesterUser,
   requireOrganizerUser,
   requireStaffUser,
@@ -22,6 +23,11 @@ type AgreementSignatureValue =
     }
 
 type AgreementSignaturesState = Record<string, AgreementSignatureValue | string | number>
+
+function isConfidentialityAgreement(record: { title: string | null; body: string | null }) {
+  const haystack = `${record.title ?? ''}\n${record.body ?? ''}`.toLowerCase()
+  return haystack.includes('sekretessavtal') || haystack.includes('confidentiality')
+}
 
 function getSignatureEntry(state: AgreementSignaturesState, userId: number) {
   const raw = state[String(userId)]
@@ -80,11 +86,21 @@ async function enrichAgreement(record: typeof agreements.$inferSelect, allUsers:
 
 export const getAgreementsFn = createServerFn({ method: 'GET' })
   .handler(async () => {
-    const currentUser = await requireStaffUser()
+    const currentUser = await requireStaffUser({ allowPendingConfidentiality: true })
+    const mustSignConfidentiality = await hasPendingConfidentialityAgreement(currentUser.id)
     const isDemo = isDemoTesterUser(currentUser)
     const db = await getDb()
     const rows = await db.select().from(agreements).orderBy(desc(agreements.createdAt))
-    const scopedRows = isDemo ? rows.filter((row) => row.createdByUserId === currentUser.id) : rows
+    const scopedRowsBase = isDemo ? rows.filter((row) => row.createdByUserId === currentUser.id) : rows
+    const scopedRows = mustSignConfidentiality
+      ? scopedRowsBase.filter((row) => {
+          if (!isConfidentialityAgreement(row) || row.status === 'archived') {
+            return false
+          }
+          const signerIds: number[] = JSON.parse(row.requiredSigners || '[]')
+          return signerIds.includes(currentUser.id)
+        })
+      : scopedRowsBase
     const allUsers = isDemo ? [currentUser] : await db.select().from(users)
     const enriched = await Promise.all(scopedRows.map((row) => enrichAgreement(row, allUsers)))
 
@@ -105,11 +121,15 @@ export const getAgreementsFn = createServerFn({ method: 'GET' })
 
 export const getMyPendingAgreementSignaturesFn = createServerFn({ method: 'GET' })
   .handler(async () => {
-    const currentUser = await requireStaffUser()
+    const currentUser = await requireStaffUser({ allowPendingConfidentiality: true })
+    const mustSignConfidentiality = await hasPendingConfidentialityAgreement(currentUser.id)
     const isDemo = isDemoTesterUser(currentUser)
     const db = await getDb()
     const rows = await db.select().from(agreements).orderBy(desc(agreements.createdAt))
-    const scopedRows = isDemo ? rows.filter((row) => row.createdByUserId === currentUser.id) : rows
+    const scopedRowsBase = isDemo ? rows.filter((row) => row.createdByUserId === currentUser.id) : rows
+    const scopedRows = mustSignConfidentiality
+      ? scopedRowsBase.filter((row) => isConfidentialityAgreement(row))
+      : scopedRowsBase
     const allUsers = isDemo ? [currentUser] : await db.select().from(users)
     const enriched = await Promise.all(scopedRows.map((row) => enrichAgreement(row, allUsers)))
     return enriched.filter((agreement) =>
@@ -228,7 +248,7 @@ export const addAgreementSignatureFn = createServerFn({ method: 'POST' })
       .parse(data)
   )
   .handler(async ({ data }) => {
-    const currentUser = await requireStaffUser()
+    const currentUser = await requireStaffUser({ allowPendingConfidentiality: true })
     const db = await getDb()
     const current = await db.select().from(agreements).where(eq(agreements.id, data.agreementId)).limit(1)
     if (!current[0]) {
@@ -381,7 +401,16 @@ export const requestAgreementDeleteFn = createServerFn({ method: 'POST' })
   })
 
 export const markAgreementPhysicalFn = createServerFn({ method: 'POST' })
-  .inputValidator((data: unknown) => z.object({ id: z.number() }).parse(data))
+  .inputValidator((data: unknown) =>
+    z.object({
+      id: z.number(),
+      printedCopyConfirmed: z.boolean(),
+      adminPhysicalNameClarification: z.string().min(2),
+      recipientIsUnder18: z.boolean(),
+      guardianNameClarification: z.string().optional(),
+      guardianSignatureConfirmed: z.boolean().optional(),
+    }).parse(data)
+  )
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
     const db = await getDb()
@@ -394,10 +423,44 @@ export const markAgreementPhysicalFn = createServerFn({ method: 'POST' })
       throw new Error('Forbidden in demo mode')
     }
 
+    if (!data.printedCopyConfirmed) {
+      throw new Error('Fysisk kopia måste skrivas ut innan avtalet kan markeras som fysiskt signerat')
+    }
+
+    const signerIds: number[] = JSON.parse(current[0].requiredSigners || '[]')
+    const digitalSignatures: AgreementSignaturesState = JSON.parse(current[0].digitalSignatures || '{}')
+    const allSigned = signerIds.length > 0 && signerIds.every((id) => getSignatureEntry(digitalSignatures, id).signed)
+
+    if (!allSigned) {
+      throw new Error('Alla digitala signaturer måste vara klara innan fysisk signering markeras')
+    }
+
+    if (data.recipientIsUnder18) {
+      if (!data.guardianNameClarification || data.guardianNameClarification.trim().length < 2) {
+        throw new Error('Målsmans namnförtydligande krävs när mottagaren är under 18 år')
+      }
+      if (!data.guardianSignatureConfirmed) {
+        throw new Error('Bekräfta målsmans fysiska signatur när mottagaren är under 18 år')
+      }
+    }
+
+    digitalSignatures.__physicalSignedByAdminId = currentUser.id
+    digitalSignatures.__physicalSignedByAdminNameClarification = data.adminPhysicalNameClarification.trim()
+    digitalSignatures.__physicalSignedAt = new Date().toISOString()
+    digitalSignatures.__printedCopyConfirmed = true
+    digitalSignatures.__recipientIsUnder18 = data.recipientIsUnder18
+    digitalSignatures.__guardianNameClarification = data.recipientIsUnder18
+      ? data.guardianNameClarification?.trim() || null
+      : null
+    digitalSignatures.__guardianSignatureConfirmed = data.recipientIsUnder18
+      ? Boolean(data.guardianSignatureConfirmed)
+      : false
+
     const updated = await db.update(agreements)
       .set({
         physicalSigned: true,
         status: 'completed',
+        digitalSignatures: JSON.stringify(digitalSignatures),
         updatedAt: new Date(),
       })
       .where(eq(agreements.id, data.id))
@@ -409,6 +472,13 @@ export const markAgreementPhysicalFn = createServerFn({ method: 'POST' })
       action: 'agreement.mark.physical_signed',
       entityType: 'agreement',
       entityId: data.id,
+      details: {
+        printedCopyConfirmed: true,
+        adminPhysicalNameClarification: data.adminPhysicalNameClarification.trim(),
+        recipientIsUnder18: data.recipientIsUnder18,
+        guardianNameClarification: data.recipientIsUnder18 ? data.guardianNameClarification?.trim() || null : null,
+        guardianSignatureConfirmed: data.recipientIsUnder18 ? Boolean(data.guardianSignatureConfirmed) : false,
+      },
     })
 
     const allUsers = await db.select().from(users)
