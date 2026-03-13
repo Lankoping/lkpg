@@ -132,6 +132,11 @@ public/            Static assets
 - Keep secrets only in environment variables or secret managers.
 - Rotate any credential that may have been exposed previously.
 
+### Flavortown Reviewer Note
+
+Flavortown reviewers will not be granted access to the admin interfaces at https://lankoping.se/admin.
+This area contains personal data, and granting external access would be a major breach of Lankoping's data-sharing policies.
+
 ## License
 
 Source-available only. This project is public for transparency and security review, but redistribution or reuse is not permitted without explicit written permission.
