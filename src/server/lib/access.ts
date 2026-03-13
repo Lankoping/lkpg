@@ -72,21 +72,6 @@ function isConfidentialityAgreement(agreement: { title: string | null; body: str
   return haystack.includes('sekretessavtal') || haystack.includes('confidentiality')
 }
 
-function hasSignedAgreementSignature(digitalSignaturesRaw: string | null, userId: number) {
-  const digitalSignatures = JSON.parse(digitalSignaturesRaw || '{}') as Record<string, AgreementSignatureValue>
-  const rawSignature = digitalSignatures[String(userId)]
-
-  if (rawSignature === true) {
-    return true
-  }
-
-  if (typeof rawSignature === 'object' && rawSignature !== null) {
-    return rawSignature.signed === true
-  }
-
-  return false
-}
-
 export async function hasPendingConfidentialityAgreement(userId: number) {
   const db = await getDb()
   const rows = await db.select().from(agreements)
@@ -101,7 +86,9 @@ export async function hasPendingConfidentialityAgreement(userId: number) {
       return false
     }
 
-    return !hasSignedAgreementSignature(agreement.digitalSignatures, userId)
+    // Digital signature is only a name clarification step.
+    // Account access remains locked until physical signing is completed and marked by admin.
+    return agreement.physicalSigned !== true
   })
 }
 
@@ -142,7 +129,7 @@ export async function requireStaffUser(options?: { allowPendingConfidentiality?:
   if (!options?.allowPendingConfidentiality) {
     const mustSignConfidentiality = await hasPendingConfidentialityAgreement(user.id)
     if (mustSignConfidentiality) {
-      throw new Error('Confidentiality agreement required before account access')
+      throw new Error('Confidentiality agreement must be physically signed and approved by admin before account access')
     }
   }
 
