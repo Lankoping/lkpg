@@ -1,7 +1,7 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
 import { getDb } from '../db/runtime'
-import { users } from '../db/schema'
+import { agreements, users } from '../db/schema'
 import { eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie, getCookie, deleteCookie } from '@tanstack/react-start/server'
@@ -14,6 +14,47 @@ import {
   requireStaffUser,
 } from '../lib/access'
 import { writeActivityLog } from './logs'
+
+type AgreementSignatureValue =
+  | boolean
+  | {
+      signed?: boolean
+      nameClarification?: string
+      signedAt?: string
+    }
+
+function isAgreementSignerPending(digitalSignaturesRaw: string | null, userId: number) {
+  const digitalSignatures = JSON.parse(digitalSignaturesRaw || '{}') as Record<string, AgreementSignatureValue>
+  const rawSignature = digitalSignatures[String(userId)]
+
+  if (rawSignature === true) {
+    return false
+  }
+
+  if (typeof rawSignature === 'object' && rawSignature !== null) {
+    return rawSignature.signed !== true
+  }
+
+  return true
+}
+
+async function hasPendingAgreementSignatures(userId: number) {
+  const db = await getDb()
+  const rows = await db.select().from(agreements)
+
+  return rows.some((row) => {
+    if (row.status === 'archived') {
+      return false
+    }
+
+    const signerIds: number[] = JSON.parse(row.requiredSigners || '[]')
+    if (!signerIds.includes(userId)) {
+      return false
+    }
+
+    return isAgreementSignerPending(row.digitalSignatures, userId)
+  })
+}
 
 export const loginFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ email: z.string(), passwordHash: z.string() }).parse(data))
@@ -258,6 +299,10 @@ export const lockUserFn = createServerFn({ method: "POST" })
 
     if (currentUser.id === data.userId) throw new Error('Forbidden: Cannot lock yourself')
 
+    if (await hasPendingAgreementSignatures(data.userId)) {
+      throw new Error('Kontot kan inte låsas innan alla tilldelade avtal är signerade')
+    }
+
     await db.update(users).set({ active: false }).where(eq(users.id, data.userId))
 
     await writeActivityLog({
@@ -318,6 +363,10 @@ export const updateUserFn = createServerFn({ method: 'POST' })
 
     if (currentUser.id === data.userId && data.role !== 'organizer') {
       throw new Error('You cannot remove your own organizer access')
+    }
+
+    if (data.active === false && await hasPendingAgreementSignatures(data.userId)) {
+      throw new Error('Kontot kan inte låsas innan alla tilldelade avtal är signerade')
     }
 
     const updated = await db
