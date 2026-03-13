@@ -24,6 +24,23 @@ type AgreementSignatureValue =
 
 type AgreementSignaturesState = Record<string, AgreementSignatureValue | string | number>
 
+const GUARDIAN_NOTICE_HEADING = 'Särskilda villkor för mottagare under 18 år'
+const GUARDIAN_NOTICE_BLOCK = `${GUARDIAN_NOTICE_HEADING}
+Mottagaren är under 18 år. Målsman ska därför närvara vid fysisk signering och fylla i namnförtydligande, underskrift och datum på den utskrivna kopian.`
+
+function ensureGuardianNoticeInBody(body: string, recipientIsUnder18: boolean) {
+  if (!recipientIsUnder18) {
+    return body
+  }
+
+  const normalizedBody = body.toLowerCase()
+  if (normalizedBody.includes(GUARDIAN_NOTICE_HEADING.toLowerCase())) {
+    return body
+  }
+
+  return `${body.trim()}\n\n${GUARDIAN_NOTICE_BLOCK}`
+}
+
 function isConfidentialityAgreement(record: { title: string | null; body: string | null }) {
   const haystack = `${record.title ?? ''}\n${record.body ?? ''}`.toLowerCase()
   return haystack.includes('sekretessavtal') || haystack.includes('confidentiality')
@@ -70,6 +87,7 @@ async function enrichAgreement(record: typeof agreements.$inferSelect, allUsers:
   const deleteRequestedAt = typeof digitalSignatures.__deleteRequestedAt === 'string'
     ? digitalSignatures.__deleteRequestedAt
     : null
+  const recipientIsUnder18 = digitalSignatures.__recipientIsUnder18 === true
 
   return {
     ...record,
@@ -81,6 +99,7 @@ async function enrichAgreement(record: typeof agreements.$inferSelect, allUsers:
     deleteRequestedByName: deleteRequestedByUser?.name || null,
     deleteRequestedAt,
     deletePending: Boolean(deleteRequestedByUserId),
+    recipientIsUnder18,
   }
 }
 
@@ -145,6 +164,7 @@ export const createAgreementFn = createServerFn({ method: 'POST' })
       description: z.string().optional(),
       body: z.string().min(1),
       requiredSignerIds: z.array(z.number()).default([]),
+      recipientIsUnder18: z.boolean().default(false),
       status: z.enum(['draft', 'active']).default('draft'),
     }).parse(data)
   )
@@ -153,14 +173,18 @@ export const createAgreementFn = createServerFn({ method: 'POST' })
     const db = await getDb()
     const requiredSignerIds = scopeSignerIdsForUser(currentUser, data.requiredSignerIds)
 
+    const bodyWithGuardianNotice = ensureGuardianNoticeInBody(data.body, data.recipientIsUnder18)
+
     const inserted = await db.insert(agreements).values({
       title: data.title,
       description: data.description,
-      body: data.body,
+      body: bodyWithGuardianNotice,
       status: data.status,
       createdByUserId: currentUser.id,
       requiredSigners: JSON.stringify(requiredSignerIds),
-      digitalSignatures: '{}',
+      digitalSignatures: JSON.stringify({
+        __recipientIsUnder18: data.recipientIsUnder18,
+      }),
     }).returning()
 
     await writeActivityLog({
@@ -172,6 +196,7 @@ export const createAgreementFn = createServerFn({ method: 'POST' })
       details: {
         title: inserted[0].title,
         status: inserted[0].status,
+        recipientIsUnder18: data.recipientIsUnder18,
       },
     })
 
@@ -187,6 +212,7 @@ export const updateAgreementFn = createServerFn({ method: 'POST' })
       description: z.string().optional(),
       body: z.string().min(1),
       requiredSignerIds: z.array(z.number()).default([]),
+      recipientIsUnder18: z.boolean().default(false),
       status: z.enum(['draft', 'active', 'completed', 'archived']),
     }).parse(data)
   )
@@ -208,15 +234,19 @@ export const updateAgreementFn = createServerFn({ method: 'POST' })
     const allowedSignatureEntries = Object.entries(existingSignatures).filter(([key]) =>
       key.startsWith('__') || scopedSignerIds.includes(Number(key)),
     )
+    const metadataPreserved = Object.fromEntries(allowedSignatureEntries)
+    metadataPreserved.__recipientIsUnder18 = data.recipientIsUnder18
+
+    const bodyWithGuardianNotice = ensureGuardianNoticeInBody(data.body, data.recipientIsUnder18)
 
     const updated = await db.update(agreements)
       .set({
         title: data.title,
         description: data.description,
-        body: data.body,
+        body: bodyWithGuardianNotice,
         status: data.status,
         requiredSigners: JSON.stringify(scopedSignerIds),
-        digitalSignatures: JSON.stringify(Object.fromEntries(allowedSignatureEntries)),
+        digitalSignatures: JSON.stringify(metadataPreserved),
         updatedAt: new Date(),
       })
       .where(eq(agreements.id, data.id))
@@ -231,6 +261,7 @@ export const updateAgreementFn = createServerFn({ method: 'POST' })
       details: {
         status: data.status,
         signerCount: scopedSignerIds.length,
+        recipientIsUnder18: data.recipientIsUnder18,
       },
     })
 
@@ -497,6 +528,10 @@ export const recordAgreementPdfGenerationFn = createServerFn({ method: 'POST' })
 
     if (isDemoTesterUser(currentUser) && current[0].createdByUserId !== currentUser.id) {
       throw new Error('Forbidden in demo mode')
+    }
+
+    if (current[0].createdByUserId !== currentUser.id) {
+      throw new Error('Endast den som begärt signering kan generera PDF för avtalet')
     }
 
     const updated = await db.update(agreements)

@@ -99,6 +99,16 @@ const PRINT_STYLES = `
     height: 2rem;
     margin-bottom: 4px;
   }
+  .sig-underline.prefilled {
+    display: flex;
+    align-items: flex-end;
+    padding: 0 0.25rem 0.2rem 0.25rem;
+    font-size: 10pt;
+    color: #1a1a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .sig-label { font-size: 8pt; color: #888; font-family: Arial, sans-serif; }
   .digital-status {
     display: inline-block;
@@ -247,8 +257,11 @@ export interface AgreementPdfData {
   createdAt: Date | string | null
   generatedAt: Date | string | null
   generatedByName: string | null
-  requiredSigners: Array<{ userId: number; name: string; email: string; signed: boolean; nameClarification?: string | null }>
+  requiredSigners: Array<{ userId: number; name: string; email: string; signed: boolean; nameClarification?: string | null; role?: string | null }>
   status: string
+  recipientIsUnder18?: boolean
+  adminPhysicalNameClarification?: string | null
+  guardianNameClarification?: string | null
 }
 
 export function openAvgangPdf(data: AvgangPdfData, generatedByName: string) {
@@ -455,21 +468,50 @@ ${PRINT_ACTIONS}
 }
 
 export function openAgreementPdf(data: AgreementPdfData, generatedByName: string) {
+  const adminSigner = data.requiredSigners.find((signer) => signer.role === 'organizer')
+  const printableStatus = data.status.toLowerCase() === 'draft' ? 'FOR SIGNERING' : data.status.toUpperCase()
+  const adminDatePrefill = formatDate(data.generatedAt || new Date())
+
   const signerRows = data.requiredSigners.map(s => `
     <div class="sig-block">
       <div class="sig-name">${s.name}</div>
       <div class="sig-role">${s.email}</div>
       <div class="sig-line">
         <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Namnteckning</div></div>
-        <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Datum</div></div>
-        <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Namnförtydligande</div></div>
+        <div class="sig-field">
+          <div class="sig-underline${s.userId === adminSigner?.userId ? ' prefilled' : ''}">${s.userId === adminSigner?.userId ? adminDatePrefill : ''}</div>
+          <div class="sig-label">Datum</div>
+        </div>
+        <div class="sig-field">
+          <div class="sig-underline${s.userId === adminSigner?.userId && s.signed && (data.adminPhysicalNameClarification || s.nameClarification) ? ' prefilled' : ''}">${s.userId === adminSigner?.userId && s.signed ? (data.adminPhysicalNameClarification || s.nameClarification || '') : ''}</div>
+          <div class="sig-label">Namnförtydligande</div>
+        </div>
       </div>
-      ${s.signed && s.nameClarification ? `<div class="sig-label">Digitalt namnförtydligande: ${s.nameClarification}</div>` : ''}
       <div class="digital-status ${s.signed ? 'digital-signed' : 'digital-unsigned'}">
         Digital förbekräftelse: ${s.signed ? 'Bekräftad' : 'Ej bekräftad'}
       </div>
     </div>
   `).join('<hr class="divider">')
+
+  const guardianSection = data.recipientIsUnder18
+    ? `
+  <hr class="divider">
+
+  <div class="section">
+    <div class="section-label">Målsman (mottagare under 18 år)</div>
+    <div class="sig-block">
+      <div class="sig-role">Målsman måste fylla i och signera manuellt på fysisk kopia</div>
+      <div class="sig-line">
+        <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Namnteckning (målsman)</div></div>
+        <div class="sig-field"><div class="sig-underline"></div><div class="sig-label">Datum</div></div>
+        <div class="sig-field">
+          <div class="sig-underline${data.guardianNameClarification ? ' prefilled' : ''}">${data.guardianNameClarification || ''}</div>
+          <div class="sig-label">Namnförtydligande (målsman)</div>
+        </div>
+      </div>
+    </div>
+  </div>`
+    : ''
 
   const html = `<!DOCTYPE html>
 <html lang="sv">
@@ -491,7 +533,7 @@ ${PRINT_ACTIONS}
       Dok. nr: AVT-${String(data.id).padStart(4, '0')}<br>
       Genererat: ${formatDateTime(data.generatedAt || new Date())}<br>
       Genererat av: ${generatedByName}<br>
-      Status: ${data.status.toUpperCase()}
+      Status: ${printableStatus}
     </div>
   </div>
 
@@ -511,6 +553,8 @@ ${PRINT_ACTIONS}
     <div class="section-label">Signatärer</div>
     ${signerRows || '<p>Inga signatärer registrerade</p>'}
   </div>
+
+  ${guardianSection}
 
   <hr class="divider">
 

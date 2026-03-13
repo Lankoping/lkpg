@@ -48,6 +48,7 @@ function AgreementsAdmin() {
   const [purchaseMotivation, setPurchaseMotivation] = useState('')
   const [adminSignerId, setAdminSignerId] = useState<number | null>(null)
   const [recipientSignerId, setRecipientSignerId] = useState<number | null>(null)
+  const [recipientIsUnder18, setRecipientIsUnder18] = useState(false)
   const [status, setStatus] = useState<'draft' | 'active'>('draft')
   const [isSaving, setIsSaving] = useState(false)
   const [isFixingSpelling, setIsFixingSpelling] = useState(false)
@@ -83,6 +84,22 @@ function AgreementsAdmin() {
 
   const filteredAgreements = agreements.filter(matchesAgreement)
   const filteredMyPending = myPending.filter(matchesAgreement)
+
+  const guardianHeading = 'Särskilda villkor för mottagare under 18 år'
+  const guardianClause = `${guardianHeading}
+Mottagaren är under 18 år. Målsman ska därför närvara vid fysisk signering och fylla i namnförtydligande, underskrift och datum på den utskrivna kopian.`
+
+  const ensureGuardianClauseInBody = (inputBody: string) => {
+    if (!recipientIsUnder18) {
+      return inputBody
+    }
+
+    if (inputBody.toLowerCase().includes(guardianHeading.toLowerCase())) {
+      return inputBody
+    }
+
+    return `${inputBody.trim()}\n\n${guardianClause}`
+  }
 
   const parsePhysicalSignatureMetadata = (agreement: AgreementRow) => {
     const raw = (agreement as any).digitalSignatures
@@ -168,6 +185,7 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
     setPurchaseMotivation('')
     setAdminSignerId(null)
     setRecipientSignerId(null)
+    setRecipientIsUnder18(false)
     setStatus('draft')
     setError('')
   }
@@ -183,9 +201,11 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
     setPurchaseMotivation('')
     const adminSigner = agreement.requiredSigners.find((signer) => signer.role === 'organizer')
     const recipientSigner = agreement.requiredSigners.find((signer) => signer.userId !== adminSigner?.userId)
+    const meta = parsePhysicalSignatureMetadata(agreement)
 
     setAdminSignerId(adminSigner?.userId ?? null)
     setRecipientSignerId(recipientSigner?.userId ?? null)
+    setRecipientIsUnder18(Boolean((agreement as any).recipientIsUnder18 ?? meta?.recipientIsUnder18))
     setStatus(agreement.status === 'active' ? 'active' : 'draft')
     setExpandedId(agreement.id)
   }
@@ -232,13 +252,15 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
 
     const requiredSignerIds = [adminSignerId, recipientSignerId]
 
-    const finalBody = body.trim()
+    const finalBodyBase = body.trim()
       ? body
       : agreementTemplate === 'purchase' && purchaseCost.trim() && purchaseItem.trim() && purchaseMotivation.trim()
         ? buildPurchaseTemplateBody()
         : agreementTemplate === 'confidentiality'
           ? buildConfidentialityTemplateBody()
           : ''
+
+    const finalBody = ensureGuardianClauseInBody(finalBodyBase)
 
     if (!title.trim() || !finalBody.trim()) {
       setError('Titel och avtalstext krävs')
@@ -257,6 +279,7 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
               description,
               body: finalBody,
               requiredSignerIds,
+              recipientIsUnder18,
               status,
             },
           })
@@ -266,6 +289,7 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
               description,
               body: finalBody,
               requiredSignerIds,
+              recipientIsUnder18,
               status,
             },
           })
@@ -307,6 +331,7 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
     try {
       const updated = await recordAgreementPdfGenerationFn({ data: { id: agreement.id } })
       setAgreements((current) => current.map((row) => (row.id === agreement.id ? updated : row)))
+      const physicalMeta = parsePhysicalSignatureMetadata(updated)
       openAgreementPdf(
         {
           id: updated.id,
@@ -318,6 +343,9 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
           generatedByName: updated.generatedByName,
           requiredSigners: updated.requiredSigners,
           status: updated.status,
+          recipientIsUnder18: Boolean((updated as any).recipientIsUnder18 ?? physicalMeta?.recipientIsUnder18),
+          adminPhysicalNameClarification: physicalMeta?.adminPhysicalNameClarification || null,
+          guardianNameClarification: physicalMeta?.guardianNameClarification || null,
         },
         session?.name || 'System'
       )
@@ -353,7 +381,7 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
     }
   }
 
-  const handleMarkPhysical = async (agreementId: number) => {
+  const handleMarkPhysical = async (agreement: AgreementRow) => {
     if (!window.confirm('Bekräfta att en fysisk kopia skrivs ut nu och signeras med penna av parterna.')) {
       return
     }
@@ -369,9 +397,8 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
       return
     }
 
-    const recipientIsUnder18 = window.confirm(
-      'Är mottagaren under 18 år? Klicka OK för Ja, Avbryt för Nej.',
-    )
+    const existingMeta = parsePhysicalSignatureMetadata(agreement)
+    const recipientIsUnder18 = Boolean((agreement as any).recipientIsUnder18 ?? existingMeta?.recipientIsUnder18)
 
     let guardianNameClarification = ''
     let guardianSignatureConfirmed = false
@@ -400,7 +427,7 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
     try {
       const updated = await markAgreementPhysicalFn({
         data: {
-          id: agreementId,
+          id: agreement.id,
           printedCopyConfirmed: true,
           adminPhysicalNameClarification: adminPhysicalNameClarification.trim(),
           recipientIsUnder18,
@@ -408,7 +435,7 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
           guardianSignatureConfirmed: recipientIsUnder18 ? guardianSignatureConfirmed : undefined,
         },
       })
-      setAgreements((current) => current.map((row) => (row.id === agreementId ? updated : row)))
+      setAgreements((current) => current.map((row) => (row.id === agreement.id ? updated : row)))
       await router.invalidate()
     } catch (err: any) {
       alert(err?.message || 'Kunde inte markera avtalet som fysiskt signerat')
@@ -650,6 +677,15 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
                 </select>
               </div>
             </div>
+            <label className="mt-3 flex items-center gap-2 text-sm text-[#F0E8D8]/75">
+              <input
+                type="checkbox"
+                checked={recipientIsUnder18}
+                onChange={(e) => setRecipientIsUnder18(e.target.checked)}
+                className="accent-[#C04A2A]"
+              />
+              Mottagare är under 18 år (målsman måste signera på fysisk kopia)
+            </label>
             <p className="mt-2 text-xs text-[#F0E8D8]/50">
               Båda parter måste väljas och signera digitalt innan avtalet kan markeras som fysiskt signerat.
             </p>
@@ -686,7 +722,7 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
           {filteredAgreements.map((agreement) => {
             const isExpanded = expandedId === agreement.id
             const mySignature = agreement.requiredSigners.find((signer) => signer.userId === myId)
-            const canGeneratePdf = agreement.allSigned && agreement.status !== 'archived'
+            const canGeneratePdf = agreement.allSigned && agreement.status !== 'archived' && agreement.createdByUserId === myId
             const physicalMeta = parsePhysicalSignatureMetadata(agreement)
             return (
               <div key={agreement.id} className="border border-[#C04A2A]/20 rounded-sm overflow-hidden">
@@ -711,6 +747,9 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
 
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/55 mb-2">Digitala signaturer</p>
+                      <p className="text-xs text-[#F0E8D8]/55 mb-2">
+                        Mottagare under 18 år: {Boolean((agreement as any).recipientIsUnder18 ?? physicalMeta?.recipientIsUnder18) ? 'Ja' : 'Nej'}
+                      </p>
                       <div className="space-y-2">
                         {agreement.requiredSigners.map((signer) => {
                           const agreementAdminSigner = agreement.requiredSigners.find((candidate) => candidate.role === 'organizer')
@@ -761,7 +800,7 @@ Genom signering bekräftar du att du har läst, förstått och accepterat villko
                         </button>
                       )}
                       {isOrganizer && agreement.allSigned && !agreement.physicalSigned && (
-                        <button onClick={() => handleMarkPhysical(agreement.id)} className="px-4 py-2 border border-green-500/30 text-green-400 text-[10px] uppercase tracking-[0.1em] rounded-sm hover:bg-green-500/10">
+                        <button onClick={() => handleMarkPhysical(agreement)} className="px-4 py-2 border border-green-500/30 text-green-400 text-[10px] uppercase tracking-[0.1em] rounded-sm hover:bg-green-500/10">
                           Markera fysiskt signerat
                         </button>
                       )}
