@@ -57,6 +57,7 @@ export const loginFn = createServerFn({ method: "POST" })
   })
 
 export const logoutFn = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => z.object({}).parse(data ?? {}))
   .handler(async () => {
     const userId = getCookie('session')
     if (userId) {

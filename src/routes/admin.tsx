@@ -43,12 +43,23 @@ function AdminLayout() {
   const [editingName, setEditingName] = useState(false)
   const [name, setName] = useState(user.name || '')
   const [savingName, setSavingName] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const isOrganizer = user.role === 'organizer'
 
   const handleLogout = async () => {
-    await logoutFn()
-    window.location.href = '/'
+    if (loggingOut) return
+
+    setLoggingOut(true)
+    try {
+      await logoutFn({ data: {} })
+      await router.invalidate()
+      window.location.replace('/')
+    } catch (error) {
+      console.error('Logout failed:', error)
+      setLoggingOut(false)
+      alert('Kunde inte logga ut')
+    }
   }
 
   const handleCopyId = async () => {
@@ -99,7 +110,9 @@ function AdminLayout() {
           {isOrganizer && <a href="/admin/logs" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Loggar</a>}
           <a href="/admin/tickets" className="block text-[11px] uppercase tracking-[0.1em] text-[#F0E8D8]/70 hover:text-[#C04A2A] transition-colors whitespace-nowrap">Biljetter</a>
           <div className="hidden md:block flex-1" />
-          <button onClick={handleLogout} className="text-[11px] uppercase tracking-[0.1em] text-red-500/70 hover:text-red-400 block w-full text-left transition-colors whitespace-nowrap">Logga ut</button>
+          <button onClick={handleLogout} disabled={loggingOut} className="text-[11px] uppercase tracking-[0.1em] text-red-500/70 hover:text-red-400 block w-full text-left transition-colors whitespace-nowrap disabled:opacity-40">
+            {loggingOut ? 'Loggar ut...' : 'Logga ut'}
+          </button>
         </nav>
       </div>
 
