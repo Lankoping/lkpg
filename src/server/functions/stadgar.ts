@@ -1,6 +1,6 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
-import { db } from '../db/index'
+import { getDb } from '../db/runtime'
 import { stadgar, users } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -12,6 +12,7 @@ export const getStadgarFn = createServerFn({ method: "GET" })
   .handler(async () => {
     const currentUser = await requireStaffUser()
     const isDemo = isDemoTesterUser(currentUser)
+    const db = await getDb()
     const data = await db.select().from(stadgar).limit(1)
     if (!data[0]) {
       return {
@@ -63,6 +64,7 @@ export const updateStadgarFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     const existing = await db.select().from(stadgar).limit(1)
     
@@ -119,6 +121,7 @@ export const updateSignatureFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireStaffUser()
+    const db = await getDb()
 
     const existing = await db.select().from(stadgar).limit(1)
     if (!existing[0]) {
@@ -228,6 +231,7 @@ export const addSignerFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     if (isDemoTesterUser(currentUser) && data.userId !== currentUser.id) {
       throw new Error('Forbidden in demo mode')
@@ -302,6 +306,7 @@ export const removeSignerFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     if (isDemoTesterUser(currentUser) && data.userId !== currentUser.id) {
       throw new Error('Forbidden in demo mode')
@@ -340,6 +345,7 @@ export const removeSignerFn = createServerFn({ method: "POST" })
 export const exportStadgarPdfFn = createServerFn({ method: "POST" })
   .handler(async () => {
     const currentUser = await requireStaffUser()
+    const db = await getDb()
 
     const data = await db.select().from(stadgar).limit(1)
     if (!data[0]) {

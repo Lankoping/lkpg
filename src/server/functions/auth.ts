@@ -1,6 +1,6 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
-import { db } from '../db/index'
+import { getDb } from '../db/runtime'
 import { users } from '../db/schema'
 import { eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
@@ -19,6 +19,7 @@ export const loginFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ email: z.string(), passwordHash: z.string() }).parse(data))
   .handler(async ({ data }) => {
     await ensureDemoTesterUser()
+    const db = await getDb()
 
     const user = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
     if (!user || user.length === 0) {
@@ -61,6 +62,7 @@ export const logoutFn = createServerFn({ method: "POST" })
   .handler(async () => {
     const userId = getCookie('session')
     if (userId) {
+      const db = await getDb()
       const user = await db.select().from(users).where(eq(users.id, parseInt(userId))).limit(1)
       if (user[0]) {
         await writeActivityLog({
@@ -81,6 +83,7 @@ export const getSessionFn = createServerFn({ method: "GET" })
     const userId = getCookie('session')
     if (!userId) return null
 
+    const db = await getDb()
     const user = await db.select().from(users).where(eq(users.id, parseInt(userId))).limit(1)
     if (!user[0] || (user[0].role !== 'organizer' && user[0].role !== 'volunteer') || user[0].active === false) return null
     return user[0]
@@ -89,6 +92,7 @@ export const getSessionFn = createServerFn({ method: "GET" })
 export const getUsersFn = createServerFn({ method: "GET" })
   .handler(async () => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     if (isDemoTesterUser(currentUser)) {
       return [currentUser]
@@ -110,6 +114,7 @@ export const createUserFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     if (isDemoTesterUser(currentUser)) {
       throw new Error('Forbidden in demo mode')
@@ -155,6 +160,7 @@ export const changePasswordFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireStaffUser()
+    const db = await getDb()
 
     enforceDemoOwnUserScope(currentUser, data.userId)
 
@@ -199,6 +205,7 @@ export const deleteUserFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     if (isDemoTesterUser(currentUser)) {
       throw new Error('Forbidden in demo mode')
@@ -240,6 +247,7 @@ export const lockUserFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     if (isDemoTesterUser(currentUser)) {
       throw new Error('Forbidden in demo mode')
@@ -268,6 +276,7 @@ export const updateProfileFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireStaffUser()
+    const db = await getDb()
     const updated = await db
       .update(users)
       .set({ name: data.name })
@@ -297,6 +306,7 @@ export const updateUserFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     if (isDemoTesterUser(currentUser)) {
       enforceDemoOwnUserScope(currentUser, data.userId)
@@ -336,6 +346,7 @@ export const getDemoAccountsFn = createServerFn({ method: 'GET' })
   .handler(async () => {
     await ensureDemoTesterUser()
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     if (isDemoTesterUser(currentUser)) {
       return [currentUser]
@@ -354,6 +365,7 @@ export const setDemoAccountsActiveFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await ensureDemoTesterUser()
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     if (isDemoTesterUser(currentUser)) {
       throw new Error('Forbidden in demo mode')

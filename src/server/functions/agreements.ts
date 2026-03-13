@@ -3,7 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { GoogleGenAI } from '@google/genai'
-import { db } from '../db/index'
+import { getDb } from '../db/runtime'
 import { agreements, users } from '../db/schema'
 import {
   isDemoTesterUser,
@@ -82,6 +82,7 @@ export const getAgreementsFn = createServerFn({ method: 'GET' })
   .handler(async () => {
     const currentUser = await requireStaffUser()
     const isDemo = isDemoTesterUser(currentUser)
+    const db = await getDb()
     const rows = await db.select().from(agreements).orderBy(desc(agreements.createdAt))
     const scopedRows = isDemo ? rows.filter((row) => row.createdByUserId === currentUser.id) : rows
     const allUsers = isDemo ? [currentUser] : await db.select().from(users)
@@ -106,6 +107,7 @@ export const getMyPendingAgreementSignaturesFn = createServerFn({ method: 'GET' 
   .handler(async () => {
     const currentUser = await requireStaffUser()
     const isDemo = isDemoTesterUser(currentUser)
+    const db = await getDb()
     const rows = await db.select().from(agreements).orderBy(desc(agreements.createdAt))
     const scopedRows = isDemo ? rows.filter((row) => row.createdByUserId === currentUser.id) : rows
     const allUsers = isDemo ? [currentUser] : await db.select().from(users)
@@ -128,6 +130,7 @@ export const createAgreementFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
     const requiredSignerIds = scopeSignerIdsForUser(currentUser, data.requiredSignerIds)
 
     const inserted = await db.insert(agreements).values({
@@ -169,6 +172,7 @@ export const updateAgreementFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
     const current = await db.select().from(agreements).where(eq(agreements.id, data.id)).limit(1)
     if (!current[0]) {
       throw new Error('Agreement not found')
@@ -225,6 +229,7 @@ export const addAgreementSignatureFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const currentUser = await requireStaffUser()
+    const db = await getDb()
     const current = await db.select().from(agreements).where(eq(agreements.id, data.agreementId)).limit(1)
     if (!current[0]) {
       throw new Error('Agreement not found')
@@ -270,6 +275,7 @@ export const archiveAgreementFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ id: z.number() }).parse(data))
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
     const current = await db.select().from(agreements).where(eq(agreements.id, data.id)).limit(1)
     if (!current[0]) {
       throw new Error('Agreement not found')
@@ -307,6 +313,7 @@ export const requestAgreementDeleteFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ id: z.number() }).parse(data))
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
     const current = await db.select().from(agreements).where(eq(agreements.id, data.id)).limit(1)
     if (!current[0]) {
       throw new Error('Agreement not found')
@@ -377,6 +384,7 @@ export const markAgreementPhysicalFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ id: z.number() }).parse(data))
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
     const current = await db.select().from(agreements).where(eq(agreements.id, data.id)).limit(1)
     if (!current[0]) {
       throw new Error('Agreement not found')
@@ -411,6 +419,7 @@ export const recordAgreementPdfGenerationFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ id: z.number() }).parse(data))
   .handler(async ({ data }) => {
     const currentUser = await requireStaffUser()
+    const db = await getDb()
     const current = await db.select().from(agreements).where(eq(agreements.id, data.id)).limit(1)
     if (!current[0]) {
       throw new Error('Agreement not found')

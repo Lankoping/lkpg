@@ -1,6 +1,6 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
-import { db } from '../db/index'
+import { getDb } from '../db/runtime'
 import { avgangsRequests, users } from '../db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { z } from 'zod'
@@ -42,6 +42,7 @@ export const getAvgangRequestsFn = createServerFn({ method: 'GET' })
   .handler(async () => {
     const admin = await requireStaffUser()
     const isDemo = isDemoTesterUser(admin)
+    const db = await getDb()
     const requests = await db.select().from(avgangsRequests).orderBy(desc(avgangsRequests.createdAt))
     const scopedRequests = isDemo
       ? requests.filter((request) => request.createdByUserId === admin.id || request.targetUserId === admin.id)
@@ -66,6 +67,7 @@ export const getMyPendingSignaturesFn = createServerFn({ method: 'GET' })
   .handler(async () => {
     const admin = await requireStaffUser()
     const isDemo = isDemoTesterUser(admin)
+    const db = await getDb()
     const requests = await db.select().from(avgangsRequests).orderBy(desc(avgangsRequests.createdAt))
     const scopedRequests = isDemo
       ? requests.filter((request) => request.createdByUserId === admin.id || request.targetUserId === admin.id)
@@ -92,6 +94,7 @@ export const createAvgangRequestFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const admin = await requireOrganizerUser()
+    const db = await getDb()
     const targetUserId = isDemoTesterUser(admin) ? admin.id : (data.targetUserId ?? null)
     const requiredSignerIds = scopeSignerIdsForUser(admin, data.requiredSignerIds)
 
@@ -132,6 +135,7 @@ export const addDigitalSignatureFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const admin = await requireStaffUser()
+    const db = await getDb()
     const req = await db.select().from(avgangsRequests).where(eq(avgangsRequests.id, data.requestId)).limit(1)
     if (!req[0]) throw new Error('Not found')
 
@@ -171,6 +175,7 @@ export const updateAvgangStatusFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const admin = await requireOrganizerUser()
+    const db = await getDb()
     const request = await db.select().from(avgangsRequests).where(eq(avgangsRequests.id, data.id)).limit(1)
     if (!request[0]) {
       throw new Error('Not found')
@@ -204,6 +209,7 @@ export const markPhysicallySignedFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const admin = await requireOrganizerUser()
+    const db = await getDb()
     const req = await db.select().from(avgangsRequests).where(eq(avgangsRequests.id, data.id)).limit(1)
     if (!req[0]) throw new Error('Not found')
 
@@ -246,6 +252,7 @@ export const recordPdfGenerationFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const admin = await requireStaffUser()
+    const db = await getDb()
     const existing = await db.select().from(avgangsRequests).where(eq(avgangsRequests.id, data.id)).limit(1)
     if (!existing[0]) {
       throw new Error('Not found')

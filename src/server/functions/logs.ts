@@ -3,7 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { desc, eq } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { db } from '../db/index'
+import { getDb } from '../db/runtime'
 import { activityLogs, users } from '../db/schema'
 import { isDemoTesterUser, requireOrganizerUser } from '../lib/access'
 
@@ -18,6 +18,7 @@ export type ActivityLogInput = {
 
 export async function writeActivityLog(input: ActivityLogInput) {
   try {
+    const db = await getDb()
     await ensureActivityLogsTable()
 
     await db.insert(activityLogs).values({
@@ -66,6 +67,7 @@ export const getActivityLogsFn = createServerFn({ method: 'GET' })
   })
 
 async function queryActivityLogs(limit: number, actorUserId: number | null) {
+  const db = await getDb()
   const baseQuery = db
     .select({
       id: activityLogs.id,
@@ -99,6 +101,7 @@ let ensurePromise: Promise<void> | null = null
 async function ensureActivityLogsTable() {
   if (!ensurePromise) {
     ensurePromise = (async () => {
+      const db = await getDb()
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS "activity_logs" (
           "id" serial PRIMARY KEY NOT NULL,

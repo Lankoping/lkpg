@@ -1,6 +1,6 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
-import { db } from '../db/index'
+import { getDb } from '../db/runtime'
 import { tickets, posts, ticketTypes, events, users } from '../db/schema'
 import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
@@ -17,6 +17,7 @@ async function checkAdmin() {
 export const getEventsFn = createServerFn({ method: 'GET' })
   .handler(async () => {
     await checkAdmin()
+    const db = await getDb()
     return await db.select().from(events)
   })
 
@@ -33,6 +34,7 @@ export const createEventFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const admin = await checkAdmin()
+    const db = await getDb()
     const result = await db.insert(events).values({
       ...data,
       date: new Date(data.date),
@@ -54,6 +56,7 @@ export const deleteEventFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.number().parse(data))
   .handler(async ({ data: id }) => {
     const admin = await checkAdmin()
+    const db = await getDb()
     await db.delete(events).where(eq(events.id, id))
 
     await writeActivityLog({
@@ -70,6 +73,7 @@ export const deleteEventFn = createServerFn({ method: "POST" })
 export const getTicketTypesFn = createServerFn({ method: "GET" })
   .handler(async () => {
     await checkAdmin()
+    const db = await getDb()
     return await db.select().from(ticketTypes)
   })
 
@@ -83,6 +87,7 @@ export const createTicketTypeFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const admin = await checkAdmin()
+    const db = await getDb()
     const result = await db.insert(ticketTypes).values(data).returning()
 
     await writeActivityLog({
@@ -101,6 +106,7 @@ export const deleteTicketTypeFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.number().parse(data))
   .handler(async ({ data: id }) => {
     const admin = await checkAdmin()
+    const db = await getDb()
     await db.delete(ticketTypes).where(eq(ticketTypes.id, id))
 
     await writeActivityLog({
@@ -117,6 +123,7 @@ export const deleteTicketTypeFn = createServerFn({ method: "POST" })
 export const getTicketsFn = createServerFn({ method: "GET" })
   .handler(async () => {
     const admin = await checkAdmin()
+    const db = await getDb()
     const baseQuery = db.select({
       id: tickets.id,
       eventId: tickets.eventId,
@@ -147,6 +154,7 @@ export const getTicketFn = createServerFn({ method: 'GET' })
   .inputValidator((data: unknown) => z.string().parse(data))
   .handler(async ({ data: ticketId }) => {
     const admin = await checkAdmin()
+    const db = await getDb()
     const result = await db.select().from(tickets).where(eq(tickets.id, parseInt(ticketId))).limit(1)
     if (isDemoTesterUser(admin) && result[0] && result[0].issuedBy !== admin.id) {
       throw new Error('Forbidden in demo mode')
@@ -166,6 +174,7 @@ export const issueTicketFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const admin = await checkAdmin()
+    const db = await getDb()
     
     const ticketCode = `TKT-${nanoid(8).toUpperCase()}`
     
@@ -203,6 +212,7 @@ export const updateTicketStatusFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const admin = await checkAdmin()
+    const db = await getDb()
 
     if (isDemoTesterUser(admin)) {
       const existing = await db.select().from(tickets).where(eq(tickets.id, data.ticketId)).limit(1)
@@ -238,6 +248,7 @@ export const deleteTicketFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.number().parse(data))
   .handler(async ({ data: ticketId }) => {
     const admin = await checkAdmin()
+    const db = await getDb()
 
     if (isDemoTesterUser(admin)) {
       const existing = await db.select().from(tickets).where(eq(tickets.id, ticketId)).limit(1)
@@ -267,6 +278,7 @@ export const verifyTicketByCodeFn = createServerFn({ method: "POST" })
     }).parse(data)
   )
   .handler(async ({ data: { code, markAsUsed } }) => {
+    const db = await getDb()
     // Try to get adminId if they're logged in
     let adminId: number | null = null
     let adminRole: 'organizer' | 'volunteer' | null = null
@@ -335,5 +347,6 @@ export const verifyTicketByCodeFn = createServerFn({ method: "POST" })
 export const getEventsForTicketsFn = createServerFn({ method: 'GET' })
   .handler(async () => {
     await checkAdmin()
+    const db = await getDb()
     return await db.select().from(events)
   })

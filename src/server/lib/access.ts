@@ -1,6 +1,6 @@
 import { getCookie } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
-import { db } from '../db/index'
+import { getDb } from '../db/runtime'
 import { users } from '../db/schema'
 
 export type StaffRole = 'organizer' | 'volunteer'
@@ -60,6 +60,7 @@ export function scopeSignerIdsForUser(
 }
 
 export async function ensureDemoTesterUser() {
+  const db = await getDb()
   const existing = await db.select().from(users).where(eq(users.email, DEMO_TESTER_EMAIL)).limit(1)
   if (existing[0]) {
     return existing[0]
@@ -85,6 +86,7 @@ export async function requireStaffUser() {
     throw new Error('Unauthorized')
   }
 
+  const db = await getDb()
   const result = await db.select().from(users).where(eq(users.id, parseInt(userId))).limit(1)
   const user = result[0]
   if (!user || user.active === false || (user.role !== 'organizer' && user.role !== 'volunteer')) {

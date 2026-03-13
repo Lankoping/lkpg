@@ -1,6 +1,6 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
-import { db } from '../db/index'
+import { getDb } from '../db/runtime'
 import { users, posts } from '../db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { z } from 'zod'
@@ -85,6 +85,7 @@ async function translatePostToEnglish(post: typeof posts.$inferSelect) {
 export const getPostsFn = createServerFn({ method: "GET" })
   .inputValidator((type: string) => z.enum(['blog', 'news']).parse(type))
   .handler(async ({ data: type }) => {
+    const db = await getDb()
     return await db.select()
       .from(posts)
       .where(eq(posts.type, type))
@@ -95,6 +96,7 @@ export const getPostsFn = createServerFn({ method: "GET" })
 export const getPostsTranslatedToEnglishFn = createServerFn({ method: 'GET' })
   .inputValidator((type: string) => z.enum(['blog', 'news']).parse(type))
   .handler(async ({ data: type }) => {
+    const db = await getDb()
     const postsResult = await db.select()
       .from(posts)
       .where(eq(posts.type, type))
@@ -107,6 +109,7 @@ export const getPostsTranslatedToEnglishFn = createServerFn({ method: 'GET' })
 export const getPostBySlugFn = createServerFn({ method: "GET" })
   .inputValidator((slug: string) => z.string().parse(slug))
   .handler(async ({ data: slug }) => {
+    const db = await getDb()
     const post = await db.select()
       .from(posts)
       .where(eq(posts.slug, slug))
@@ -118,6 +121,7 @@ export const getPostBySlugFn = createServerFn({ method: "GET" })
 export const getPostBySlugTranslatedToEnglishFn = createServerFn({ method: 'GET' })
   .inputValidator((slug: string) => z.string().parse(slug))
   .handler(async ({ data: slug }) => {
+    const db = await getDb()
     const post = await db.select()
       .from(posts)
       .where(eq(posts.slug, slug))
@@ -133,6 +137,7 @@ export const getPostBySlugTranslatedToEnglishFn = createServerFn({ method: 'GET'
 export const getPostByIdFn = createServerFn({ method: "GET" })
   .inputValidator((id: number) => z.number().parse(id))
   .handler(async ({ data: id }) => {
+    const db = await getDb()
     const post = await db.select()
       .from(posts)
       .where(eq(posts.id, id))
@@ -154,6 +159,7 @@ export const updatePostFn = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     const updatedPost = await db.update(posts).set({
       title: data.title,
@@ -191,6 +197,7 @@ export const createPostFn = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     const newPost = await db.insert(posts).values({
       ...data,
@@ -217,6 +224,7 @@ export const deletePostFn = createServerFn({ method: "POST" })
   .inputValidator((id: number) => z.number().parse(id))
   .handler(async ({ data: id }) => {
     const currentUser = await requireOrganizerUser()
+    const db = await getDb()
 
     const deletedPost = await db.delete(posts)
       .where(eq(posts.id, id))
