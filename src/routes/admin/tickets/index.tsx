@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { getTicketsFn, deleteTicketFn, updateTicketStatusFn, getEventsForTicketsFn, verifyTicketByCodeFn } from '../../../server/functions/tickets'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Trash2, CheckCircle, XCircle, Search, Ticket, Mail, User, Calendar, QrCode, Scan, Settings, Copy, Check, ShieldCheck, AlertTriangle } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { QRCodeSVG } from 'qrcode.react'
@@ -24,6 +24,11 @@ function TicketsAdmin() {
   const [selectedTicket, setSelectedTicket] = useState<typeof tickets[0] | null>(null)
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [verificationResult, setVerificationResult] = useState<any>(null)
+  const [verificationUrl, setVerificationUrl] = useState('')
+
+  useEffect(() => {
+    setVerificationUrl(`${window.location.origin}/verify/`)
+  }, [])
 
   const handleManualVerification = async () => {
     const code = window.prompt('Ange biljettkod (t.ex. TKT-ABC123XY):')
@@ -83,10 +88,8 @@ function TicketsAdmin() {
     )
   })
 
-  const verificationUrl = typeof window !== 'undefined' ? `${window.location.origin}/verify/` : ''
-
   return (
-    <div className="bg-[#141210]/95 border border-[#C04A2A]/20 p-5 sm:p-8 lg:p-10 rounded-sm text-[#F0E8D8] relative overflow-hidden">
+    <div className="bg-[#141210]/95 border border-[#C04A2A]/20 p-5 sm:p-8 lg:p-10 rounded-sm text-[#F0E8D8] relative overflow-visible">
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#C04A2A]/50 to-transparent opacity-50" />
       
       <div className="flex flex-col xl:flex-row justify-between xl:items-end mb-8 gap-4">
@@ -97,7 +100,7 @@ function TicketsAdmin() {
           </h2>
           <p className="text-[#F0E8D8]/60 text-sm">Utfärda och hantera biljetter för dina event.</p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
           <button 
             onClick={() => navigate({ to: '/admin/tickets/events' })}
             className="px-4 py-3 border border-[#C04A2A]/40 text-[#F0E8D8] text-[10px] uppercase tracking-[0.12em] font-medium rounded-sm hover:bg-[#C04A2A]/10 transition-all inline-flex items-center gap-2 justify-center whitespace-nowrap"
