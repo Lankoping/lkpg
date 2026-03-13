@@ -13,6 +13,18 @@ import { getUsersFn, getSessionFn } from '../../server/functions/auth'
 import { openAvgangPdf } from '../../lib/pdf-export'
 import { useState } from 'react'
 
+const stockholmDateFormatter = new Intl.DateTimeFormat('sv-SE', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  timeZone: 'Europe/Stockholm',
+})
+
+function formatStockholmDate(value: Date | string | null | undefined, fallback = '—') {
+  if (!value) return fallback
+  return stockholmDateFormatter.format(new Date(value))
+}
+
 export const Route = createFileRoute('/admin/avgang')({
   loader: async () => {
     const [requests, myPending, session] = await Promise.all([
@@ -205,7 +217,7 @@ function AvgangAdmin() {
                 <div key={req.id} className="flex items-center justify-between gap-4 p-4 bg-[#1A1816]/60 border border-[#C04A2A]/30 rounded-sm">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-[#F0E8D8] truncate">{req.namn}</p>
-                    <p className="text-sm text-[#F0E8D8]/60">{req.roll} — avgång {req.datum ? new Date(req.datum).toLocaleDateString('sv-SE') : '?'}</p>
+                    <p className="text-sm text-[#F0E8D8]/60">{req.roll} — avgång {formatStockholmDate(req.datum, '?')}</p>
                   </div>
                   {mySig && !mySig.signed ? (
                     <button
@@ -431,11 +443,11 @@ function AvgangAdmin() {
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div>
                           <p className="text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/50 mb-1">Avgångsdatum</p>
-                          <p className="text-sm text-[#F0E8D8]">{req.datum ? new Date(req.datum).toLocaleDateString('sv-SE') : '—'}</p>
+                          <p className="text-sm text-[#F0E8D8]">{formatStockholmDate(req.datum)}</p>
                         </div>
                         <div>
                           <p className="text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/50 mb-1">Registrerad</p>
-                          <p className="text-sm text-[#F0E8D8]">{req.createdAt ? new Date(req.createdAt).toLocaleDateString('sv-SE') : '—'}</p>
+                          <p className="text-sm text-[#F0E8D8]">{formatStockholmDate(req.createdAt)}</p>
                         </div>
                         {req.targetName && (
                           <div>
@@ -447,7 +459,7 @@ function AvgangAdmin() {
                           <div>
                             <p className="text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/50 mb-1">PDF genererad</p>
                             <p className="text-sm text-[#F0E8D8]/80">
-                              {new Date(req.generatedAt).toLocaleDateString('sv-SE')} av {req.generatedByName}
+                              {formatStockholmDate(req.generatedAt)} av {req.generatedByName}
                             </p>
                           </div>
                         )}

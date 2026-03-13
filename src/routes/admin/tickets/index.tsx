@@ -5,6 +5,17 @@ import { Plus, Trash2, CheckCircle, XCircle, Search, Ticket, Mail, User, Calenda
 import { useNavigate } from '@tanstack/react-router'
 import { QRCodeSVG } from 'qrcode.react'
 
+const stockholmTimeFormatter = new Intl.DateTimeFormat('sv-SE', {
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Stockholm',
+})
+
+function formatStockholmTime(value: Date | string | null | undefined, fallback = '') {
+  if (!value) return fallback
+  return stockholmTimeFormatter.format(new Date(value))
+}
+
 export const Route = createFileRoute('/admin/tickets/')({
   loader: async () => {
     const [tickets, events] = await Promise.all([
@@ -209,7 +220,7 @@ function TicketsAdmin() {
                     {ticket.scannedAt && (
                       <div className="flex flex-col mt-0.5">
                         <span className="text-[8px] text-[#F0E8D8]/30 uppercase tracking-tighter">
-                          Skannad: {new Date(ticket.scannedAt).toLocaleString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
+                          Skannad: {formatStockholmTime(ticket.scannedAt)}
                         </span>
                         {ticket.scannedByName && (
                           <span className="text-[8px] text-[#C04A2A]/40 font-bold uppercase tracking-widest mt-0.5 whitespace-nowrap">

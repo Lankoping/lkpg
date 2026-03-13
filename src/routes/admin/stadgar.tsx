@@ -152,6 +152,7 @@ function StadgarAdmin() {
           <h3 className="font-display text-lg tracking-wide text-[#F0E8D8]">Signatärer ({signers.length})</h3>
           {isOrganizer && (
             <button
+              type="button"
               onClick={() => setShowAddSigner(!showAddSigner)}
               className="text-[11px] uppercase tracking-[0.15em] text-[#C04A2A] hover:text-white transition-colors"
             >
@@ -176,6 +177,7 @@ function StadgarAdmin() {
               ))}
             </select>
             <button
+              type="button"
               onClick={handleAddSigner}
               disabled={isAddingSigner || selectedUserId === ''}
               className="px-4 py-3 bg-[#C04A2A] text-white text-[11px] uppercase tracking-[0.15em] font-medium rounded-sm hover:bg-[#A03A1A] transition-all disabled:opacity-50"
@@ -203,6 +205,7 @@ function StadgarAdmin() {
                     <p className="text-[#F0E8D8]/60 text-xs truncate">{signer.email}</p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleRemoveSigner(signer.userId)}
                     className="ml-2 text-red-500/50 hover:text-red-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity"
                   >
@@ -210,6 +213,7 @@ function StadgarAdmin() {
                   </button>
                 </div>
                 <button
+                  type="button"
                   onClick={() => handleSignatureToggle(signer.userId)}
                   disabled={signer.signed || signer.userId !== session?.id}
                   className={`w-full py-2 text-[11px] uppercase tracking-[0.1em] font-medium rounded-sm transition-all border ${
@@ -254,6 +258,7 @@ function StadgarAdmin() {
       <div className="flex gap-4 flex-wrap">
         {isOrganizer && (
           <button
+            type="button"
             onClick={handleSave}
             disabled={isSaving}
             className="px-6 py-3 bg-[#C04A2A] text-white text-[11px] uppercase tracking-[0.15em] font-medium rounded-sm hover:bg-[#A03A1A] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(192,74,42,0.3)]"
@@ -262,6 +267,7 @@ function StadgarAdmin() {
           </button>
         )}
         <button
+          type="button"
           onClick={handleExport}
           className="px-6 py-3 bg-[#C04A2A]/20 text-[#C04A2A] border border-[#C04A2A]/50 text-[11px] uppercase tracking-[0.15em] font-medium rounded-sm hover:bg-[#C04A2A]/30 transition-all"
         >

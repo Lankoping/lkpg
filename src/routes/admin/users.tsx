@@ -323,7 +323,7 @@ function AdminUsers() {
                 <p className="text-xs text-[#F0E8D8]/40 font-mono tracking-tight">{user.email}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.15em] text-[#F0E8D8]/35">
                   <span>ID {user.id}</span>
-                  <button onClick={() => handleCopyId(user.id)} className="text-[#C04A2A] hover:text-[#F0E8D8] transition-colors">
+                  <button type="button" onClick={() => handleCopyId(user.id)} className="text-[#C04A2A] hover:text-[#F0E8D8] transition-colors">
                     {copiedId === user.id ? 'Kopierat' : 'Kopiera ID'}
                   </button>
                   {user.active === false && <span className="text-red-400">Låst</span>}
@@ -331,6 +331,7 @@ function AdminUsers() {
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <button
+                  type="button"
                   onClick={() => handleStartEdit(user)}
                   className="px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium border border-[#C04A2A]/30 text-[#C04A2A] hover:border-[#C04A2A]/60 transition-colors"
                 >
@@ -338,6 +339,7 @@ function AdminUsers() {
                 </button>
                 {(user.role !== 'organizer' || user.id === currentUser?.id) && (
                   <button
+                    type="button"
                     onClick={() => {
                       setChangingPasswordId(user.id)
                       setNewPassword('')
@@ -350,6 +352,7 @@ function AdminUsers() {
                 )}
                 {user.id !== currentUser?.id && (
                   <button
+                    type="button"
                     onClick={() => handleDeleteUser(user.id)}
                     disabled={isDeletingId === user.id}
                     className="px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium border border-red-900/40 text-red-500/70 hover:text-red-500 hover:border-red-500/50 transition-colors disabled:opacity-50"
@@ -397,6 +400,7 @@ function AdminUsers() {
                 </div>
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => handleUpdateUser(user.id)}
                     disabled={isUpdatingId === user.id}
                     className="px-4 py-2 bg-[#C04A2A] text-white text-[10px] uppercase tracking-[0.15em] rounded-sm disabled:opacity-50"
@@ -404,6 +408,7 @@ function AdminUsers() {
                     {isUpdatingId === user.id ? 'Sparar...' : 'Spara anvandare'}
                   </button>
                   <button
+                    type="button"
                     onClick={() => setEditingUserId(null)}
                     className="px-4 py-2 border border-[#F0E8D8]/20 text-[#F0E8D8]/60 text-[10px] uppercase tracking-[0.15em] rounded-sm"
                   >
