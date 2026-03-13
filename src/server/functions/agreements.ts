@@ -443,7 +443,10 @@ export const markAgreementPhysicalFn = createServerFn({ method: 'POST' })
     }).parse(data)
   )
   .handler(async ({ data }) => {
-    const currentUser = await requireOrganizerUser()
+    const currentUser = await requireStaffUser({ allowPendingConfidentiality: true })
+    if (currentUser.role !== 'organizer') {
+      throw new Error('Forbidden')
+    }
     const db = await getDb()
     const current = await db.select().from(agreements).where(eq(agreements.id, data.id)).limit(1)
     if (!current[0]) {
@@ -519,7 +522,7 @@ export const markAgreementPhysicalFn = createServerFn({ method: 'POST' })
 export const recordAgreementPdfGenerationFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ id: z.number() }).parse(data))
   .handler(async ({ data }) => {
-    const currentUser = await requireStaffUser()
+    const currentUser = await requireStaffUser({ allowPendingConfidentiality: true })
     const db = await getDb()
     const current = await db.select().from(agreements).where(eq(agreements.id, data.id)).limit(1)
     if (!current[0]) {
