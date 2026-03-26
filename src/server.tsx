@@ -1,4 +1,4 @@
 import { createStartHandler } from '@tanstack/start/server'
-import { router } from './router'
+import { getRouter } from './router'
 
-export const handler = createStartHandler({ router })
+export default createStartHandler({ createRouter: getRouter })
