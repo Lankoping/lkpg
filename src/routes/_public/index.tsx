@@ -37,7 +37,7 @@ function Index() {
 
   return (
     <>
-      <ComingSoon heroData={heroData} infoSectionsData={infoSectionsData} />
+      <ComingSoon locale="sv" heroData={heroData} infoSectionsData={infoSectionsData} />
 
       {/* Latest Content Section */}
       <section className="bg-background border-t border-border">
