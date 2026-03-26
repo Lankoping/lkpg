@@ -197,8 +197,8 @@ function AvgangAdmin() {
     <div>
       {/* Page header */}
       <div className="mb-8">
-        <h2 className="font-display text-3xl tracking-wide text-[#F0E8D8] mb-2">Avgångar</h2>
-        <p className="text-[#F0E8D8]/60 text-sm">Hantera avgångsbegäran, digitala signaturer och fysisk utskrift</p>
+        <h2 className="font-display text-3xl tracking-wide text-foreground mb-2">Avgångar</h2>
+        <p className="text-muted-foreground text-sm">Hantera avgångsbegäran, digitala signaturer och fysisk utskrift.</p>
       </div>
 
       {/* Pending signatures for current user */}

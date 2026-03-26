@@ -16,7 +16,7 @@ ENV FOR_SITES=true
 # will auto-generate it synchronously during vite build
 RUN rm -f src/routeTree.gen.ts && npm run build:docker
 
-# Production image
+# Preview image
 FROM base AS release
 WORKDIR /app
 COPY --from=build /app/.output ./.output

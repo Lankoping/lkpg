@@ -60,51 +60,76 @@ function Index() {
     <>
       <ComingSoon locale="en" />
 
-      <section className="bg-[#100E0C] text-[#F0E8D8] border-t border-[#C04A2A]/20">
-        <div className="mx-auto max-w-6xl px-4 py-12 md:py-16">
-          <div className="mb-8 flex flex-col md:flex-row items-start md:items-end justify-between gap-4">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.28em] text-[#C04A2A] font-medium mb-3">Latest</p>
-              <h2 className="font-display text-4xl md:text-5xl tracking-wide text-[#F0E8D8]">Latest Blog & News</h2>
-            </div>
+      {/* Latest Content Section */}
+      <section className="bg-background border-t border-border">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="mb-12">
+            <p className="text-sm font-medium tracking-widest text-primary uppercase mb-3">Latest</p>
+            <h2 className="font-display text-4xl md:text-5xl text-foreground">Blog & News</h2>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <article className="relative group overflow-hidden rounded-sm border border-[#C04A2A]/20 bg-[#141210]/80 p-8 transition-all hover:bg-[#1A1816] hover:border-[#C04A2A]/50">
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#C04A2A]/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-              <p className="text-[10px] uppercase tracking-[0.28em] text-[#C04A2A] font-medium mb-4">Blog</p>
+          <div className="grid gap-8 md:grid-cols-2">
+            {/* Blog Card */}
+            <article className="group border border-border bg-card p-8 transition-all hover:border-primary/50">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-2 h-2 bg-primary" />
+                <span className="text-xs font-medium tracking-widest text-primary uppercase">Blog</span>
+              </div>
               {latestBlog ? (
                 <>
-                  <h3 className="font-display text-2xl md:text-3xl text-[#F0E8D8] tracking-wide mb-3">{latestBlog.title}</h3>
-                  <p className="text-xs text-[#F0E8D8]/50 font-serif italic text-lg mb-6">
+                  <h3 className="font-display text-2xl md:text-3xl text-foreground mb-3">
+                    {latestBlog.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
                     {latestBlog.createdAt ? new Date(latestBlog.createdAt).toLocaleDateString('en-GB') : ''}
                   </p>
-                  <p className="text-[#F0E8D8]/80 text-sm leading-relaxed mb-8">{latestBlog.excerpt || 'Read our latest blog post.'}</p>
-                  <a className="inline-flex items-center text-[11px] uppercase tracking-[0.1em] text-[#C04A2A] font-medium hover:text-[#F0E8D8] transition-colors" href={`/en/blogs/${latestBlog.slug}`}>
-                    Read post <span className="ml-2">→</span>
+                  <p className="text-muted-foreground leading-relaxed mb-6">
+                    {latestBlog.excerpt || 'Read our latest blog post.'}
+                  </p>
+                  <a 
+                    className="inline-flex items-center text-sm font-medium text-primary hover:text-foreground transition-colors" 
+                    href={`/en/blogs/${latestBlog.slug}`}
+                  >
+                    Read more
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
                   </a>
                 </>
               ) : (
-                <p className="text-[#F0E8D8]/50 text-sm">No blog posts published yet.</p>
+                <p className="text-muted-foreground">No blog posts published yet.</p>
               )}
             </article>
 
-            <article className="relative group overflow-hidden rounded-sm border border-[#C04A2A]/20 bg-[#141210]/80 p-8 transition-all hover:bg-[#1A1816] hover:border-[#C04A2A]/50">
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#C04A2A]/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-              <p className="text-[10px] uppercase tracking-[0.28em] text-[#C04A2A] font-medium mb-4">News</p>
+            {/* News Card */}
+            <article className="group border border-border bg-card p-8 transition-all hover:border-primary/50">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-2 h-2 bg-primary" />
+                <span className="text-xs font-medium tracking-widest text-primary uppercase">News</span>
+              </div>
               {latestNews ? (
                 <>
-                  <h3 className="font-display text-2xl md:text-3xl text-[#F0E8D8] tracking-wide mb-3">{latestNews.title}</h3>
-                  <p className="text-xs text-[#F0E8D8]/50 font-serif italic text-lg mb-6">
+                  <h3 className="font-display text-2xl md:text-3xl text-foreground mb-3">
+                    {latestNews.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
                     {latestNews.createdAt ? new Date(latestNews.createdAt).toLocaleDateString('en-GB') : ''}
                   </p>
-                  <p className="text-[#F0E8D8]/80 text-sm leading-relaxed mb-8">{latestNews.excerpt || 'Read our latest news update.'}</p>
-                  <a className="inline-flex items-center text-[11px] uppercase tracking-[0.1em] text-[#C04A2A] font-medium hover:text-[#F0E8D8] transition-colors" href={`/en/nyheter/${latestNews.slug}`}>
-                    Read update <span className="ml-2">→</span>
+                  <p className="text-muted-foreground leading-relaxed mb-6">
+                    {latestNews.excerpt || 'Read our latest news update.'}
+                  </p>
+                  <a 
+                    className="inline-flex items-center text-sm font-medium text-primary hover:text-foreground transition-colors" 
+                    href={`/en/nyheter/${latestNews.slug}`}
+                  >
+                    Read more
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
                   </a>
                 </>
               ) : (
-                <p className="text-[#F0E8D8]/50 text-sm">No news published yet.</p>
+                <p className="text-muted-foreground">No news published yet.</p>
               )}
             </article>
           </div>

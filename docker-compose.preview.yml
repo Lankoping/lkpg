@@ -1,0 +1,28 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.preview
+    container_name: lankoping-preview
+    restart: always
+    expose:
+      - "3000"
+    environment:
+      - PORT=3000
+      - NITRO_HOST=0.0.0.0
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lankoping-preview.rule=Host(`beta.lankoping.se`)"
+      - "traefik.http.routers.lankoping-preview.entrypoints=web,websecure"
+      - "traefik.http.routers.lankoping-preview.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lankoping-preview.loadbalancer.server.port=3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

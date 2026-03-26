@@ -319,8 +319,8 @@ Parterna bekräftar att uppgifterna ovan är korrekta och att köpet godkänns e
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="font-display text-3xl tracking-wide text-[#F0E8D8] mb-2">Avtal</h2>
-        <p className="text-[#F0E8D8]/60 text-sm">Bygg anpassade signerbara avtal och skicka dem till valda konton.</p>
+        <h2 className="font-display text-3xl tracking-wide text-foreground mb-2">Avtal</h2>
+        <p className="text-muted-foreground text-sm">Bygg anpassade signerbara avtal och skicka dem till valda konton.</p>
       </div>
 
       {filteredMyPending.length > 0 && (
