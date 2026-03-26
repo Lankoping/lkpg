@@ -22,32 +22,44 @@ async function translateWithGoogle(text: string, from = 'sv', to = 'en'): Promis
   const cached = translationCache.get(cacheKey)
   if (cached) return cached
 
-  const chunks = splitIntoChunks(text)
-  const translatedChunks: string[] = []
+  try {
+    const chunks = splitIntoChunks(text)
+    const translatedChunks: string[] = []
 
-  for (const chunk of chunks) {
-    const url =
-      'https://translate.googleapis.com/translate_a/single' +
-      `?client=gtx&sl=${encodeURIComponent(from)}&tl=${encodeURIComponent(to)}&dt=t&q=${encodeURIComponent(chunk)}`
+    for (const chunk of chunks) {
+      const url =
+        'https://translate.googleapis.com/translate_a/single' +
+        `?client=gtx&sl=${encodeURIComponent(from)}&tl=${encodeURIComponent(to)}&dt=t&q=${encodeURIComponent(chunk)}`
 
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`Google Translate request failed: ${response.status}`)
+      try {
+        const response = await fetch(url, { signal: AbortSignal.timeout(5000) })
+        if (!response.ok) {
+          console.warn(`[v0] Google Translate API returned ${response.status}, using original text`)
+          translatedChunks.push(chunk)
+          continue
+        }
+
+        const data = (await response.json()) as unknown
+        const translated = Array.isArray(data) && Array.isArray(data[0])
+          ? (data[0] as Array<Array<string>>)
+              .map((segment) => segment?.[0] ?? '')
+              .join('')
+          : chunk
+
+        translatedChunks.push(translated)
+      } catch (error) {
+        console.warn(`[v0] Translation failed for chunk, using original text`, error)
+        translatedChunks.push(chunk)
+      }
     }
 
-    const data = (await response.json()) as unknown
-    const translated = Array.isArray(data) && Array.isArray(data[0])
-      ? (data[0] as Array<Array<string>>)
-          .map((segment) => segment?.[0] ?? '')
-          .join('')
-      : chunk
-
-    translatedChunks.push(translated)
+    const translatedText = translatedChunks.join('')
+    translationCache.set(cacheKey, translatedText)
+    return translatedText
+  } catch (error) {
+    console.warn(`[v0] Translation failed, returning original text`, error)
+    return text
   }
-
-  const translatedText = translatedChunks.join('')
-  translationCache.set(cacheKey, translatedText)
-  return translatedText
 }
 
 function splitIntoChunks(text: string, maxChunkLength = 1000): string[] {
@@ -96,16 +108,28 @@ export const updateHeroContentFn = createServerFn({ method: 'POST' })
 
     const db = await getDb()
 
-    // Translate to English
-    const [eyebrowEn, headlineEn, taglineEn, descriptionEn, primaryButtonTextEn, secondaryButtonTextEn] = 
-      await Promise.all([
-        translateWithGoogle(data.eyebrow),
-        translateWithGoogle(data.headline),
-        translateWithGoogle(data.tagline),
-        translateWithGoogle(data.description),
-        translateWithGoogle(data.primaryButtonText),
-        data.secondaryButtonText ? translateWithGoogle(data.secondaryButtonText) : Promise.resolve(undefined),
-      ])
+    // Translate to English with error handling
+    let eyebrowEn = data.eyebrow
+    let headlineEn = data.headline
+    let taglineEn = data.tagline
+    let descriptionEn = data.description
+    let primaryButtonTextEn = data.primaryButtonText
+    let secondaryButtonTextEn = data.secondaryButtonText
+
+    try {
+      [eyebrowEn, headlineEn, taglineEn, descriptionEn, primaryButtonTextEn, secondaryButtonTextEn] = 
+        await Promise.all([
+          translateWithGoogle(data.eyebrow),
+          translateWithGoogle(data.headline),
+          translateWithGoogle(data.tagline),
+          translateWithGoogle(data.description),
+          translateWithGoogle(data.primaryButtonText),
+          data.secondaryButtonText ? translateWithGoogle(data.secondaryButtonText) : Promise.resolve(undefined),
+        ])
+    } catch (error) {
+      console.warn('[v0] Translation failed, using Swedish text for English fields', error)
+      // If translation fails, use Swedish text for English fields
+    }
 
     const existing = await db.select().from(heroContent).limit(1)
 
@@ -183,10 +207,17 @@ export const createInfoSectionFn = createServerFn({ method: 'POST' })
 
     const db = await getDb()
 
-    const [titleEn, descriptionEn] = await Promise.all([
-      translateWithGoogle(data.title),
-      translateWithGoogle(data.description),
-    ])
+    let titleEn = data.title
+    let descriptionEn = data.description
+
+    try {
+      [titleEn, descriptionEn] = await Promise.all([
+        translateWithGoogle(data.title),
+        translateWithGoogle(data.description),
+      ])
+    } catch (error) {
+      console.warn('[v0] Translation failed for info section, using Swedish text', error)
+    }
 
     const created = await db
       .insert(infoSections)
@@ -224,10 +255,17 @@ export const updateInfoSectionFn = createServerFn({ method: 'POST' })
 
     const db = await getDb()
 
-    const [titleEn, descriptionEn] = await Promise.all([
-      translateWithGoogle(data.title),
-      translateWithGoogle(data.description),
-    ])
+    let titleEn = data.title
+    let descriptionEn = data.description
+
+    try {
+      [titleEn, descriptionEn] = await Promise.all([
+        translateWithGoogle(data.title),
+        translateWithGoogle(data.description),
+      ])
+    } catch (error) {
+      console.warn('[v0] Translation failed for info section update, using Swedish text', error)
+    }
 
     const updated = await db
       .update(infoSections)
@@ -288,10 +326,17 @@ export const createTeamMemberFn = createServerFn({ method: 'POST' })
 
     const db = await getDb()
 
-    const [roleEn, descriptionEn] = await Promise.all([
-      translateWithGoogle(data.role),
-      translateWithGoogle(data.description),
-    ])
+    let roleEn = data.role
+    let descriptionEn = data.description
+
+    try {
+      [roleEn, descriptionEn] = await Promise.all([
+        translateWithGoogle(data.role),
+        translateWithGoogle(data.description),
+      ])
+    } catch (error) {
+      console.warn('[v0] Translation failed for team member, using Swedish text', error)
+    }
 
     const created = await db
       .insert(teamMembers)
@@ -329,10 +374,17 @@ export const updateTeamMemberFn = createServerFn({ method: 'POST' })
 
     const db = await getDb()
 
-    const [roleEn, descriptionEn] = await Promise.all([
-      translateWithGoogle(data.role),
-      translateWithGoogle(data.description),
-    ])
+    let roleEn = data.role
+    let descriptionEn = data.description
+
+    try {
+      [roleEn, descriptionEn] = await Promise.all([
+        translateWithGoogle(data.role),
+        translateWithGoogle(data.description),
+      ])
+    } catch (error) {
+      console.warn('[v0] Translation failed for team member update, using Swedish text', error)
+    }
 
     const updated = await db
       .update(teamMembers)
