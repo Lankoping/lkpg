@@ -102,7 +102,7 @@ export function InfoSectionsPageClient({ initialSections }: { initialSections: I
 
     setLoading(true)
     try {
-      await deleteInfoSectionFn(id)
+      await deleteInfoSectionFn({ data: id })
       setSections(sections.filter(s => s.id !== id))
       setMessage('Section deleted successfully!')
       setTimeout(() => setMessage(''), 2000)

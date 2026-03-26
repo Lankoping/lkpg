@@ -102,7 +102,7 @@ export function TeamPageClient({ initialMembers }: { initialMembers: TeamMember[
 
     setLoading(true)
     try {
-      await deleteTeamMemberFn(id)
+      await deleteTeamMemberFn({ data: id })
       setMembers(members.filter(m => m.id !== id))
       setMessage('Team member deleted successfully!')
       setTimeout(() => setMessage(''), 2000)

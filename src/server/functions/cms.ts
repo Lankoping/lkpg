@@ -287,9 +287,7 @@ export const updateInfoSectionFn = createServerFn({ method: 'POST' })
   })
 
 export const deleteInfoSectionFn = createServerFn({ method: 'POST' })
-  .inputValidator((data: unknown) => {
-    return z.number().parse(data)
-  })
+  .inputValidator((id: number) => z.number().parse(id))
   .handler(async ({ data: id }) => {
     await requireOrganizerUser()
 
@@ -407,9 +405,7 @@ export const updateTeamMemberFn = createServerFn({ method: 'POST' })
   })
 
 export const deleteTeamMemberFn = createServerFn({ method: 'POST' })
-  .inputValidator((data: unknown) => {
-    return z.number().parse(data)
-  })
+  .inputValidator((id: number) => z.number().parse(id))
   .handler(async ({ data: id }) => {
     await requireOrganizerUser()
 
