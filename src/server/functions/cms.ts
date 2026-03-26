@@ -287,14 +287,15 @@ export const updateInfoSectionFn = createServerFn({ method: 'POST' })
   })
 
 export const deleteInfoSectionFn = createServerFn({ method: 'POST' })
-  .inputValidator((id: number) => z.number().parse(id))
+  .inputValidator((data: unknown) => {
+    return z.number().parse(data)
+  })
   .handler(async ({ data: id }) => {
     await requireOrganizerUser()
 
     const db = await getDb()
     return await db
-      .update(infoSections)
-      .set({ isActive: false })
+      .delete(infoSections)
       .where(eq(infoSections.id, id))
       .returning()
   })
@@ -406,14 +407,15 @@ export const updateTeamMemberFn = createServerFn({ method: 'POST' })
   })
 
 export const deleteTeamMemberFn = createServerFn({ method: 'POST' })
-  .inputValidator((id: number) => z.number().parse(id))
+  .inputValidator((data: unknown) => {
+    return z.number().parse(data)
+  })
   .handler(async ({ data: id }) => {
     await requireOrganizerUser()
 
     const db = await getDb()
     return await db
-      .update(teamMembers)
-      .set({ isActive: false })
+      .delete(teamMembers)
       .where(eq(teamMembers.id, id))
       .returning()
   })
