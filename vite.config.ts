@@ -9,12 +9,6 @@ import { nitroV2Plugin } from '@tanstack/nitro-v2-vite-plugin'
 const forSites = process.env?.FOR_SITES === 'true'
 
 const config = defineConfig({
-  resolve: {
-    alias: {
-      '#tanstack-router-entry': '/src/entry.client.tsx',
-      '#tanstack-start-entry': '/src/entry.start.tsx',
-    },
-  },
   plugins: [
     tanstackStart(),
     // this is the plugin that enables path aliases
