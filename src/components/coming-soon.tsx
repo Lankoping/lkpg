@@ -40,9 +40,8 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-display text-2xl tracking-tight text-primary">L</span>
-            <span className="font-display text-2xl tracking-tight text-foreground">ANKOPING</span>
+          <div className="flex items-center">
+            <span className="font-display text-2xl tracking-tight text-foreground">Lanköping</span>
           </div>
           <nav className="hidden md:flex items-center gap-8">
             <Link to={`${basePath}/rules`} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -176,9 +175,8 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
       <footer className="border-t border-border">
         <div className="max-w-6xl mx-auto px-6 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <span className="font-display text-lg text-primary">L</span>
-              <span className="font-display text-lg text-foreground">ANKOPING</span>
+            <div className="flex items-center">
+              <span className="font-display text-lg text-foreground">Lanköping</span>
               <span className="text-muted-foreground text-sm">.se</span>
             </div>
             <nav className="flex items-center gap-6 md:hidden">
