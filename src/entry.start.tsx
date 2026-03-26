@@ -1,3 +1,3 @@
 import { getRouter } from './router'
 
-export const router = getRouter()
+export const createRouter = getRouter

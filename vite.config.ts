@@ -10,7 +10,13 @@ const forSites = process.env?.FOR_SITES === 'true'
 
 const config = defineConfig({
   plugins: [
-    tanstackStart(),
+    tanstackStart({
+      defaultEntryPaths: {
+        client: './src/entry.client.tsx',
+        server: './src/entry.server.tsx',
+        start: './src/entry.start.tsx',
+      },
+    }),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({
       projects: ['./tsconfig.json'],
