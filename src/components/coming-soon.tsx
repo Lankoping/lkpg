@@ -17,7 +17,7 @@ const contentByLocale = {
     rulesLabel: 'Regler',
     teamLabel: 'Team',
     privacyLabel: 'Integritet',
-    rights: 'Alla rattigheter forbehallna',
+    rights: 'Alla rättigheter förbehållna',
   },
   en: {
     eyebrow: 'LAN Event in Norrkoping',
@@ -191,7 +191,7 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
               </Link>
             </nav>
             <p className="text-sm text-muted-foreground">
-              © 2026 Lankoping.se — {content.rights}
+              © 2026 Lanköping.se — {content.rights}
             </p>
           </div>
         </div>
