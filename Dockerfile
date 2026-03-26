@@ -14,7 +14,7 @@ COPY . .
 ENV FOR_SITES=true
 # Remove any pre-existing generated route tree — tanstackStart() plugin
 # will auto-generate it synchronously during vite build
-RUN rm -f src/routeTree.gen.ts && npx vite build
+RUN rm -f src/routeTree.gen.ts && npm run build:docker
 
 # Production image
 FROM base AS release

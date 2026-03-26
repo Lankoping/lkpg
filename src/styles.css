@@ -10,22 +10,22 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #0A0908;
+  background: #F8F7F5;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2A2825;
+  background: #D0CCC7;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3A3835;
+  background: #B8B3AC;
 }
 
 /* For Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2A2825 #0A0908;
+  scrollbar-color: #D0CCC7 #F8F7F5;
 }
 
 body {
@@ -46,48 +46,48 @@ code {
 }
 
 :root {
-  --background: #0A0908;
-  --foreground: #F5F3F0;
-  --card: #121110;
-  --card-foreground: #F5F3F0;
-  --popover: #121110;
-  --popover-foreground: #F5F3F0;
-  --primary: #C04A2A;
-  --primary-foreground: #F5F3F0;
-  --secondary: #1C1B19;
-  --secondary-foreground: #F5F3F0;
-  --muted: #1C1B19;
-  --muted-foreground: rgba(245, 243, 240, 0.6);
-  --accent: #C04A2A;
-  --accent-foreground: #F5F3F0;
-  --destructive: #7A2B1E;
-  --destructive-foreground: #F5F3F0;
-  --border: rgba(245, 243, 240, 0.1);
-  --input: rgba(245, 243, 240, 0.1);
-  --ring: rgba(192, 74, 42, 0.5);
+  --background: #F8F7F5;
+  --foreground: #1A1815;
+  --card: #FFFFFF;
+  --card-foreground: #1A1815;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1815;
+  --primary: #D64A35;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E8E5E0;
+  --secondary-foreground: #1A1815;
+  --muted: #D0CCC7;
+  --muted-foreground: rgba(26, 24, 21, 0.6);
+  --accent: #D64A35;
+  --accent-foreground: #FFFFFF;
+  --destructive: #A83D2D;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(26, 24, 21, 0.1);
+  --input: rgba(26, 24, 21, 0.1);
+  --ring: rgba(214, 74, 53, 0.5);
   --radius: 0.25rem;
 }
 
 .dark {
-  --background: #0A0908;
-  --foreground: #F5F3F0;
-  --card: #121110;
-  --card-foreground: #F5F3F0;
-  --popover: #121110;
-  --popover-foreground: #F5F3F0;
-  --primary: #C04A2A;
-  --primary-foreground: #F5F3F0;
-  --secondary: #1C1B19;
-  --secondary-foreground: #F5F3F0;
-  --muted: #1C1B19;
-  --muted-foreground: rgba(245, 243, 240, 0.6);
-  --accent: #C04A2A;
-  --accent-foreground: #F5F3F0;
-  --destructive: #7A2B1E;
-  --destructive-foreground: #F5F3F0;
-  --border: rgba(245, 243, 240, 0.1);
-  --input: rgba(245, 243, 240, 0.1);
-  --ring: rgba(192, 74, 42, 0.5);
+  --background: #F8F7F5;
+  --foreground: #1A1815;
+  --card: #FFFFFF;
+  --card-foreground: #1A1815;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1815;
+  --primary: #D64A35;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E8E5E0;
+  --secondary-foreground: #1A1815;
+  --muted: #D0CCC7;
+  --muted-foreground: rgba(26, 24, 21, 0.6);
+  --accent: #D64A35;
+  --accent-foreground: #FFFFFF;
+  --destructive: #A83D2D;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(26, 24, 21, 0.1);
+  --input: rgba(26, 24, 21, 0.1);
+  --ring: rgba(214, 74, 53, 0.5);
 }
 
 @theme inline {
