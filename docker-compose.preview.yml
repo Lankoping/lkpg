@@ -1,5 +1,5 @@
 services:
-  preview:
+  web:
     build:
       context: .
       dockerfile: Dockerfile.preview
