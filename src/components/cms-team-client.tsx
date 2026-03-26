@@ -1,5 +1,3 @@
-'use client'
-
 import { useState } from 'react'
 import { createTeamMemberFn, updateTeamMemberFn, deleteTeamMemberFn } from '../server/functions/cms'
 import { Loader2, Trash2, Edit2, Plus } from 'lucide-react'
