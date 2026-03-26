@@ -1,12 +1,25 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft, ShieldAlert, MessageSquareText } from 'lucide-react'
+import { getPageBySlugFn } from '../../server/functions/cms'
 
 export const Route = createFileRoute('/_public/rules')({
+  loader: async () => {
+    try {
+      const rulesPage = await getPageBySlugFn({ data: 'rules' })
+      return { rulesPage }
+    } catch (error) {
+      console.error('[v0] Error loading rules page:', error)
+      return { rulesPage: null }
+    }
+  },
   component: RulesPage,
 })
 
 function RulesPage() {
-  const eventRules = [
+  const { rulesPage } = Route.useLoaderData()
+
+  // Fallback content if database is empty
+  const fallbackEventRules = [
     'Ingen alkohol eller droger. Det ar inte tillatet att ta med, anvanda eller salja droger eller andra berusningsmedel under eventet.',
     'Nolltolerans mot trakasserier. Inget hat, hot, diskriminering, mobbning eller sexuella trakasserier. Respektera allas granser.',
     'Var schysst och visa hansyn. Hall en trevlig ton, bade pa plats och online (till exempel i Discord).',
@@ -19,7 +32,7 @@ function RulesPage() {
     'Konsekvenser. Vid regelbrott kan du fa varning, bli avstangd fran eventet och vid allvarliga incidenter kan polis kontaktas.',
   ]
 
-  const discordRules = [
+  const fallbackDiscordRules = [
     'Samma regler som pa plats. Nolltolerans mot trakasserier, hat, hot och diskriminering.',
     'Hall dig till ratt kanal. Skriv i ratt textkanal och hall rostsamtal i ratt voice.',
     'Inga spoilers eller NSFW. Inget sexuellt innehall, gore eller annat olampligt material.',
@@ -62,7 +75,7 @@ function RulesPage() {
           </div>
           
           <div className="space-y-4">
-            {eventRules.map((rule, i) => (
+            {fallbackEventRules.map((rule, i) => (
               <div 
                 key={i} 
                 className="flex gap-4 p-4 border border-border bg-card hover:border-primary/30 transition-colors"
@@ -86,7 +99,7 @@ function RulesPage() {
           </div>
           
           <div className="space-y-4">
-            {discordRules.map((rule, i) => (
+            {fallbackDiscordRules.map((rule, i) => (
               <div 
                 key={i} 
                 className="flex gap-4 p-4 border border-border bg-card hover:border-primary/30 transition-colors"

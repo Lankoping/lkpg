@@ -1,25 +1,41 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ArrowLeft, Crown, Code } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import { getTeamMembersFn } from '../../server/functions/cms'
+import * as Icons from 'lucide-react'
+
+// Map icon names to lucide-react components
+function getIconByName(iconName: string) {
+  const iconMap: Record<string, React.ComponentType<any>> = {
+    Crown: Icons.Crown,
+    Code: Icons.Code,
+    Heart: Icons.Heart,
+    Star: Icons.Star,
+    Zap: Icons.Zap,
+    Shield: Icons.Shield,
+    Target: Icons.Target,
+    Trophy: Icons.Trophy,
+    Flame: Icons.Flame,
+    Users: Icons.Users,
+    Gamepad2: Icons.Gamepad2,
+  }
+  return iconMap[iconName] || Icons.User
+}
 
 export const Route = createFileRoute('/_public/team')({
+  loader: async () => {
+    try {
+      const members = await getTeamMembersFn()
+      return { teamMembers: members }
+    } catch (error) {
+      console.error('[v0] Error loading team members:', error)
+      return { teamMembers: [] }
+    }
+  },
   component: TeamPage,
 })
 
 function TeamPage() {
-  const teamMembers = [
-    {
-      name: 'Nauticalis',
-      role: 'Organisator',
-      desc: 'Driver visionen och koordinerar arbetet kring Lanköping.',
-      icon: Crown,
-    },
-    {
-      name: 'El4s',
-      role: 'Organisator',
-      desc: 'Hjarnan bakom koden och arkitekturen for denna webbplats.',
-      icon: Code,
-    },
-  ]
+  const { teamMembers } = Route.useLoaderData()
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -55,21 +71,30 @@ function TeamPage() {
 
         {/* Team Members */}
         <section className="mb-16">
-          <div className="grid gap-6 md:grid-cols-2">
-            {teamMembers.map((member) => (
-              <div 
-                key={member.name}
-                className="p-8 border border-border bg-card hover:border-primary/30 transition-colors"
-              >
-                <div className="w-12 h-12 flex items-center justify-center bg-secondary mb-6">
-                  <member.icon className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-display text-2xl text-primary mb-1">{member.name}</h3>
-                <p className="text-sm text-muted-foreground uppercase tracking-wide mb-4">{member.role}</p>
-                <p className="text-foreground/80 leading-relaxed">{member.desc}</p>
-              </div>
-            ))}
-          </div>
+          {teamMembers.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-2">
+              {teamMembers.map((member) => {
+                const IconComponent = getIconByName(member.icon)
+                return (
+                  <div 
+                    key={member.id}
+                    className="p-8 border border-border bg-card hover:border-primary/30 transition-colors"
+                  >
+                    <div className="w-12 h-12 flex items-center justify-center bg-secondary mb-6">
+                      <IconComponent className="w-6 h-6 text-primary" />
+                    </div>
+                    <h3 className="font-display text-2xl text-primary mb-1">{member.name}</h3>
+                    <p className="text-sm text-muted-foreground uppercase tracking-wide mb-4">{member.role}</p>
+                    <p className="text-foreground/80 leading-relaxed">{member.description}</p>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="p-8 border border-border bg-card text-center text-muted-foreground">
+              Inga teammedlemmar tillgangliga for tillfallet.
+            </div>
+          )}
         </section>
 
         {/* Footer */}

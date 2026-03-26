@@ -1,11 +1,23 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft, ShieldCheck, Info, Clock } from 'lucide-react'
+import { getPageBySlugFn } from '../../server/functions/cms'
 
 export const Route = createFileRoute('/_public/privacy')({
+  loader: async () => {
+    try {
+      const privacyPage = await getPageBySlugFn({ data: 'privacy' })
+      return { privacyPage }
+    } catch (error) {
+      console.error('[v0] Error loading privacy page:', error)
+      return { privacyPage: null }
+    }
+  },
   component: PrivacyPage,
 })
 
 function PrivacyPage() {
+  const { privacyPage } = Route.useLoaderData()
+
   const collectionItems = [
     { 
       title: 'E-postadress', 

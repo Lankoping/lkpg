@@ -126,6 +126,7 @@ function AdminLayout() {
   const navItems = [
     ...(isOrganizer && !isDemoTester ? [{ href: '/admin', label: 'Översikt' }] : []),
     ...(isOrganizer && !isDemoTester ? [{ href: '/admin/posts', label: 'Inlägg' }] : []),
+    ...(isOrganizer ? [{ href: '/admin/cms', label: 'CMS' }] : []),
     ...(isOrganizer ? [{ href: '/admin/users', label: 'Användare' }] : []),
     ...(isOrganizer ? [{ href: '/admin/stadgar', label: 'Stadgar' }] : []),
     { href: '/admin/avgang', label: 'Avgång', badge: pendingCount },

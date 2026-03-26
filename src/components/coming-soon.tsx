@@ -1,14 +1,38 @@
 'use client'
 
 import { Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { getHeroContentFn, getInfoSectionsFn } from '@/server/functions/cms'
+import * as Icons from 'lucide-react'
+
+// Map icon names to lucide-react components
+function getIconByName(iconName: string) {
+  const iconMap: Record<string, React.ComponentType<any>> = {
+    MapPin: Icons.MapPin,
+    Users: Icons.Users,
+    Gamepad2: Icons.Gamepad2,
+    Crown: Icons.Crown,
+    Code: Icons.Code,
+    Heart: Icons.Heart,
+    Star: Icons.Star,
+    Zap: Icons.Zap,
+    Shield: Icons.Shield,
+    Target: Icons.Target,
+    Trophy: Icons.Trophy,
+    Flame: Icons.Flame,
+  }
+  return iconMap[iconName] || null
+}
 
 type Locale = 'sv' | 'en'
 
 interface ComingSoonProps {
   locale?: Locale
+  heroData?: Awaited<ReturnType<typeof getHeroContentFn>> | null
+  infoSectionsData?: Awaited<ReturnType<typeof getInfoSectionsFn>> | null
 }
 
-const contentByLocale = {
+const fallbackContent = {
   sv: {
     eyebrow: 'LAN-Event i Norrkoping',
     headline: 'Lanköping',
@@ -31,10 +55,27 @@ const contentByLocale = {
   },
 } as const
 
-export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
-  const content = contentByLocale[locale]
+export function ComingSoon({ locale = 'sv', heroData, infoSectionsData }: ComingSoonProps) {
   const basePath = locale === 'en' ? '/en' : ''
+  
+  const content = {
+    eyebrow: locale === 'en' ? heroData?.eyebrowEn || fallbackContent.en.eyebrow : heroData?.eyebrow || fallbackContent.sv.eyebrow,
+    headline: locale === 'en' ? heroData?.headlineEn || fallbackContent.en.headline : heroData?.headline || fallbackContent.sv.headline,
+    tagline: locale === 'en' ? heroData?.taglineEn || fallbackContent.en.tagline : heroData?.tagline || fallbackContent.sv.tagline,
+    description: locale === 'en' ? heroData?.descriptionEn || fallbackContent.en.description : heroData?.description || fallbackContent.sv.description,
+    primaryButtonText: locale === 'en' ? heroData?.primaryButtonTextEn || fallbackContent.en.rulesLabel : heroData?.primaryButtonText || fallbackContent.sv.rulesLabel,
+    primaryButtonLink: heroData?.primaryButtonLink || 'https://discord.gg/h8wuaqyBwT',
+    secondaryButtonText: heroData?.secondaryButtonText,
+    secondaryButtonLink: heroData?.secondaryButtonLink || 'https://www.youtube.com/@LANKPNG',
+    rulesLabel: locale === 'en' ? fallbackContent.en.rulesLabel : fallbackContent.sv.rulesLabel,
+    teamLabel: locale === 'en' ? fallbackContent.en.teamLabel : fallbackContent.sv.teamLabel,
+    privacyLabel: locale === 'en' ? fallbackContent.en.privacyLabel : fallbackContent.sv.privacyLabel,
+    rights: locale === 'en' ? fallbackContent.en.rights : fallbackContent.sv.rights,
+  }
+  
+  const infoSections = infoSectionsData || []
 
+  
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -94,25 +135,26 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
               {content.description}
             </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            {/* Primary Button */}
+            <a 
+              href={content.primaryButtonLink} 
+              target={content.primaryButtonLink.startsWith('http') ? '_blank' : undefined}
+              rel={content.primaryButtonLink.startsWith('http') ? 'noopener noreferrer' : undefined}
+              className="px-8 py-3 bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+            >
+              {content.primaryButtonText}
+            </a>
+            {/* Secondary Button */}
+            {content.secondaryButtonText && (
               <a 
-                href="https://discord.gg/h8wuaqyBwT" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="px-8 py-3 bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
-              >
-                {locale === 'sv' ? 'Ga med i Discord' : 'Join Discord'}
-              </a>
-              <a 
-                href="https://www.youtube.com/@LANKPNG" 
+                href={content.secondaryButtonLink} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="px-8 py-3 border border-border text-foreground font-medium hover:bg-secondary transition-colors"
               >
-                YouTube
+                {content.secondaryButtonText}
               </a>
-            </div>
+            )}
           </div>
         </section>
 
@@ -120,52 +162,78 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
         <section className="border-t border-border">
           <div className="max-w-6xl mx-auto px-6 py-24">
             <div className="grid md:grid-cols-3 gap-12">
-              <div>
-                <div className="w-10 h-10 flex items-center justify-center bg-secondary mb-4">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-                <h3 className="font-display text-xl mb-2 text-foreground">
-                  {locale === 'sv' ? 'NORRKOPING' : 'NORRKOPING'}
-                </h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  {locale === 'sv' 
-                    ? 'Vart forsta event kommer hallas i Norrkoping, Ostergotland.'
-                    : 'Our first event will be held in Norrkoping, Ostergotland.'}
-                </p>
-              </div>
-              <div>
-                <div className="w-10 h-10 flex items-center justify-center bg-secondary mb-4">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                  </svg>
-                </div>
-                <h3 className="font-display text-xl mb-2 text-foreground">
-                  {locale === 'sv' ? 'GEMENSKAP' : 'COMMUNITY'}
-                </h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  {locale === 'sv'
-                    ? 'En plats for gamers att traffas, tavla och ha kul tillsammans.'
-                    : 'A place for gamers to meet, compete and have fun together.'}
-                </p>
-              </div>
-              <div>
-                <div className="w-10 h-10 flex items-center justify-center bg-secondary mb-4">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h3 className="font-display text-xl mb-2 text-foreground">
-                  {locale === 'sv' ? 'LAN-PARTY' : 'LAN PARTY'}
-                </h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  {locale === 'sv'
-                    ? 'Ta med din dator och njut av en helg fylld med gaming.'
-                    : 'Bring your computer and enjoy a weekend full of gaming.'}
-                </p>
-              </div>
+              {infoSections.length > 0 ? (
+                infoSections.map((section) => {
+                  const IconComponent = getIconByName(section.icon)
+                  const title = locale === 'en' ? section.titleEn || section.title : section.title
+                  const desc = locale === 'en' ? section.descriptionEn || section.description : section.description
+                  
+                  return (
+                    <div key={section.id}>
+                      <div className="w-10 h-10 flex items-center justify-center bg-secondary mb-4">
+                        {IconComponent ? (
+                          <IconComponent className="w-5 h-5 text-primary" />
+                        ) : (
+                          <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" />
+                          </svg>
+                        )}
+                      </div>
+                      <h3 className="font-display text-xl mb-2 text-foreground">{title.toUpperCase()}</h3>
+                      <p className="text-muted-foreground text-sm leading-relaxed">{desc}</p>
+                    </div>
+                  )
+                })
+              ) : (
+                <>
+                  <div>
+                    <div className="w-10 h-10 flex items-center justify-center bg-secondary mb-4">
+                      <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-display text-xl mb-2 text-foreground">
+                      {locale === 'sv' ? 'NORRKOPING' : 'NORRKOPING'}
+                    </h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {locale === 'sv' 
+                        ? 'Vart forsta event kommer hallas i Norrkoping, Ostergotland.'
+                        : 'Our first event will be held in Norrkoping, Ostergotland.'}
+                    </p>
+                  </div>
+                  <div>
+                    <div className="w-10 h-10 flex items-center justify-center bg-secondary mb-4">
+                      <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-display text-xl mb-2 text-foreground">
+                      {locale === 'sv' ? 'GEMENSKAP' : 'COMMUNITY'}
+                    </h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {locale === 'sv'
+                        ? 'En plats for gamers att traffas, tavla och ha kul tillsammans.'
+                        : 'A place for gamers to meet, compete and have fun together.'}
+                    </p>
+                  </div>
+                  <div>
+                    <div className="w-10 h-10 flex items-center justify-center bg-secondary mb-4">
+                      <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-display text-xl mb-2 text-foreground">
+                      {locale === 'sv' ? 'LAN-PARTY' : 'LAN PARTY'}
+                    </h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {locale === 'sv'
+                        ? 'Ta med din dator och njut av en helg fylld med gaming.'
+                        : 'Bring your computer and enjoy a weekend full of gaming.'}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </section>
