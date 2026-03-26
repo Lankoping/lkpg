@@ -59,13 +59,13 @@ export function ComingSoon({ locale = 'sv', heroData, infoSectionsData }: Coming
   const basePath = locale === 'en' ? '/en' : ''
   
   const content = {
-    eyebrow: locale === 'en' ? heroData?.eyebrowEn || fallbackContent.en.eyebrow : heroData?.eyebrow || fallbackContent.sv.eyebrow,
-    headline: locale === 'en' ? heroData?.headlineEn || fallbackContent.en.headline : heroData?.headline || fallbackContent.sv.headline,
-    tagline: locale === 'en' ? heroData?.taglineEn || fallbackContent.en.tagline : heroData?.tagline || fallbackContent.sv.tagline,
-    description: locale === 'en' ? heroData?.descriptionEn || fallbackContent.en.description : heroData?.description || fallbackContent.sv.description,
-    primaryButtonText: locale === 'en' ? heroData?.primaryButtonTextEn || fallbackContent.en.rulesLabel : heroData?.primaryButtonText || fallbackContent.sv.rulesLabel,
+    eyebrow: locale === 'en' ? (heroData?.eyebrowEn || heroData?.eyebrow || fallbackContent.en.eyebrow) : (heroData?.eyebrow || fallbackContent.sv.eyebrow),
+    headline: locale === 'en' ? (heroData?.headlineEn || heroData?.headline || fallbackContent.en.headline) : (heroData?.headline || fallbackContent.sv.headline),
+    tagline: locale === 'en' ? (heroData?.taglineEn || heroData?.tagline || fallbackContent.en.tagline) : (heroData?.tagline || fallbackContent.sv.tagline),
+    description: locale === 'en' ? (heroData?.descriptionEn || heroData?.description || fallbackContent.en.description) : (heroData?.description || fallbackContent.sv.description),
+    primaryButtonText: locale === 'en' ? (heroData?.primaryButtonTextEn || heroData?.primaryButtonText || fallbackContent.en.rulesLabel) : (heroData?.primaryButtonText || fallbackContent.sv.rulesLabel),
     primaryButtonLink: heroData?.primaryButtonLink || 'https://discord.gg/h8wuaqyBwT',
-    secondaryButtonText: heroData?.secondaryButtonText,
+    secondaryButtonText: locale === 'en' ? heroData?.secondaryButtonTextEn : heroData?.secondaryButtonText,
     secondaryButtonLink: heroData?.secondaryButtonLink || 'https://www.youtube.com/@LANKPNG',
     rulesLabel: locale === 'en' ? fallbackContent.en.rulesLabel : fallbackContent.sv.rulesLabel,
     teamLabel: locale === 'en' ? fallbackContent.en.teamLabel : fallbackContent.sv.teamLabel,
