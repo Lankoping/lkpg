@@ -10,12 +10,12 @@ const forSites = process.env?.FOR_SITES === 'true'
 
 const config = defineConfig({
   plugins: [
+    tanstackStart(),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({
       projects: ['./tsconfig.json'],
     }),
     tailwindcss(),
-    tanstackStart(),
     forSites &&
       nitroV2Plugin({
         compatibilityDate: '2025-10-08',
