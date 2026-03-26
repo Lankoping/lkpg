@@ -36,7 +36,7 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
   const basePath = locale === 'en' ? '/en' : ''
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="flex flex-col min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -67,8 +67,8 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <main className="pt-20">
+      {/* Main Content - grows to fill available space */}
+      <main className="flex-1 pt-20">
         <section className="min-h-[80vh] flex flex-col items-center justify-center px-6 py-24">
           <div className="max-w-4xl mx-auto text-center">
             {/* Eyebrow */}
@@ -171,10 +171,10 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+      {/* Footer - stays at bottom */}
+      <footer className="border-t border-border mt-auto">
+        <div className="max-w-6xl mx-auto px-6 py-12">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="flex items-center">
               <span className="font-display text-lg text-foreground">Lanköping</span>
               <span className="text-muted-foreground text-sm">.se</span>
@@ -190,7 +190,7 @@ export function ComingSoon({ locale = 'sv' }: ComingSoonProps) {
                 {content.privacyLabel}
               </Link>
             </nav>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground text-center md:text-right">
               © 2026 Lanköping.se — {content.rights}
             </p>
           </div>
