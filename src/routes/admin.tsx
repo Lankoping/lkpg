@@ -1,29 +1,19 @@
 import { createFileRoute, Link, Outlet, redirect, useRouter } from '@tanstack/react-router'
 import { getSessionFn, logoutFn, updateProfileFn } from '../server/functions/auth'
-import { getMyPendingSignaturesFn } from '../server/functions/avgang'
-import { getMyPendingAgreementSignaturesFn } from '../server/functions/agreements'
 import { useState } from 'react'
 import {
   LayoutDashboard,
   FileText,
   Users,
-  ScrollText,
   LogOut,
   Settings,
   Ticket,
-  FileSignature,
-  ClipboardList,
   History,
   ChevronDown,
   ChevronRight,
   Palette,
-  Home,
-  UsersRound,
-  Layers,
   Menu,
   X,
-  Globe,
-  Navigation,
   ExternalLink
 } from 'lucide-react'
 
@@ -44,7 +34,7 @@ export const Route = createFileRoute('/admin')({
     }
 
     if (user.role === 'volunteer' && (location.pathname === '/admin' || location.pathname === '/admin/')) {
-      throw redirect({ to: '/admin/avgang' })
+      throw redirect({ to: '/admin/tickets' })
     }
 
     const isDemoTester = Boolean((user as { isDemoTester?: boolean }).isDemoTester)
@@ -62,11 +52,7 @@ export const Route = createFileRoute('/admin')({
     return { user }
   },
   loader: async ({ context: { user } }) => {
-    const [pendingCount, agreementPendingCount] = await Promise.all([
-      getMyPendingSignaturesFn().then(r => r.length).catch(() => 0),
-      getMyPendingAgreementSignaturesFn().then(r => r.length).catch(() => 0),
-    ])
-    return { user, pendingCount, agreementPendingCount }
+    return { user }
   },
   component: AdminLayout,
 })
@@ -156,7 +142,7 @@ function SubNavItem({ href, label, badge }: { href: string; label: string; badge
 }
 
 function AdminLayout() {
-  const { user, pendingCount, agreementPendingCount } = Route.useLoaderData()
+  const { user } = Route.useLoaderData()
   const router = useRouter()
   const [editingName, setEditingName] = useState(false)
   const [name, setName] = useState(user.name || '')
@@ -256,11 +242,6 @@ function AdminLayout() {
               {isOrganizer && (
                 <NavItem href="/admin/users" label="Användare" icon={<Users className="w-5 h-5" />} />
               )}
-              {isOrganizer && (
-                <NavItem href="/admin/stadgar" label="Stadgar" icon={<ScrollText className="w-5 h-5" />} />
-              )}
-              <NavItem href="/admin/avgang" label="Avgång" icon={<FileSignature className="w-5 h-5" />} badge={pendingCount} />
-              <NavItem href="/admin/avtal" label="Avtal" icon={<ClipboardList className="w-5 h-5" />} badge={agreementPendingCount} />
             </div>
 
             {/* Events & Tickets */}
