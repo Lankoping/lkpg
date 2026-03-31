@@ -22,9 +22,9 @@ import {
   Layers,
   Menu,
   X,
-  Bell,
-  Search,
-  Globe
+  Globe,
+  Navigation,
+  ExternalLink
 } from 'lucide-react'
 
 export const Route = createFileRoute('/admin')({
@@ -85,17 +85,17 @@ function NavItem({ href, label, icon, badge, isActive }: NavItemProps) {
   return (
     <a
       href={href}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+      className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-all duration-200 ${
         active
-          ? 'bg-blue-600 text-white shadow-sm'
-          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          ? 'bg-primary/10 text-primary font-medium border-l-2 border-primary -ml-[2px] pl-[14px]'
+          : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
       }`}
     >
-      <span className={`w-5 h-5 ${active ? 'text-white' : 'text-slate-400'}`}>{icon}</span>
+      <span className={`w-5 h-5 ${active ? 'text-primary' : 'text-muted-foreground'}`}>{icon}</span>
       <span className="flex-1">{label}</span>
       {badge != null && badge > 0 && (
         <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full ${
-          active ? 'bg-white/20 text-white' : 'bg-red-500 text-white'
+          active ? 'bg-primary text-primary-foreground' : 'bg-primary text-primary-foreground'
         }`}>
           {badge > 99 ? '99+' : badge}
         </span>
@@ -115,17 +115,17 @@ function NavGroup({ label, icon, children, defaultOpen = false }: NavGroupProps)
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all duration-200"
+        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-200"
       >
-        <span className="w-5 h-5 text-slate-400">{icon}</span>
+        <span className="w-5 h-5 text-muted-foreground">{icon}</span>
         <span className="flex-1 text-left">{label}</span>
         {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
       </button>
       {isOpen && (
-        <div className="ml-8 space-y-1 border-l-2 border-slate-200 pl-3">
+        <div className="ml-8 space-y-0.5 border-l border-border pl-3">
           {children}
         </div>
       )}
@@ -139,15 +139,15 @@ function SubNavItem({ href, label, badge }: { href: string; label: string; badge
   return (
     <a
       href={href}
-      className={`flex items-center justify-between px-3 py-2 rounded-md text-sm transition-all duration-200 ${
+      className={`flex items-center justify-between px-3 py-2 text-sm transition-all duration-200 ${
         isActive
-          ? 'text-blue-600 font-medium bg-blue-50'
-          : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+          ? 'text-primary font-medium'
+          : 'text-muted-foreground hover:text-foreground'
       }`}
     >
       <span>{label}</span>
       {badge != null && badge > 0 && (
-        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
+        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full">
           {badge > 9 ? '9+' : badge}
         </span>
       )}
@@ -199,38 +199,38 @@ function AdminLayout() {
   const isTicketsPath = currentPath.startsWith('/admin/tickets')
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out ${
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-300 ease-in-out ${
         mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0 lg:static lg:inset-auto`}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200">
-            <a href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">L</span>
+          <div className="flex items-center justify-between h-16 px-5 border-b border-border">
+            <a href="/" className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-display text-lg">L</span>
               </div>
               <div>
-                <span className="font-semibold text-slate-900">Lanköping</span>
-                <span className="block text-[10px] text-slate-400 -mt-0.5">Admin Panel</span>
+                <span className="font-display text-xl tracking-wide text-foreground">Lanköping</span>
+                <span className="block text-[10px] text-muted-foreground uppercase tracking-widest">Admin</span>
               </div>
             </a>
             <button
               onClick={() => setMobileNavOpen(false)}
-              className="lg:hidden p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100"
+              className="lg:hidden p-1.5 text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 py-4 overflow-y-auto">
             {/* Main Section */}
             <div className="mb-6">
-              <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Main</p>
+              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Huvudmeny</p>
               {isOrganizer && !isDemoTester && (
-                <NavItem href="/admin" label="Dashboard" icon={<LayoutDashboard className="w-5 h-5" />} />
+                <NavItem href="/admin" label="Översikt" icon={<LayoutDashboard className="w-5 h-5" />} />
               )}
               {isOrganizer && !isDemoTester && (
                 <NavItem href="/admin/posts" label="Inlägg" icon={<FileText className="w-5 h-5" />} />
@@ -240,22 +240,19 @@ function AdminLayout() {
             {/* Content Management */}
             {isOrganizer && (
               <div className="mb-6">
-                <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Content</p>
+                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Innehåll</p>
                 <NavGroup label="CMS" icon={<Palette className="w-5 h-5" />} defaultOpen={isCmsPath}>
-                  <SubNavItem href="/admin/cms" label="Overview" />
-                  <SubNavItem href="/admin/cms/hero" label="Hero Section" />
-                  <SubNavItem href="/admin/cms/team" label="Team Members" />
-                  <SubNavItem href="/admin/cms/sections" label="Info Sections" />
-                  <SubNavItem href="/admin/cms/pages" label="Pages" />
+                  <SubNavItem href="/admin/cms" label="Översikt" />
+                  <SubNavItem href="/admin/cms/pages" label="Sidor" />
                   <SubNavItem href="/admin/cms/navigation" label="Navigation" />
-                  <SubNavItem href="/admin/cms/settings" label="Site Settings" />
+                  <SubNavItem href="/admin/cms/settings" label="Inställningar" />
                 </NavGroup>
               </div>
             )}
 
             {/* Management */}
             <div className="mb-6">
-              <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Management</p>
+              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Hantering</p>
               {isOrganizer && (
                 <NavItem href="/admin/users" label="Användare" icon={<Users className="w-5 h-5" />} />
               )}
@@ -268,46 +265,46 @@ function AdminLayout() {
 
             {/* Events & Tickets */}
             <div className="mb-6">
-              <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Events</p>
+              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Event</p>
               <NavGroup label="Biljetter" icon={<Ticket className="w-5 h-5" />} defaultOpen={isTicketsPath}>
-                <SubNavItem href="/admin/tickets" label="Overview" />
-                <SubNavItem href="/admin/tickets/events" label="Events" />
-                <SubNavItem href="/admin/tickets/types" label="Ticket Types" />
-                <SubNavItem href="/admin/tickets/scan" label="Scanner" />
-                <SubNavItem href="/admin/tickets/new" label="Issue Ticket" />
+                <SubNavItem href="/admin/tickets" label="Översikt" />
+                <SubNavItem href="/admin/tickets/events" label="Evenemang" />
+                <SubNavItem href="/admin/tickets/types" label="Biljetttyper" />
+                <SubNavItem href="/admin/tickets/scan" label="Skanna" />
+                <SubNavItem href="/admin/tickets/new" label="Utfärda biljett" />
               </NavGroup>
             </div>
 
             {/* System */}
             {isOrganizer && (
               <div className="mb-6">
-                <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">System</p>
-                <NavItem href="/admin/logs" label="Activity Logs" icon={<History className="w-5 h-5" />} />
+                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">System</p>
+                <NavItem href="/admin/logs" label="Aktivitetslogg" icon={<History className="w-5 h-5" />} />
               </div>
             )}
           </nav>
 
           {/* User Card */}
-          <div className="p-3 border-t border-slate-200">
-            <div className="p-3 bg-slate-50 rounded-lg">
+          <div className="p-4 border-t border-border">
+            <div className="p-4 bg-secondary/50 rounded">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">
-                    {(user.name || 'U').charAt(0).toUpperCase()}
+                <div className="w-10 h-10 bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-display text-lg">
+                    {(user.name || 'A').charAt(0).toUpperCase()}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{user.name || 'Unnamed'}</p>
-                  <p className="text-xs text-slate-500">{roleLabel}</p>
+                  <p className="text-sm font-medium text-foreground truncate">{user.name || 'Namnlös'}</p>
+                  <p className="text-xs text-muted-foreground">{roleLabel}</p>
                 </div>
               </div>
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
               >
                 <LogOut className="w-4 h-4" />
-                {loggingOut ? 'Logging out...' : 'Log out'}
+                {loggingOut ? 'Loggar ut...' : 'Logga ut'}
               </button>
             </div>
           </div>
@@ -317,7 +314,7 @@ function AdminLayout() {
       {/* Mobile Overlay */}
       {mobileNavOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileNavOpen(false)}
         />
       )}
@@ -325,60 +322,60 @@ function AdminLayout() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200 px-4 lg:px-6 flex items-center justify-between gap-4">
+        <header className="sticky top-0 z-30 h-16 bg-card border-b border-border px-4 lg:px-6 flex items-center justify-between gap-4">
           {/* Left: Mobile menu + Breadcrumb */}
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileNavOpen(true)}
-              className="lg:hidden p-2 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100"
+              className="lg:hidden p-2 text-muted-foreground hover:text-foreground transition-colors"
             >
               <Menu className="w-5 h-5" />
             </button>
             
             <div className="hidden sm:flex items-center gap-2 text-sm">
-              <a href="/admin" className="text-slate-400 hover:text-slate-600">Admin</a>
-              <span className="text-slate-300">/</span>
-              <span className="text-slate-600 font-medium">
-                {currentPath === '/admin' || currentPath === '/admin/' ? 'Dashboard' :
+              <a href="/admin" className="text-muted-foreground hover:text-foreground transition-colors">Admin</a>
+              <span className="text-muted">/</span>
+              <span className="text-foreground font-medium">
+                {currentPath === '/admin' || currentPath === '/admin/' ? 'Översikt' :
                  currentPath.includes('/cms') ? 'CMS' :
-                 currentPath.includes('/users') ? 'Users' :
-                 currentPath.includes('/tickets') ? 'Tickets' : 'Page'}
+                 currentPath.includes('/users') ? 'Användare' :
+                 currentPath.includes('/tickets') ? 'Biljetter' : 'Sida'}
               </span>
             </div>
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <a
               href="/"
               target="_blank"
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Globe className="w-4 h-4" />
-              View Site
+              <ExternalLink className="w-4 h-4" />
+              Visa sida
             </a>
             
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center gap-2 p-1.5 rounded-md hover:bg-slate-100 transition-colors"
+                className="flex items-center gap-2 p-1.5 hover:bg-secondary/50 rounded transition-colors"
               >
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-semibold text-xs">
-                    {(user.name || 'U').charAt(0).toUpperCase()}
+                <div className="w-8 h-8 bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-display text-sm">
+                    {(user.name || 'A').charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
               </button>
 
               {userMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-50">
-                    <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-sm font-medium text-slate-900">{user.name || 'Unnamed'}</p>
-                      <p className="text-xs text-slate-500">{user.email}</p>
-                      <p className="text-xs text-slate-400 mt-1">ID: {user.id}</p>
+                  <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded shadow-lg py-2 z-50">
+                    <div className="px-4 py-3 border-b border-border">
+                      <p className="text-sm font-medium text-foreground">{user.name || 'Namnlös'}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                      <p className="text-xs text-muted-foreground mt-1">ID: {user.id}</p>
                     </div>
                     
                     <div className="p-2">
@@ -387,44 +384,44 @@ function AdminLayout() {
                           <input
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Enter name"
+                            className="w-full px-3 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                            placeholder="Ange namn"
                           />
                           <div className="flex gap-2">
                             <button
                               onClick={handleSaveName}
                               disabled={savingName}
-                              className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                              className="flex-1 px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 disabled:opacity-50"
                             >
-                              {savingName ? 'Saving...' : 'Save'}
+                              {savingName ? 'Sparar...' : 'Spara'}
                             </button>
                             <button
                               onClick={() => { setEditingName(false); setName(user.name || '') }}
-                              className="px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-md hover:bg-slate-50"
+                              className="px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded hover:bg-secondary/50"
                             >
-                              Cancel
+                              Avbryt
                             </button>
                           </div>
                         </div>
                       ) : (
                         <button
                           onClick={() => setEditingName(true)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-md"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded transition-colors"
                         >
                           <Settings className="w-4 h-4" />
-                          Edit Profile
+                          Redigera profil
                         </button>
                       )}
                     </div>
                     
-                    <div className="border-t border-slate-100 p-2">
+                    <div className="border-t border-border p-2">
                       <button
                         onClick={handleLogout}
                         disabled={loggingOut}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md disabled:opacity-50"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
                       >
                         <LogOut className="w-4 h-4" />
-                        {loggingOut ? 'Logging out...' : 'Log out'}
+                        {loggingOut ? 'Loggar ut...' : 'Logga ut'}
                       </button>
                     </div>
                   </div>
@@ -435,7 +432,7 @@ function AdminLayout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
+        <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           <Outlet />
         </main>
       </div>
