@@ -135,7 +135,7 @@ export const getPostBySlugTranslatedToEnglishFn = createServerFn({ method: 'GET'
   })
 
 export const getPostByIdFn = createServerFn({ method: "GET" })
-  .inputValidator((id: number) => z.number().parse(id))
+  .inputValidator((input: unknown) => z.number().parse(input))
   .handler(async ({ data: id }) => {
     const db = await getDb()
     const post = await db.select()
@@ -266,7 +266,7 @@ export const createPostFn = createServerFn({ method: "POST" })
   })
 
 export const deletePostFn = createServerFn({ method: "POST" })
-  .inputValidator((id: number) => z.number().parse(id))
+  .inputValidator((input: unknown) => z.number().parse(input))
   .handler(async ({ data: id }) => {
     const currentUser = await requireOrganizerUser()
 

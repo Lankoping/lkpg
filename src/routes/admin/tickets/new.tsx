@@ -28,7 +28,6 @@ function NewTicket() {
     pricePaid: types[0]?.price || 0,
   })
 
-  // We logic to update price when type changes
   const handleTypeChange = (value: string) => {
     const type = types.find(t => t.name === value)
     setFormData(prev => ({ 
@@ -59,36 +58,42 @@ function NewTicket() {
   }
 
   return (
-    <div className="bg-[#141210]/95 border border-[#C04A2A]/20 p-5 sm:p-8 lg:p-10 rounded-sm text-[#F0E8D8] relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#C04A2A]/50 to-transparent opacity-50" />
-      
-      <div className="flex flex-col sm:flex-row justify-between sm:items-end mb-8 gap-4">
-        <div>
-          <h2 className="font-display text-2xl sm:text-3xl tracking-wide mb-2 flex items-center gap-3">
-            <Ticket className="w-8 h-8 text-[#C04A2A]" />
-            Utfärda Biljett
-          </h2>
-          <p className="text-[#F0E8D8]/60 text-sm">Skapa en ny biljett för en deltagare.</p>
+    <div className="max-w-3xl mx-auto">
+      <div className="mb-8">
+        <p className="text-xs font-medium tracking-widest text-primary uppercase mb-2">Biljetter</p>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4">
+          <div>
+            <h1 className="font-display text-4xl text-foreground flex items-center gap-3">
+              <Ticket className="w-8 h-8 text-primary" />
+              Utfärda Biljett
+            </h1>
+            <p className="text-muted-foreground mt-2">Skapa en ny biljett för en deltagare.</p>
+          </div>
+          <button 
+            onClick={() => navigate({ to: '/admin/tickets' })}
+            className="px-4 py-2.5 border border-border text-muted-foreground text-xs uppercase tracking-wider font-medium hover:text-foreground hover:border-primary/50 transition-all inline-flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Tillbaka
+          </button>
         </div>
-        <button 
-          onClick={() => navigate({ to: '/admin/tickets' })}
-          className="px-6 py-3 border border-[#C04A2A]/20 text-[#F0E8D8]/80 text-[11px] uppercase tracking-[0.15em] font-medium rounded-sm hover:border-[#C04A2A]/50 hover:bg-[#C04A2A]/5 transition-all inline-flex items-center gap-2 justify-center shadow-sm whitespace-nowrap"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Gå tillbaka
-        </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto space-y-6 bg-[#1A1816]/40 p-8 border border-[#C04A2A]/10 rounded-sm">
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#C04A2A]/80 flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Välj Event
+      <form onSubmit={handleSubmit} className="bg-card border border-border p-8 space-y-6">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-1.5 h-1.5 bg-primary" />
+          <span className="text-[10px] font-medium tracking-widest text-primary uppercase">Biljettinformation</span>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-foreground flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-primary" />
+            Välj Event *
           </label>
           <select 
             value={formData.eventId}
             onChange={(e) => setFormData(prev => ({ ...prev, eventId: parseInt(e.target.value) }))}
-            className="w-full p-4 bg-[#100E0C] border border-[#C04A2A]/20 focus:border-[#C04A2A]/60 outline-none rounded-sm text-[#F0E8D8] text-sm font-mono appearance-none transition-all cursor-pointer hover:bg-[#1A1816]"
+            className="w-full p-3 bg-background border border-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none text-foreground text-sm transition-all cursor-pointer"
             required
           >
             <option value="" disabled>Välj ett event...</option>
@@ -98,74 +103,74 @@ function NewTicket() {
           </select>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#C04A2A]/80 flex items-center gap-2">
-            <User className="w-4 h-4" />
-            Deltagarens Namn
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-foreground flex items-center gap-2">
+            <User className="w-4 h-4 text-primary" />
+            Deltagarens Namn *
           </label>
           <input 
             type="text" 
             placeholder="För- och efternamn"
             value={formData.participantName}
             onChange={(e) => setFormData(prev => ({ ...prev, participantName: e.target.value }))}
-            className="w-full p-4 bg-[#100E0C] border border-[#C04A2A]/20 focus:border-[#C04A2A]/60 outline-none rounded-sm text-[#F0E8D8] text-sm font-mono transition-all placeholder:text-[#F0E8D8]/20"
+            className="w-full p-3 bg-background border border-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none text-foreground text-sm transition-all placeholder:text-muted-foreground"
             required
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#C04A2A]/80 flex items-center gap-2">
-            <Mail className="w-4 h-4" />
-            Deltagarens E-post
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-foreground flex items-center gap-2">
+            <Mail className="w-4 h-4 text-primary" />
+            Deltagarens E-post *
           </label>
           <input 
             type="email" 
             placeholder="exempel@e-post.se"
             value={formData.participantEmail}
             onChange={(e) => setFormData(prev => ({ ...prev, participantEmail: e.target.value }))}
-            className="w-full p-4 bg-[#100E0C] border border-[#C04A2A]/20 focus:border-[#C04A2A]/60 outline-none rounded-sm text-[#F0E8D8] text-sm font-mono transition-all placeholder:text-[#F0E8D8]/20"
+            className="w-full p-3 bg-background border border-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none text-foreground text-sm transition-all placeholder:text-muted-foreground"
             required
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#C04A2A]/80 flex items-center gap-2">
-              <Ticket className="w-4 h-4" />
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground flex items-center gap-2">
+              <Ticket className="w-4 h-4 text-primary" />
               Biljett-typ
             </label>
             <select 
               value={formData.ticketType}
               onChange={(e) => handleTypeChange(e.target.value)}
-              className="w-full p-4 bg-[#100E0C] border border-[#C04A2A]/20 focus:border-[#C04A2A]/60 outline-none rounded-sm text-[#F0E8D8] text-sm font-mono transition-all cursor-pointer hover:bg-[#1A1816] appearance-none"
+              className="w-full p-3 bg-background border border-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none text-foreground text-sm transition-all cursor-pointer"
             >
               {types.map(t => (
                 <option key={t.id} value={t.name}>{t.name} ({t.price} kr)</option>
               ))}
-              {types.length === 0 && <option value="standard">Standard (Behöver konfigureras)</option>}
+              {types.length === 0 && <option value="standard">Standard</option>}
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#C04A2A]/80 flex items-center gap-2">
-              <span className="text-[#C04A2A]">SEK</span>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground flex items-center gap-2">
+              <span className="text-primary font-bold">SEK</span>
               Pris Betalat
             </label>
             <input 
               type="number" 
               value={formData.pricePaid}
               onChange={(e) => setFormData(prev => ({ ...prev, pricePaid: parseInt(e.target.value) || 0 }))}
-              className="w-full p-4 bg-[#100E0C] border border-[#C04A2A]/20 focus:border-[#C04A2A]/60 outline-none rounded-sm text-[#F0E8D8] text-sm font-mono transition-all"
+              className="w-full p-3 bg-background border border-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none text-foreground text-sm transition-all"
               required
             />
           </div>
         </div>
 
-        <div className="pt-4">
+        <div className="pt-4 border-t border-border">
           <button 
             type="submit" 
             disabled={isSubmitting}
-            className="w-full px-6 py-4 bg-[#C04A2A] text-white text-[12px] uppercase tracking-[0.25em] font-bold rounded-sm hover:bg-[#A03A1A] hover:scale-[1.01] active:scale-[0.99] disabled:bg-[#C04A2A]/20 disabled:scale-100 disabled:opacity-50 transition-all flex items-center gap-3 justify-center shadow-[0_4px_20px_rgba(192,74,42,0.2)]"
+            className="w-full px-4 py-4 bg-primary text-primary-foreground text-sm uppercase tracking-widest font-medium hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-3 justify-center"
           >
             {isSubmitting ? 'Utfärdar...' : (
               <>

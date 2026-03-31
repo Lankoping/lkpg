@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, integer } from 'drizzle-orm/pg-core'
+import { pgTable, text, serial, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -116,3 +116,96 @@ export const activityLogs = pgTable('activity_logs', {
   details: text('details'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
+
+// CMS Tables
+
+export const siteSettings = pgTable('site_settings', {
+  id: serial('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  value: json('value').$type<Record<string, unknown>>().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const heroContent = pgTable('hero_content', {
+  id: serial('id').primaryKey(),
+  eyebrow: text('eyebrow').notNull(),
+  eyebrowEn: text('eyebrow_en'),
+  headline: text('headline').notNull(),
+  headlineEn: text('headline_en'),
+  tagline: text('tagline').notNull(),
+  taglineEn: text('tagline_en'),
+  description: text('description').notNull(),
+  descriptionEn: text('description_en'),
+  primaryButtonText: text('primary_button_text').notNull(),
+  primaryButtonTextEn: text('primary_button_text_en'),
+  primaryButtonLink: text('primary_button_link').notNull(),
+  secondaryButtonText: text('secondary_button_text'),
+  secondaryButtonTextEn: text('secondary_button_text_en'),
+  secondaryButtonLink: text('secondary_button_link'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const infoSections = pgTable('info_sections', {
+  id: serial('id').primaryKey(),
+  slug: text('slug').notNull().unique(),
+  icon: text('icon').notNull(),
+  title: text('title').notNull(),
+  titleEn: text('title_en'),
+  description: text('description').notNull(),
+  descriptionEn: text('description_en'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const teamMembers = pgTable('team_members', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  role: text('role').notNull(),
+  roleEn: text('role_en'),
+  description: text('description').notNull(),
+  descriptionEn: text('description_en'),
+  icon: text('icon').notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const pages = pgTable('pages', {
+  id: serial('id').primaryKey(),
+  slug: text('slug').notNull().unique(),
+  title: text('title').notNull(),
+  titleEn: text('title_en'),
+  subtitle: text('subtitle'),
+  subtitleEn: text('subtitle_en'),
+  content: json('content').$type<PageSection[]>().notNull(),
+  contentEn: json('content_en').$type<PageSection[]>(),
+  isPublished: boolean('is_published').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const navigationItems = pgTable('navigation_items', {
+  id: serial('id').primaryKey(),
+  label: text('label').notNull(),
+  labelEn: text('label_en'),
+  href: text('href').notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  parentId: integer('parent_id').references((): ReturnType<typeof pgTable> => navigationItems.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+// Type for page content sections
+export type PageSection = {
+  type: 'heading' | 'paragraph' | 'list' | 'callout'
+  icon?: string
+  title?: string
+  content?: string
+  items?: string[]
+  variant?: 'default' | 'warning' | 'info'
+}

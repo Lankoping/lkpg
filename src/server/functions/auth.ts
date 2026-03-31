@@ -1,8 +1,8 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
 import { getDb } from '../db/runtime'
-import { users } from '../db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { users, activityLogs } from '../db/schema'
+import { eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie, getCookie, deleteCookie } from '@tanstack/react-start/server'
 import {
@@ -224,10 +224,20 @@ export const deleteUserFn = createServerFn({ method: "POST" })
       .where(eq(users.id, data.userId))
       .limit(1)
 
+    if (!targetUser[0]) {
+      throw new Error('User not found')
+    }
+
+    // Delete related records to avoid foreign key constraints
+    // Activity logs - delete logs where this user was the actor
+    await db.delete(activityLogs).where(eq(activityLogs.actorUserId, data.userId))
+
+    // Delete user
     await db
       .delete(users)
       .where(eq(users.id, data.userId))
 
+    // Log the deletion (using current user as actor, not the deleted user)
     await writeActivityLog({
       actorUserId: currentUser.id,
       actorRole: currentUser.role,

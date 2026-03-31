@@ -10,4 +10,23 @@ count.txt
 .output
 .vinxi
 todos.json
-.eslintcache
+.eslintcache-e 
+# Environment files
+*.env
+*.env.*
+-e 
+# Environment files
+*.env
+*.env.*
+-e 
+# Environment files
+*.env
+*.env.*
+-e 
+# Environment files
+*.env
+*.env.*
+-e 
+# Environment files
+*.env
+*.env.*

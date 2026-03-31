@@ -32,6 +32,7 @@ import { Route as AdminStadgarRouteImport } from './routes/admin/stadgar'
 import { Route as AdminPostsRouteImport } from './routes/admin/posts'
 import { Route as AdminNewRouteImport } from './routes/admin/new'
 import { Route as AdminLogsRouteImport } from './routes/admin/logs'
+import { Route as AdminCmsRouteImport } from './routes/admin/cms'
 import { Route as AdminAvtalRouteImport } from './routes/admin/avtal'
 import { Route as AdminAvgangRouteImport } from './routes/admin/avgang'
 import { Route as PublicTeamRouteImport } from './routes/_public/team'
@@ -49,6 +50,12 @@ import { Route as AdminTicketsScanRouteImport } from './routes/admin/tickets/sca
 import { Route as AdminTicketsNewRouteImport } from './routes/admin/tickets/new'
 import { Route as AdminTicketsEventsRouteImport } from './routes/admin/tickets/events'
 import { Route as AdminEditIdRouteImport } from './routes/admin/edit/$id'
+import { Route as AdminCmsTeamRouteImport } from './routes/admin/cms/team'
+import { Route as AdminCmsSettingsRouteImport } from './routes/admin/cms/settings'
+import { Route as AdminCmsSectionsRouteImport } from './routes/admin/cms/sections'
+import { Route as AdminCmsPagesRouteImport } from './routes/admin/cms/pages'
+import { Route as AdminCmsNavigationRouteImport } from './routes/admin/cms/navigation'
+import { Route as AdminCmsHeroRouteImport } from './routes/admin/cms/hero'
 import { Route as PublicDatapolicySeRouteImport } from './routes/_public/datapolicy/se'
 import { Route as PublicDatapolicyEnRouteImport } from './routes/_public/datapolicy/en'
 import { Route as PublicBiljettCodeRouteImport } from './routes/_public/biljett/$code'
@@ -166,6 +173,11 @@ const AdminLogsRoute = AdminLogsRouteImport.update({
   path: '/logs',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminCmsRoute = AdminCmsRouteImport.update({
+  id: '/cms',
+  path: '/cms',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAvtalRoute = AdminAvtalRouteImport.update({
   id: '/avtal',
   path: '/avtal',
@@ -252,6 +264,36 @@ const AdminEditIdRoute = AdminEditIdRouteImport.update({
   path: '/edit/$id',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminCmsTeamRoute = AdminCmsTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AdminCmsRoute,
+} as any)
+const AdminCmsSettingsRoute = AdminCmsSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminCmsRoute,
+} as any)
+const AdminCmsSectionsRoute = AdminCmsSectionsRouteImport.update({
+  id: '/sections',
+  path: '/sections',
+  getParentRoute: () => AdminCmsRoute,
+} as any)
+const AdminCmsPagesRoute = AdminCmsPagesRouteImport.update({
+  id: '/pages',
+  path: '/pages',
+  getParentRoute: () => AdminCmsRoute,
+} as any)
+const AdminCmsNavigationRoute = AdminCmsNavigationRouteImport.update({
+  id: '/navigation',
+  path: '/navigation',
+  getParentRoute: () => AdminCmsRoute,
+} as any)
+const AdminCmsHeroRoute = AdminCmsHeroRouteImport.update({
+  id: '/hero',
+  path: '/hero',
+  getParentRoute: () => AdminCmsRoute,
+} as any)
 const PublicDatapolicySeRoute = PublicDatapolicySeRouteImport.update({
   id: '/datapolicy/se',
   path: '/datapolicy/se',
@@ -282,6 +324,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof PublicTeamRoute
   '/admin/avgang': typeof AdminAvgangRoute
   '/admin/avtal': typeof AdminAvtalRoute
+  '/admin/cms': typeof AdminCmsRouteWithChildren
   '/admin/logs': typeof AdminLogsRoute
   '/admin/new': typeof AdminNewRoute
   '/admin/posts': typeof AdminPostsRoute
@@ -300,6 +343,12 @@ export interface FileRoutesByFullPath {
   '/biljett/$code': typeof PublicBiljettCodeRoute
   '/datapolicy/en': typeof PublicDatapolicyEnRoute
   '/datapolicy/se': typeof PublicDatapolicySeRoute
+  '/admin/cms/hero': typeof AdminCmsHeroRoute
+  '/admin/cms/navigation': typeof AdminCmsNavigationRoute
+  '/admin/cms/pages': typeof AdminCmsPagesRoute
+  '/admin/cms/sections': typeof AdminCmsSectionsRoute
+  '/admin/cms/settings': typeof AdminCmsSettingsRoute
+  '/admin/cms/team': typeof AdminCmsTeamRoute
   '/admin/edit/$id': typeof AdminEditIdRoute
   '/admin/tickets/events': typeof AdminTicketsEventsRoute
   '/admin/tickets/new': typeof AdminTicketsNewRoute
@@ -323,6 +372,7 @@ export interface FileRoutesByTo {
   '/team': typeof PublicTeamRoute
   '/admin/avgang': typeof AdminAvgangRoute
   '/admin/avtal': typeof AdminAvtalRoute
+  '/admin/cms': typeof AdminCmsRouteWithChildren
   '/admin/logs': typeof AdminLogsRoute
   '/admin/new': typeof AdminNewRoute
   '/admin/posts': typeof AdminPostsRoute
@@ -341,6 +391,12 @@ export interface FileRoutesByTo {
   '/biljett/$code': typeof PublicBiljettCodeRoute
   '/datapolicy/en': typeof PublicDatapolicyEnRoute
   '/datapolicy/se': typeof PublicDatapolicySeRoute
+  '/admin/cms/hero': typeof AdminCmsHeroRoute
+  '/admin/cms/navigation': typeof AdminCmsNavigationRoute
+  '/admin/cms/pages': typeof AdminCmsPagesRoute
+  '/admin/cms/sections': typeof AdminCmsSectionsRoute
+  '/admin/cms/settings': typeof AdminCmsSettingsRoute
+  '/admin/cms/team': typeof AdminCmsTeamRoute
   '/admin/edit/$id': typeof AdminEditIdRoute
   '/admin/tickets/events': typeof AdminTicketsEventsRoute
   '/admin/tickets/new': typeof AdminTicketsNewRoute
@@ -368,6 +424,7 @@ export interface FileRoutesById {
   '/_public/team': typeof PublicTeamRoute
   '/admin/avgang': typeof AdminAvgangRoute
   '/admin/avtal': typeof AdminAvtalRoute
+  '/admin/cms': typeof AdminCmsRouteWithChildren
   '/admin/logs': typeof AdminLogsRoute
   '/admin/new': typeof AdminNewRoute
   '/admin/posts': typeof AdminPostsRoute
@@ -387,6 +444,12 @@ export interface FileRoutesById {
   '/_public/biljett/$code': typeof PublicBiljettCodeRoute
   '/_public/datapolicy/en': typeof PublicDatapolicyEnRoute
   '/_public/datapolicy/se': typeof PublicDatapolicySeRoute
+  '/admin/cms/hero': typeof AdminCmsHeroRoute
+  '/admin/cms/navigation': typeof AdminCmsNavigationRoute
+  '/admin/cms/pages': typeof AdminCmsPagesRoute
+  '/admin/cms/sections': typeof AdminCmsSectionsRoute
+  '/admin/cms/settings': typeof AdminCmsSettingsRoute
+  '/admin/cms/team': typeof AdminCmsTeamRoute
   '/admin/edit/$id': typeof AdminEditIdRoute
   '/admin/tickets/events': typeof AdminTicketsEventsRoute
   '/admin/tickets/new': typeof AdminTicketsNewRoute
@@ -414,6 +477,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/admin/avgang'
     | '/admin/avtal'
+    | '/admin/cms'
     | '/admin/logs'
     | '/admin/new'
     | '/admin/posts'
@@ -432,6 +496,12 @@ export interface FileRouteTypes {
     | '/biljett/$code'
     | '/datapolicy/en'
     | '/datapolicy/se'
+    | '/admin/cms/hero'
+    | '/admin/cms/navigation'
+    | '/admin/cms/pages'
+    | '/admin/cms/sections'
+    | '/admin/cms/settings'
+    | '/admin/cms/team'
     | '/admin/edit/$id'
     | '/admin/tickets/events'
     | '/admin/tickets/new'
@@ -455,6 +525,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/admin/avgang'
     | '/admin/avtal'
+    | '/admin/cms'
     | '/admin/logs'
     | '/admin/new'
     | '/admin/posts'
@@ -473,6 +544,12 @@ export interface FileRouteTypes {
     | '/biljett/$code'
     | '/datapolicy/en'
     | '/datapolicy/se'
+    | '/admin/cms/hero'
+    | '/admin/cms/navigation'
+    | '/admin/cms/pages'
+    | '/admin/cms/sections'
+    | '/admin/cms/settings'
+    | '/admin/cms/team'
     | '/admin/edit/$id'
     | '/admin/tickets/events'
     | '/admin/tickets/new'
@@ -499,6 +576,7 @@ export interface FileRouteTypes {
     | '/_public/team'
     | '/admin/avgang'
     | '/admin/avtal'
+    | '/admin/cms'
     | '/admin/logs'
     | '/admin/new'
     | '/admin/posts'
@@ -518,6 +596,12 @@ export interface FileRouteTypes {
     | '/_public/biljett/$code'
     | '/_public/datapolicy/en'
     | '/_public/datapolicy/se'
+    | '/admin/cms/hero'
+    | '/admin/cms/navigation'
+    | '/admin/cms/pages'
+    | '/admin/cms/sections'
+    | '/admin/cms/settings'
+    | '/admin/cms/team'
     | '/admin/edit/$id'
     | '/admin/tickets/events'
     | '/admin/tickets/new'
@@ -709,6 +793,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLogsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/cms': {
+      id: '/admin/cms'
+      path: '/cms'
+      fullPath: '/admin/cms'
+      preLoaderRoute: typeof AdminCmsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/avtal': {
       id: '/admin/avtal'
       path: '/avtal'
@@ -828,6 +919,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEditIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/cms/team': {
+      id: '/admin/cms/team'
+      path: '/team'
+      fullPath: '/admin/cms/team'
+      preLoaderRoute: typeof AdminCmsTeamRouteImport
+      parentRoute: typeof AdminCmsRoute
+    }
+    '/admin/cms/settings': {
+      id: '/admin/cms/settings'
+      path: '/settings'
+      fullPath: '/admin/cms/settings'
+      preLoaderRoute: typeof AdminCmsSettingsRouteImport
+      parentRoute: typeof AdminCmsRoute
+    }
+    '/admin/cms/sections': {
+      id: '/admin/cms/sections'
+      path: '/sections'
+      fullPath: '/admin/cms/sections'
+      preLoaderRoute: typeof AdminCmsSectionsRouteImport
+      parentRoute: typeof AdminCmsRoute
+    }
+    '/admin/cms/pages': {
+      id: '/admin/cms/pages'
+      path: '/pages'
+      fullPath: '/admin/cms/pages'
+      preLoaderRoute: typeof AdminCmsPagesRouteImport
+      parentRoute: typeof AdminCmsRoute
+    }
+    '/admin/cms/navigation': {
+      id: '/admin/cms/navigation'
+      path: '/navigation'
+      fullPath: '/admin/cms/navigation'
+      preLoaderRoute: typeof AdminCmsNavigationRouteImport
+      parentRoute: typeof AdminCmsRoute
+    }
+    '/admin/cms/hero': {
+      id: '/admin/cms/hero'
+      path: '/hero'
+      fullPath: '/admin/cms/hero'
+      preLoaderRoute: typeof AdminCmsHeroRouteImport
+      parentRoute: typeof AdminCmsRoute
+    }
     '/_public/datapolicy/se': {
       id: '/_public/datapolicy/se'
       path: '/datapolicy/se'
@@ -887,9 +1020,32 @@ const PublicRouteChildren: PublicRouteChildren = {
 const PublicRouteWithChildren =
   PublicRoute._addFileChildren(PublicRouteChildren)
 
+interface AdminCmsRouteChildren {
+  AdminCmsHeroRoute: typeof AdminCmsHeroRoute
+  AdminCmsNavigationRoute: typeof AdminCmsNavigationRoute
+  AdminCmsPagesRoute: typeof AdminCmsPagesRoute
+  AdminCmsSectionsRoute: typeof AdminCmsSectionsRoute
+  AdminCmsSettingsRoute: typeof AdminCmsSettingsRoute
+  AdminCmsTeamRoute: typeof AdminCmsTeamRoute
+}
+
+const AdminCmsRouteChildren: AdminCmsRouteChildren = {
+  AdminCmsHeroRoute: AdminCmsHeroRoute,
+  AdminCmsNavigationRoute: AdminCmsNavigationRoute,
+  AdminCmsPagesRoute: AdminCmsPagesRoute,
+  AdminCmsSectionsRoute: AdminCmsSectionsRoute,
+  AdminCmsSettingsRoute: AdminCmsSettingsRoute,
+  AdminCmsTeamRoute: AdminCmsTeamRoute,
+}
+
+const AdminCmsRouteWithChildren = AdminCmsRoute._addFileChildren(
+  AdminCmsRouteChildren,
+)
+
 interface AdminRouteChildren {
   AdminAvgangRoute: typeof AdminAvgangRoute
   AdminAvtalRoute: typeof AdminAvtalRoute
+  AdminCmsRoute: typeof AdminCmsRouteWithChildren
   AdminLogsRoute: typeof AdminLogsRoute
   AdminNewRoute: typeof AdminNewRoute
   AdminPostsRoute: typeof AdminPostsRoute
@@ -907,6 +1063,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAvgangRoute: AdminAvgangRoute,
   AdminAvtalRoute: AdminAvtalRoute,
+  AdminCmsRoute: AdminCmsRouteWithChildren,
   AdminLogsRoute: AdminLogsRoute,
   AdminNewRoute: AdminNewRoute,
   AdminPostsRoute: AdminPostsRoute,
@@ -965,12 +1122,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
