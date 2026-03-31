@@ -1,25 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
-import {
-  getTeamMembersFn,
-  createTeamMemberFn,
-  updateTeamMemberFn,
-  deleteTeamMemberFn,
-} from '../../../server/functions/cms'
-import { TeamPageClient } from '../../../components/cms-team-client'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/admin/cms/team')({
-  loader: async () => {
-    try {
-      const members = await getTeamMembersFn()
-      return { members }
-    } catch {
-      return { members: [] }
-    }
+  beforeLoad: () => {
+    throw redirect({ to: '/admin/cms', search: { tab: 'team' } })
   },
-  component: TeamPage,
+  component: () => null,
 })
-
-function TeamPage() {
-  const { members } = Route.useLoaderData()
-  return <TeamPageClient initialMembers={members} />
-}
