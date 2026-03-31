@@ -96,11 +96,13 @@ export function CMSPageClient({ initialData, availableIcons }: CMSPageClientProp
     setLoading(true)
     try {
       const result = await createTeamMemberFn({
-        name: teamForm.name,
-        role: teamForm.role,
-        description: teamForm.description,
-        icon: teamForm.icon,
-        sortOrder: teamForm.sortOrder,
+        data: {
+          name: teamForm.name,
+          role: teamForm.role,
+          description: teamForm.description,
+          icon: teamForm.icon,
+          sortOrder: teamForm.sortOrder,
+        }
       })
       setTeamMembers([...teamMembers, result])
       setTeamForm({ id: null, name: '', role: '', description: '', icon: 'Crown', sortOrder: 0 })
@@ -123,13 +125,15 @@ export function CMSPageClient({ initialData, availableIcons }: CMSPageClientProp
     setLoading(true)
     try {
       const result = await updateTeamMemberFn({
-        id: teamForm.id,
-        name: teamForm.name,
-        role: teamForm.role,
-        description: teamForm.description,
-        icon: teamForm.icon,
-        sortOrder: teamForm.sortOrder,
-        isActive: true,
+        data: {
+          id: teamForm.id,
+          name: teamForm.name,
+          role: teamForm.role,
+          description: teamForm.description,
+          icon: teamForm.icon,
+          sortOrder: teamForm.sortOrder,
+          isActive: true,
+        }
       })
       setTeamMembers(teamMembers.map((t) => (t.id === teamForm.id ? result : t)))
       setTeamForm({ id: null, name: '', role: '', description: '', icon: 'Crown', sortOrder: 0 })
@@ -146,7 +150,7 @@ export function CMSPageClient({ initialData, availableIcons }: CMSPageClientProp
     if (!confirm('Are you sure?')) return
     setLoading(true)
     try {
-      await deleteTeamMemberFn(id)
+      await deleteTeamMemberFn({ data: id })
       setTeamMembers(teamMembers.filter((t) => t.id !== id))
       showMessage('Team member deleted successfully!')
     } catch (error) {
@@ -168,11 +172,13 @@ export function CMSPageClient({ initialData, availableIcons }: CMSPageClientProp
     setLoading(true)
     try {
       const result = await createInfoSectionFn({
-        slug: infoForm.slug,
-        icon: infoForm.icon,
-        title: infoForm.title,
-        description: infoForm.description,
-        sortOrder: infoForm.sortOrder,
+        data: {
+          slug: infoForm.slug,
+          icon: infoForm.icon,
+          title: infoForm.title,
+          description: infoForm.description,
+          sortOrder: infoForm.sortOrder,
+        }
       })
       setInfoSections([...infoSections, result])
       setInfoForm({ id: null, slug: '', icon: 'Crown', title: '', description: '', sortOrder: 0 })
@@ -195,13 +201,15 @@ export function CMSPageClient({ initialData, availableIcons }: CMSPageClientProp
     setLoading(true)
     try {
       const result = await updateInfoSectionFn({
-        id: infoForm.id,
-        slug: infoForm.slug,
-        icon: infoForm.icon,
-        title: infoForm.title,
-        description: infoForm.description,
-        sortOrder: infoForm.sortOrder,
-        isActive: true,
+        data: {
+          id: infoForm.id,
+          slug: infoForm.slug,
+          icon: infoForm.icon,
+          title: infoForm.title,
+          description: infoForm.description,
+          sortOrder: infoForm.sortOrder,
+          isActive: true,
+        }
       })
       setInfoSections(infoSections.map((i) => (i.id === infoForm.id ? result : i)))
       setInfoForm({ id: null, slug: '', icon: 'Crown', title: '', description: '', sortOrder: 0 })
@@ -218,7 +226,7 @@ export function CMSPageClient({ initialData, availableIcons }: CMSPageClientProp
     if (!confirm('Are you sure?')) return
     setLoading(true)
     try {
-      await deleteInfoSectionFn(id)
+      await deleteInfoSectionFn({ data: id })
       setInfoSections(infoSections.filter((i) => i.id !== id))
       showMessage('Info section deleted successfully!')
     } catch (error) {

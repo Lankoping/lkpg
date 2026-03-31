@@ -287,7 +287,7 @@ export const updateInfoSectionFn = createServerFn({ method: 'POST' })
   })
 
 export const deleteInfoSectionFn = createServerFn({ method: 'POST' })
-  .inputValidator((id: number) => z.number().parse(id))
+  .inputValidator((input: unknown) => z.number().parse(input))
   .handler(async ({ data: id }) => {
     await requireOrganizerUser()
 
@@ -405,7 +405,7 @@ export const updateTeamMemberFn = createServerFn({ method: 'POST' })
   })
 
 export const deleteTeamMemberFn = createServerFn({ method: 'POST' })
-  .inputValidator((id: number) => z.number().parse(id))
+  .inputValidator((input: unknown) => z.number().parse(input))
   .handler(async ({ data: id }) => {
     await requireOrganizerUser()
 
@@ -427,7 +427,7 @@ export const getPagesFn = createServerFn({ method: 'GET' }).handler(async () => 
 })
 
 export const getPageBySlugFn = createServerFn({ method: 'GET' })
-  .inputValidator((slug: string) => z.string().parse(slug))
+  .inputValidator((input: unknown) => z.string().parse(input))
   .handler(async ({ data: slug }) => {
     const db = await getDb()
     const page = await db.select().from(pages).where(eq(pages.slug, slug)).limit(1)
@@ -513,7 +513,7 @@ export const updatePageFn = createServerFn({ method: 'POST' })
   })
 
 export const deletePageFn = createServerFn({ method: 'POST' })
-  .inputValidator((id: number) => z.number().parse(id))
+  .inputValidator((input: unknown) => z.number().parse(input))
   .handler(async ({ data: id }) => {
     await requireOrganizerUser()
 
@@ -606,7 +606,7 @@ export const updateNavigationItemFn = createServerFn({ method: 'POST' })
   })
 
 export const deleteNavigationItemFn = createServerFn({ method: 'POST' })
-  .inputValidator((id: number) => z.number().parse(id))
+  .inputValidator((input: unknown) => z.number().parse(input))
   .handler(async ({ data: id }) => {
     await requireOrganizerUser()
 
