@@ -270,7 +270,6 @@ function AdminLayout() {
                 <SubNavItem href="/admin/tickets" label="Översikt" />
                 <SubNavItem href="/admin/tickets/events" label="Evenemang" />
                 <SubNavItem href="/admin/tickets/types" label="Biljetttyper" />
-                <SubNavItem href="/admin/tickets/scan" label="Skanna" />
                 <SubNavItem href="/admin/tickets/new" label="Utfärda biljett" />
               </NavGroup>
             </div>
