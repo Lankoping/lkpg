@@ -154,6 +154,43 @@ export const navigationItems = pgTable('navigation_items', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
+// Stadgar (statutes) table
+export const stadgar = pgTable('stadgar', {
+  id: serial('id').primaryKey(),
+  content: text('content').notNull(),
+  signatures: text('signatures').default('{}').notNull(),
+  updatedBy: integer('updated_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// Avgångsrequests (departure requests) table
+export const avgangsRequests = pgTable('avgangs_requests', {
+  id: serial('id').primaryKey(),
+  namn: text('namn').notNull(),
+  pnr: text('pnr').notNull(),
+  roll: text('roll').notNull(),
+  orsak: text('orsak').notNull(),
+  datum: timestamp('datum').notNull(),
+  status: text('status').default('pending').notNull(),
+  pdfUrl: text('pdf_url'),
+  reviewedBy: integer('reviewed_by').references(() => users.id),
+  createdByUserId: integer('created_by_user_id').references(() => users.id),
+  targetUserId: integer('target_user_id').references(() => users.id),
+  generatedBy: integer('generated_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// Agreements table
+export const agreements = pgTable('agreements', {
+  id: serial('id').primaryKey(),
+  createdByUserId: integer('created_by_user_id').references(() => users.id),
+  generatedBy: integer('generated_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
 // Type for page content sections
 export type PageSection = {
   type: 'heading' | 'paragraph' | 'list' | 'callout'
