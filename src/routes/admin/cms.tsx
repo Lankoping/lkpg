@@ -10,7 +10,16 @@ const AVAILABLE_ICONS = [
   'Crown', 'Code', 'Heart', 'Star', 'Zap', 'Shield', 'Target', 'Trophy', 'Flame', 'Users', 'Gamepad2'
 ]
 
+const VALID_TABS = ['overview', 'hero', 'team', 'sections'] as const
+type TabId = typeof VALID_TABS[number]
+
 export const Route = createFileRoute('/admin/cms')({
+  validateSearch: (search: Record<string, unknown>) => {
+    const tab = search.tab as string | undefined
+    return {
+      tab: (VALID_TABS.includes(tab as TabId) ? tab : 'overview') as TabId,
+    }
+  },
   loader: async () => {
     try {
       const [heroContent, teamMembers, infoSections] = await Promise.all([
@@ -29,5 +38,6 @@ export const Route = createFileRoute('/admin/cms')({
 
 function CMSPage() {
   const data = Route.useLoaderData()
-  return <CMSPageClient initialData={data} availableIcons={AVAILABLE_ICONS} />
+  const { tab } = Route.useSearch()
+  return <CMSPageClient initialData={data} availableIcons={AVAILABLE_ICONS} initialTab={tab} />
 }

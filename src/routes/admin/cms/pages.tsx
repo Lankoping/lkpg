@@ -27,7 +27,7 @@ function PagesPage() {
             <h1 className="font-display text-4xl text-foreground">Sidor</h1>
             <p className="text-muted-foreground mt-2">Hantera statiska sidor</p>
           </div>
-          <button className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+          <button type="button" className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
             <Plus className="w-4 h-4" />
             Ny sida
           </button>
@@ -58,7 +58,7 @@ function PagesPage() {
                       <EyeOff className="w-3.5 h-3.5" /> Utkast
                     </span>
                   )}
-                  <button className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition-all">
+                  <button type="button" className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition-all">
                     <Edit2 className="w-4 h-4" />
                   </button>
                 </div>
