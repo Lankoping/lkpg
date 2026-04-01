@@ -60,52 +60,6 @@ export const tickets = pgTable('tickets', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
-export const stadgar = pgTable('stadgar', {
-  id: serial('id').primaryKey(),
-  content: text('content').notNull(),
-  signatures: text('signatures').default('{}').notNull(), // JSON: { "1": true, "2": false } (userId: signed)
-  updatedBy: integer('updated_by').references(() => users.id),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-})
-
-export const avgangsRequests = pgTable('avgangs_requests', {
-  id: serial('id').primaryKey(),
-  namn: text('namn').notNull(),
-  pnr: text('pnr').notNull(),
-  roll: text('roll').notNull(),
-  orsak: text('orsak').notNull(),
-  datum: timestamp('datum').notNull(),
-  status: text('status', { enum: ['pending', 'approved', 'rejected', 'archived'] }).default('pending').notNull(),
-  pdfUrl: text('pdf_url'),
-  reviewedBy: integer('reviewed_by').references(() => users.id),
-  createdByUserId: integer('created_by_user_id').references(() => users.id),
-  targetUserId: integer('target_user_id').references(() => users.id),
-  requiredSigners: text('required_signers').default('[]').notNull(), // JSON: number[]
-  digitalSignatures: text('digital_signatures').default('{}').notNull(), // JSON: { userId: bool }
-  physicalSigned: boolean('physical_signed').default(false).notNull(),
-  generatedAt: timestamp('generated_at'),
-  generatedBy: integer('generated_by').references(() => users.id),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-})
-
-export const agreements = pgTable('agreements', {
-  id: serial('id').primaryKey(),
-  title: text('title').notNull(),
-  description: text('description'),
-  body: text('body').notNull(),
-  status: text('status', { enum: ['draft', 'active', 'completed', 'archived'] }).default('draft').notNull(),
-  createdByUserId: integer('created_by_user_id').references(() => users.id),
-  requiredSigners: text('required_signers').default('[]').notNull(),
-  digitalSignatures: text('digital_signatures').default('{}').notNull(),
-  generatedAt: timestamp('generated_at'),
-  generatedBy: integer('generated_by').references(() => users.id),
-  physicalSigned: boolean('physical_signed').default(false).notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-})
-
 export const activityLogs = pgTable('activity_logs', {
   id: serial('id').primaryKey(),
   actorUserId: integer('actor_user_id').references(() => users.id).notNull(),
