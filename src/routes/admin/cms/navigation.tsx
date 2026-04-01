@@ -27,7 +27,7 @@ function NavigationPage() {
             <h1 className="font-display text-4xl text-foreground">Navigation</h1>
             <p className="text-muted-foreground mt-2">Hantera webbplatsens meny</p>
           </div>
-          <button className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+          <button type="button" className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
             <Plus className="w-4 h-4" />
             Nytt menyval
           </button>
@@ -53,10 +53,10 @@ function NavigationPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                  <button type="button" className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                  <button type="button" className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

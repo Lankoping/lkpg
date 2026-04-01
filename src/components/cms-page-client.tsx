@@ -36,6 +36,7 @@ interface CMSPageClientProps {
     infoSections: any[]
   }
   availableIcons: string[]
+  initialTab?: string
 }
 
 // Alert Component
@@ -59,9 +60,15 @@ function Alert({ message, type, onClose }: { message: string; type: 'success' | 
   )
 }
 
-export function CMSPageClient({ initialData, availableIcons }: CMSPageClientProps) {
+export function CMSPageClient({ initialData, availableIcons, initialTab = 'overview' }: CMSPageClientProps) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(initialTab)
+
+  const navigateToTab = (tab: string, extra?: () => void) => {
+    setActiveTab(tab)
+    router.navigate({ to: '/admin/cms', search: { tab: tab as any }, replace: true })
+    extra?.()
+  }
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
@@ -311,7 +318,7 @@ export function CMSPageClient({ initialData, availableIcons }: CMSPageClientProp
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => navigateToTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-all border-b-2 -mb-[2px] ${
               activeTab === tab.id
                 ? 'border-primary text-primary'
@@ -338,9 +345,9 @@ export function CMSPageClient({ initialData, availableIcons }: CMSPageClientProp
             </div>
             <div className="p-4 space-y-2">
               {[
-                { label: 'Redigera Hero', desc: 'Uppdatera startsidan', onClick: () => setActiveTab('hero'), icon: Home },
-                { label: 'Lägg till teammedlem', desc: 'Ny person i teamet', onClick: () => { setActiveTab('team'); setShowTeamForm(true) }, icon: Users },
-                { label: 'Ny sektion', desc: 'Skapa informationssektion', onClick: () => { setActiveTab('sections'); setShowInfoForm(true) }, icon: Layers },
+                { label: 'Redigera Hero', desc: 'Uppdatera startsidan', onClick: () => navigateToTab('hero'), icon: Home },
+                { label: 'Lägg till teammedlem', desc: 'Ny person i teamet', onClick: () => navigateToTab('team', () => setShowTeamForm(true)), icon: Users },
+                { label: 'Ny sektion', desc: 'Skapa informationssektion', onClick: () => navigateToTab('sections', () => setShowInfoForm(true)), icon: Layers },
               ].map((action, i) => (
                 <button
                   key={i}
@@ -370,7 +377,7 @@ export function CMSPageClient({ initialData, availableIcons }: CMSPageClientProp
                 </div>
                 <h3 className="font-display text-xl text-foreground">Teammedlemmar</h3>
               </div>
-              <button onClick={() => setActiveTab('team')} className="text-xs font-medium text-primary hover:text-foreground transition-colors">
+              <button onClick={() => navigateToTab('team')} className="text-xs font-medium text-primary hover:text-foreground transition-colors">
                 Visa alla
               </button>
             </div>
