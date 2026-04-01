@@ -29,6 +29,8 @@ import {
   AlertCircle
 } from 'lucide-react'
 
+type CmsTabId = 'overview' | 'hero' | 'team' | 'sections'
+
 interface CMSPageClientProps {
   initialData: {
     heroContent: any
@@ -36,7 +38,7 @@ interface CMSPageClientProps {
     infoSections: any[]
   }
   availableIcons: string[]
-  initialTab?: string
+  initialTab?: CmsTabId
 }
 
 // Alert Component
@@ -62,11 +64,11 @@ function Alert({ message, type, onClose }: { message: string; type: 'success' | 
 
 export function CMSPageClient({ initialData, availableIcons, initialTab = 'overview' }: CMSPageClientProps) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState(initialTab)
+  const [activeTab, setActiveTab] = useState<CmsTabId>(initialTab)
 
-  const navigateToTab = (tab: string, extra?: () => void) => {
+  const navigateToTab = (tab: CmsTabId, extra?: () => void) => {
     setActiveTab(tab)
-    router.navigate({ to: '/admin/cms', search: { tab: tab as any }, replace: true })
+    router.navigate({ to: '/admin/cms', search: { tab }, replace: true })
     extra?.()
   }
   const [loading, setLoading] = useState(false)
@@ -261,7 +263,7 @@ export function CMSPageClient({ initialData, availableIcons, initialTab = 'overv
     }
   }
 
-  const tabs = [
+  const tabs: { id: CmsTabId; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Översikt', icon: <Globe className="w-4 h-4" /> },
     { id: 'hero', label: 'Hero', icon: <Home className="w-4 h-4" /> },
     { id: 'team', label: 'Team', icon: <Users className="w-4 h-4" /> },
