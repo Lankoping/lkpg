@@ -8,7 +8,7 @@ LKPG erbjuder grundläggande verktyg direkt från start:
 
 ## Kommande förbättringar
 Planerade uppgraderingar inkluderar:
-- CMS-integration liknande WordPress, så att icke-tekniska användare kan redigera sidor, evenemang och detaljer utan kodning.
-- Uppfräschning och modernisering av admin-gränssnittet för bättre användarvänlighet och effektivitet.
+- CMS-integration liknande WordPress, så att icke-tekniska användare kan redigera sidor, evenemang och detaljer utan kodning. (Klart 2026-03-31)
+- Uppfräschning och modernisering av admin-gränssnittet för bättre användarvänlighet och effektivitet. (Klart 2026-03-26)
 
 Intresserad av en LKPG-licens? Oavsett om du vill köpa eller hyra, kontakta elias@lankoping.se för detaljer och prissättning anpassad till din LAN-community eller förening. **Pssst, har du under 15 medlemmar så kan du få en sponsrad licens!**
