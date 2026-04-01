@@ -1,7 +1,7 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
 import { getDb } from '../db/runtime'
-import { users, activityLogs } from '../db/schema'
+import { users, activityLogs, posts, tickets, stadgar, avgangsRequests, agreements } from '../db/schema'
 import { eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie, getCookie, deleteCookie } from '@tanstack/react-start/server'
@@ -228,8 +228,29 @@ export const deleteUserFn = createServerFn({ method: "POST" })
       throw new Error('User not found')
     }
 
-    // Delete related records to avoid foreign key constraints
-    // Activity logs - delete logs where this user was the actor
+    // Null out all foreign key references to this user before deletion
+
+    // Posts authored by this user
+    await db.update(posts).set({ authorId: null }).where(eq(posts.authorId, data.userId))
+
+    // Tickets issued or scanned by this user
+    await db.update(tickets).set({ issuedBy: null }).where(eq(tickets.issuedBy, data.userId))
+    await db.update(tickets).set({ scannedBy: null }).where(eq(tickets.scannedBy, data.userId))
+
+    // Stadgar updated by this user
+    await db.update(stadgar).set({ updatedBy: null }).where(eq(stadgar.updatedBy, data.userId))
+
+    // AvgangsRequests referencing this user
+    await db.update(avgangsRequests).set({ reviewedBy: null }).where(eq(avgangsRequests.reviewedBy, data.userId))
+    await db.update(avgangsRequests).set({ createdByUserId: null }).where(eq(avgangsRequests.createdByUserId, data.userId))
+    await db.update(avgangsRequests).set({ targetUserId: null }).where(eq(avgangsRequests.targetUserId, data.userId))
+    await db.update(avgangsRequests).set({ generatedBy: null }).where(eq(avgangsRequests.generatedBy, data.userId))
+
+    // Agreements referencing this user
+    await db.update(agreements).set({ createdByUserId: null }).where(eq(agreements.createdByUserId, data.userId))
+    await db.update(agreements).set({ generatedBy: null }).where(eq(agreements.generatedBy, data.userId))
+
+    // Activity logs - delete logs where this user was the actor (actorUserId is NOT NULL)
     await db.delete(activityLogs).where(eq(activityLogs.actorUserId, data.userId))
 
     // Delete user
