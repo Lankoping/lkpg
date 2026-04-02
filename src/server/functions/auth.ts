@@ -6,7 +6,6 @@ import { eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie, getCookie, deleteCookie } from '@tanstack/react-start/server'
 import {
-  ensureDemoTesterUser,
   enforceDemoOwnUserScope,
   getDemoAccountEmails,
   isDemoTesterUser,
@@ -18,7 +17,6 @@ import { writeActivityLog } from './logs'
 export const loginFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ email: z.string(), passwordHash: z.string() }).parse(data))
   .handler(async ({ data }) => {
-    await ensureDemoTesterUser()
     const db = await getDb()
 
     const user = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
@@ -365,7 +363,6 @@ export const updateUserFn = createServerFn({ method: 'POST' })
 
 export const getDemoAccountsFn = createServerFn({ method: 'GET' })
   .handler(async () => {
-    await ensureDemoTesterUser()
     const currentUser = await requireOrganizerUser()
     const db = await getDb()
 
@@ -384,7 +381,6 @@ export const getDemoAccountsFn = createServerFn({ method: 'GET' })
 export const setDemoAccountsActiveFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ active: z.boolean() }).parse(data))
   .handler(async ({ data }) => {
-    await ensureDemoTesterUser()
     const currentUser = await requireOrganizerUser()
     const db = await getDb()
 

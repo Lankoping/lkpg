@@ -1,5 +1,9 @@
 LKPG är en specialiserad webbaserad mjukvara för att hantera LAN-communities och ideella föreningar, som driver sajter som lankoping.se med inbyggd blogg, nyhetsposter och biljettsystem. Den saknar BankID-integration men fokuserar på enkla verktyg för evenemangsorganisation utan onödiga externa beroenden.
 
+## Första admin (tom databas)
+- Om databasen är tom skapas ingen demo-användare automatiskt.
+- Följ guiden i [docs/first-admin-user.md](docs/first-admin-user.md) för att skapa första admin-kontot manuellt.
+
 ## Viktiga funktioner
 LKPG erbjuder grundläggande verktyg direkt från start:
 - Bloggsystem för nyheter och uppdateringar, synliga på lankoping.se med inlägg som LAN-förberedelser.

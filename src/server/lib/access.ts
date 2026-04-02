@@ -62,22 +62,7 @@ export function scopeSignerIdsForUser(
 export async function ensureDemoTesterUser() {
   const db = await getDb()
   const existing = await db.select().from(users).where(eq(users.email, DEMO_TESTER_EMAIL)).limit(1)
-  if (existing[0]) {
-    return existing[0]
-  }
-
-  const inserted = await db
-    .insert(users)
-    .values({
-      email: DEMO_TESTER_EMAIL,
-      passwordHash: DEMO_TESTER_PASSWORD,
-      name: DEMO_TESTER_NAME,
-      role: 'organizer',
-      active: true,
-    })
-    .returning()
-
-  return inserted[0]
+  return existing[0] ?? null
 }
 
 export async function requireStaffUser() {
