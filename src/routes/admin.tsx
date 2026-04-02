@@ -229,9 +229,9 @@ function AdminLayout() {
                 <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Innehåll</p>
                 <NavGroup label="CMS" icon={<Palette className="w-5 h-5" />} defaultOpen={isCmsPath}>
                   <SubNavItem href="/admin/cms" label="Översikt" />
-                  <SubNavItem href="/admin/cms?tab=pages" label="Sidor" />
-                  <SubNavItem href="/admin/cms?tab=navigation" label="Navigation" />
-                  <SubNavItem href="/admin/cms?tab=settings" label="Inställningar" />
+                  <SubNavItem href="/admin/cms/pages" label="Sidor" />
+                  <SubNavItem href="/admin/cms/navigation" label="Navigation" />
+                  <SubNavItem href="/admin/cms/settings" label="Inställningar" />
                 </NavGroup>
               </div>
             )}

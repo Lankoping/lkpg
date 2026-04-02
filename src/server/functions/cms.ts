@@ -422,6 +422,7 @@ export const getPagesFn = createServerFn({ method: 'GET' }).handler(async () => 
   return await db
     .select()
     .from(pages)
+    .where(eq(pages.isPublished, true))
     .orderBy(desc(pages.updatedAt))
 })
 
@@ -440,7 +441,7 @@ export const createPageFn = createServerFn({ method: 'POST' })
         slug: z.string(),
         title: z.string(),
         subtitle: z.string().optional(),
-        content: z.array(z.record(z.string(), z.unknown())),
+        content: z.array(z.record(z.unknown())),
       })
       .parse(data)
   })
@@ -478,7 +479,7 @@ export const updatePageFn = createServerFn({ method: 'POST' })
         slug: z.string(),
         title: z.string(),
         subtitle: z.string().optional(),
-        content: z.array(z.record(z.string(), z.unknown())),
+        content: z.array(z.record(z.unknown())),
         isPublished: z.boolean().optional(),
       })
       .parse(data)
@@ -631,7 +632,7 @@ export const getSiteSettingsFn = createServerFn({ method: 'GET' }).handler(async
 
 export const updateSiteSettingsFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => {
-    return z.record(z.string(), z.unknown()).parse(data)
+    return z.record(z.unknown()).parse(data)
   })
   .handler(async ({ data }) => {
     await requireOrganizerUser()
