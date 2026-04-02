@@ -10,6 +10,7 @@ import {
   createInfoSectionFn,
   updateInfoSectionFn,
   deleteInfoSectionFn,
+  updateSiteSettingsFn,
 } from '@/server/functions/cms'
 import { 
   Loader2, 
@@ -20,22 +21,29 @@ import {
   X,
   GripVertical,
   Eye,
+  EyeOff,
   Home,
   Users,
   Layers,
   Globe,
   ArrowRight,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  Settings,
+  Palette,
 } from 'lucide-react'
 
-type CmsTabId = 'overview' | 'hero' | 'team' | 'sections'
+type CmsTabId = 'overview' | 'hero' | 'team' | 'sections' | 'navigation' | 'pages' | 'settings'
 
 interface CMSPageClientProps {
   initialData: {
     heroContent: any
     teamMembers: any[]
     infoSections: any[]
+    navigationItems?: any[]
+    pages?: any[]
+    settings?: any
   }
   availableIcons: string[]
   initialTab?: CmsTabId
@@ -76,6 +84,9 @@ export function CMSPageClient({ initialData, availableIcons, initialTab = 'overv
 
   const [teamMembers, setTeamMembers] = useState(initialData.teamMembers || [])
   const [infoSections, setInfoSections] = useState(initialData.infoSections || [])
+  const [navigationItems, setNavigationItems] = useState(initialData.navigationItems || [])
+  const [pages, setPages] = useState(initialData.pages || [])
+  const [settings, setSettings] = useState(initialData.settings || {})
 
   // Hero Form State
   const [heroForm, setHeroForm] = useState(initialData.heroContent || {
@@ -268,6 +279,9 @@ export function CMSPageClient({ initialData, availableIcons, initialTab = 'overv
     { id: 'hero', label: 'Hero', icon: <Home className="w-4 h-4" /> },
     { id: 'team', label: 'Team', icon: <Users className="w-4 h-4" /> },
     { id: 'sections', label: 'Sektioner', icon: <Layers className="w-4 h-4" /> },
+    { id: 'navigation', label: 'Navigation', icon: <Globe className="w-4 h-4" /> },
+    { id: 'pages', label: 'Sidor', icon: <FileText className="w-4 h-4" /> },
+    { id: 'settings', label: 'Inställningar', icon: <Settings className="w-4 h-4" /> },
   ]
 
   return (
@@ -844,6 +858,221 @@ export function CMSPageClient({ initialData, availableIcons, initialTab = 'overv
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Navigation Tab */}
+      {activeTab === 'navigation' && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-2xl text-foreground">Navigation</h3>
+              <p className="text-sm text-muted-foreground">{navigationItems.length} menyval</p>
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="bg-card border border-border">
+            {navigationItems.length > 0 ? (
+              <div className="divide-y divide-border">
+                {navigationItems.map((item: any) => (
+                  <div key={item.id} className="flex items-center gap-4 p-4 hover:bg-secondary/30 transition-colors group">
+                    <div className="p-1 text-muted-foreground cursor-grab">
+                      <GripVertical className="w-4 h-4" />
+                    </div>
+                    <div className="p-2 bg-primary/10 flex-shrink-0">
+                      <Globe className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-foreground truncate">{item.label}</h4>
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                        {item.href}
+                        <ArrowRight className="w-3 h-3" />
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 bg-secondary flex items-center justify-center mx-auto mb-4">
+                  <Globe className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <h3 className="font-display text-xl text-foreground mb-2">Ingen navigation</h3>
+                <p className="text-sm text-muted-foreground mb-4">Lägg till navigationsmenyval för webbplatsen.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Pages Tab */}
+      {activeTab === 'pages' && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-2xl text-foreground">Sidor</h3>
+              <p className="text-sm text-muted-foreground">{pages.length} sida{pages.length !== 1 ? 'or' : ''}</p>
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="bg-card border border-border">
+            {pages.length > 0 ? (
+              <div className="divide-y divide-border">
+                {pages.map((page: any) => (
+                  <div key={page.id} className="flex items-center justify-between p-5 hover:bg-secondary/30 transition-colors group">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-primary/10">
+                        <FileText className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-foreground">{page.title}</h3>
+                        <p className="text-xs text-muted-foreground">/{page.slug}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {page.isPublished ? (
+                        <span className="flex items-center gap-1.5 text-xs text-green-600">
+                          <Eye className="w-3.5 h-3.5" /> Publicerad
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <EyeOff className="w-3.5 h-3.5" /> Inte publicerad
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 bg-secondary flex items-center justify-center mx-auto mb-4">
+                  <FileText className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <h3 className="font-display text-xl text-foreground mb-2">Inga sidor</h3>
+                <p className="text-sm text-muted-foreground">Lägg till statiska sidor för webbplatsen.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Settings Tab */}
+      {activeTab === 'settings' && (
+        <div className="space-y-6 max-w-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-2xl text-foreground">Inställningar</h3>
+              <p className="text-sm text-muted-foreground">Konfigurera webbplatsinställningar</p>
+            </div>
+            <button 
+              onClick={async () => {
+                setLoading(true)
+                try {
+                  await updateSiteSettingsFn({ data: settings })
+                  showAlert('Inställningar sparade!', 'success')
+                } catch (error) {
+                  showAlert('Kunde inte spara inställningar', 'error')
+                  console.error(error)
+                } finally {
+                  setLoading(false)
+                }
+              }}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Spara ändringar
+            </button>
+          </div>
+
+          {/* Settings Form */}
+          <div className="bg-card border border-border p-6 space-y-6">
+            {/* General Settings */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-primary/10"><Globe className="w-4 h-4 text-primary" /></div>
+                <h4 className="font-display text-lg text-foreground">Allmänt</h4>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Webbplatsnamn</label>
+                  <input
+                    type="text"
+                    value={settings.siteName || ''}
+                    onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
+                    placeholder="Min webbplats"
+                    className="w-full px-3 py-2 text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Beskrivning</label>
+                  <textarea
+                    value={settings.siteDescription || ''}
+                    onChange={(e) => setSettings({ ...settings, siteDescription: e.target.value })}
+                    placeholder="En kort beskrivning..."
+                    rows={3}
+                    className="w-full px-3 py-2 text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all resize-y"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Kontakt-e-post</label>
+                  <input
+                    type="email"
+                    value={settings.contactEmail || ''}
+                    onChange={(e) => setSettings({ ...settings, contactEmail: e.target.value })}
+                    placeholder="kontakt@exempel.se"
+                    className="w-full px-3 py-2 text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Appearance Settings */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-primary/10"><Palette className="w-4 h-4 text-primary" /></div>
+                <h4 className="font-display text-lg text-foreground">Utseende</h4>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Primärfärg</label>
+                  <input
+                    type="color"
+                    value={settings.primaryColor || '#D64A35'}
+                    onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                    className="w-full h-10 border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Logotyp URL</label>
+                  <input
+                    type="text"
+                    value={settings.logoUrl || ''}
+                    onChange={(e) => setSettings({ ...settings, logoUrl: e.target.value })}
+                    placeholder="/logo.png"
+                    className="w-full px-3 py-2 text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -1,21 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { getNavigationItemsFn } from '../../../server/functions/cms'
-import { Navigation, Plus, Edit2, Trash2, GripVertical, ExternalLink } from 'lucide-react'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/admin/cms/navigation')({
-  loader: async () => {
-    try {
-      const items = await getNavigationItemsFn()
-      return { items }
-    } catch {
-      return { items: [] }
-    }
+  beforeLoad: () => {
+    throw redirect({ to: '/admin/cms', search: { tab: 'navigation' } })
   },
-  component: NavigationPage,
+  component: () => null,
 })
-
-function NavigationPage() {
-  const { items } = Route.useLoaderData()
 
   return (
     <div className="max-w-5xl mx-auto">
