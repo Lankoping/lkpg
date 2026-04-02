@@ -11,8 +11,16 @@ Use this guide when:
 
 ## Important note about passwords
 
-Current login logic compares `password_hash` as plain text (`passwordHash === input`).
-So the value you insert in `password_hash` must be the exact password you plan to type on the login page.
+Password encryption is enabled.
+`password_hash` must contain a generated hash, not plain text.
+
+Generate hash from a password:
+
+```bash
+node -e "const { randomBytes, scryptSync } = require('node:crypto'); const pwd='ChangeMeNow-StrongPass123!'; const N=16384,r=8,p=1,k=64; const salt=randomBytes(16).toString('base64'); const digest=scryptSync(pwd,salt,k,{N,r,p,maxmem:128*N*r+k}).toString('base64'); console.log(`scrypt$${N}$${r}$${p}$${salt}$${digest}`);"
+```
+
+Copy the output and use it as `password_hash`.
 
 ## Option 1: Create first admin with SQL (recommended)
 
@@ -20,14 +28,14 @@ Run this against the same database used by `DATABASE_URL`:
 
 ```sql
 INSERT INTO users (email, password_hash, name, role, active)
-VALUES ('admin@example.com', 'ChangeMeNow-StrongPass123!', 'First Admin', 'organizer', true);
+VALUES ('admin@example.com', '<PASTE_HASH_HERE>', 'First Admin', 'organizer', true);
 ```
 
 If your SQL client requires explicit schema:
 
 ```sql
 INSERT INTO public.users (email, password_hash, name, role, active)
-VALUES ('admin@example.com', 'ChangeMeNow-StrongPass123!', 'First Admin', 'organizer', true);
+VALUES ('admin@example.com', '<PASTE_HASH_HERE>', 'First Admin', 'organizer', true);
 ```
 
 ## Option 2: Verify before creating (avoid duplicates)
@@ -40,7 +48,7 @@ If `admin@example.com` already exists, update instead:
 
 ```sql
 UPDATE users
-SET password_hash = 'ChangeMeNow-StrongPass123!', role = 'organizer', active = true
+SET password_hash = '<PASTE_HASH_HERE>', role = 'organizer', active = true
 WHERE email = 'admin@example.com';
 ```
 
@@ -59,6 +67,5 @@ WHERE email = 'admin@example.com';
 
 ## Future hardening (recommended)
 
-- Replace plain-text password storage with real hashing (e.g. bcrypt/argon2)
 - Add a one-time first-user setup flow guarded by env flag
 - Add audit logging for bootstrap user creation

@@ -12,6 +12,7 @@ import {
   requireOrganizerUser,
   requireStaffUser,
 } from '../lib/access'
+import { hashPassword, isHashedPassword, verifyPassword } from '../lib/password'
 import { writeActivityLog } from './logs'
 
 export const loginFn = createServerFn({ method: "POST" })
@@ -32,8 +33,16 @@ export const loginFn = createServerFn({ method: "POST" })
       throw new Error('Account is locked')
     }
 
-    if (user[0].passwordHash !== data.passwordHash) {
+    if (!verifyPassword(data.passwordHash, user[0].passwordHash)) {
       throw new Error('Invalid password') 
+    }
+
+    // Upgrade legacy plaintext password rows after successful login.
+    if (!isHashedPassword(user[0].passwordHash)) {
+      await db
+        .update(users)
+        .set({ passwordHash: hashPassword(data.passwordHash) })
+        .where(eq(users.id, user[0].id))
     }
 
     // Set a session cookie
@@ -130,7 +139,7 @@ export const createUserFn = createServerFn({ method: "POST" })
       .insert(users)
       .values({
         email: data.email,
-        passwordHash: data.password,
+        passwordHash: hashPassword(data.password),
         name: data.name,
         role: data.role,
         active: true,
@@ -181,7 +190,7 @@ export const changePasswordFn = createServerFn({ method: "POST" })
 
     await db
       .update(users)
-      .set({ passwordHash: data.newPassword })
+      .set({ passwordHash: hashPassword(data.newPassword) })
       .where(eq(users.id, data.userId))
 
     await writeActivityLog({
