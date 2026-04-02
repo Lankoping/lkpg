@@ -422,7 +422,6 @@ export const getPagesFn = createServerFn({ method: 'GET' }).handler(async () => 
   return await db
     .select()
     .from(pages)
-    .where(eq(pages.isPublished, true))
     .orderBy(desc(pages.updatedAt))
 })
 
