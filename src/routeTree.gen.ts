@@ -28,13 +28,10 @@ import { Route as EnRulesRouteImport } from './routes/en/rules'
 import { Route as EnPrivacyRouteImport } from './routes/en/privacy'
 import { Route as BlogsSlugRouteImport } from './routes/blogs/$slug'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
-import { Route as AdminStadgarRouteImport } from './routes/admin/stadgar'
 import { Route as AdminPostsRouteImport } from './routes/admin/posts'
 import { Route as AdminNewRouteImport } from './routes/admin/new'
 import { Route as AdminLogsRouteImport } from './routes/admin/logs'
 import { Route as AdminCmsRouteImport } from './routes/admin/cms'
-import { Route as AdminAvtalRouteImport } from './routes/admin/avtal'
-import { Route as AdminAvgangRouteImport } from './routes/admin/avgang'
 import { Route as PublicTeamRouteImport } from './routes/_public/team'
 import { Route as PublicRulesRouteImport } from './routes/_public/rules'
 import { Route as PublicPrivacyRouteImport } from './routes/_public/privacy'
@@ -153,11 +150,6 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminStadgarRoute = AdminStadgarRouteImport.update({
-  id: '/stadgar',
-  path: '/stadgar',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminPostsRoute = AdminPostsRouteImport.update({
   id: '/posts',
   path: '/posts',
@@ -176,16 +168,6 @@ const AdminLogsRoute = AdminLogsRouteImport.update({
 const AdminCmsRoute = AdminCmsRouteImport.update({
   id: '/cms',
   path: '/cms',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminAvtalRoute = AdminAvtalRouteImport.update({
-  id: '/avtal',
-  path: '/avtal',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminAvgangRoute = AdminAvgangRouteImport.update({
-  id: '/avgang',
-  path: '/avgang',
   getParentRoute: () => AdminRoute,
 } as any)
 const PublicTeamRoute = PublicTeamRouteImport.update({
@@ -322,13 +304,10 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PublicPrivacyRoute
   '/rules': typeof PublicRulesRoute
   '/team': typeof PublicTeamRoute
-  '/admin/avgang': typeof AdminAvgangRoute
-  '/admin/avtal': typeof AdminAvtalRoute
   '/admin/cms': typeof AdminCmsRouteWithChildren
   '/admin/logs': typeof AdminLogsRoute
   '/admin/new': typeof AdminNewRoute
   '/admin/posts': typeof AdminPostsRoute
-  '/admin/stadgar': typeof AdminStadgarRoute
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
   '/en/privacy': typeof EnPrivacyRoute
@@ -370,13 +349,10 @@ export interface FileRoutesByTo {
   '/privacy': typeof PublicPrivacyRoute
   '/rules': typeof PublicRulesRoute
   '/team': typeof PublicTeamRoute
-  '/admin/avgang': typeof AdminAvgangRoute
-  '/admin/avtal': typeof AdminAvtalRoute
   '/admin/cms': typeof AdminCmsRouteWithChildren
   '/admin/logs': typeof AdminLogsRoute
   '/admin/new': typeof AdminNewRoute
   '/admin/posts': typeof AdminPostsRoute
-  '/admin/stadgar': typeof AdminStadgarRoute
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
   '/en/privacy': typeof EnPrivacyRoute
@@ -422,13 +398,10 @@ export interface FileRoutesById {
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/rules': typeof PublicRulesRoute
   '/_public/team': typeof PublicTeamRoute
-  '/admin/avgang': typeof AdminAvgangRoute
-  '/admin/avtal': typeof AdminAvtalRoute
   '/admin/cms': typeof AdminCmsRouteWithChildren
   '/admin/logs': typeof AdminLogsRoute
   '/admin/new': typeof AdminNewRoute
   '/admin/posts': typeof AdminPostsRoute
-  '/admin/stadgar': typeof AdminStadgarRoute
   '/admin/users': typeof AdminUsersRoute
   '/blogs/$slug': typeof BlogsSlugRoute
   '/en/privacy': typeof EnPrivacyRoute
@@ -475,13 +448,10 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/rules'
     | '/team'
-    | '/admin/avgang'
-    | '/admin/avtal'
     | '/admin/cms'
     | '/admin/logs'
     | '/admin/new'
     | '/admin/posts'
-    | '/admin/stadgar'
     | '/admin/users'
     | '/blogs/$slug'
     | '/en/privacy'
@@ -523,13 +493,10 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/rules'
     | '/team'
-    | '/admin/avgang'
-    | '/admin/avtal'
     | '/admin/cms'
     | '/admin/logs'
     | '/admin/new'
     | '/admin/posts'
-    | '/admin/stadgar'
     | '/admin/users'
     | '/blogs/$slug'
     | '/en/privacy'
@@ -574,13 +541,10 @@ export interface FileRouteTypes {
     | '/_public/privacy'
     | '/_public/rules'
     | '/_public/team'
-    | '/admin/avgang'
-    | '/admin/avtal'
     | '/admin/cms'
     | '/admin/logs'
     | '/admin/new'
     | '/admin/posts'
-    | '/admin/stadgar'
     | '/admin/users'
     | '/blogs/$slug'
     | '/en/privacy'
@@ -765,13 +729,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/stadgar': {
-      id: '/admin/stadgar'
-      path: '/stadgar'
-      fullPath: '/admin/stadgar'
-      preLoaderRoute: typeof AdminStadgarRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/posts': {
       id: '/admin/posts'
       path: '/posts'
@@ -798,20 +755,6 @@ declare module '@tanstack/react-router' {
       path: '/cms'
       fullPath: '/admin/cms'
       preLoaderRoute: typeof AdminCmsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/avtal': {
-      id: '/admin/avtal'
-      path: '/avtal'
-      fullPath: '/admin/avtal'
-      preLoaderRoute: typeof AdminAvtalRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/avgang': {
-      id: '/admin/avgang'
-      path: '/avgang'
-      fullPath: '/admin/avgang'
-      preLoaderRoute: typeof AdminAvgangRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_public/team': {
@@ -1043,13 +986,10 @@ const AdminCmsRouteWithChildren = AdminCmsRoute._addFileChildren(
 )
 
 interface AdminRouteChildren {
-  AdminAvgangRoute: typeof AdminAvgangRoute
-  AdminAvtalRoute: typeof AdminAvtalRoute
   AdminCmsRoute: typeof AdminCmsRouteWithChildren
   AdminLogsRoute: typeof AdminLogsRoute
   AdminNewRoute: typeof AdminNewRoute
   AdminPostsRoute: typeof AdminPostsRoute
-  AdminStadgarRoute: typeof AdminStadgarRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminEditIdRoute: typeof AdminEditIdRoute
@@ -1061,13 +1001,10 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
-  AdminAvgangRoute: AdminAvgangRoute,
-  AdminAvtalRoute: AdminAvtalRoute,
   AdminCmsRoute: AdminCmsRouteWithChildren,
   AdminLogsRoute: AdminLogsRoute,
   AdminNewRoute: AdminNewRoute,
   AdminPostsRoute: AdminPostsRoute,
-  AdminStadgarRoute: AdminStadgarRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminEditIdRoute: AdminEditIdRoute,
@@ -1122,3 +1059,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

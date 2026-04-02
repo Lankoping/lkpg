@@ -1,5 +1,4 @@
 // Server initialization - runs when the server starts
-import { ensureDemoTesterUser, DEMO_TESTER_EMAIL } from './lib/access'
 import { purgeExpiredRequestMetadata } from './functions/logs'
 
 let initialized = false
@@ -27,13 +26,6 @@ export async function initializeServer() {
   console.log('╚════════════════════════════════════════════════════════════╝\n')
 
   initialized = true
-
-  try {
-    await ensureDemoTesterUser()
-    console.log(`✅ Demo user ensured: ${DEMO_TESTER_EMAIL}`)
-  } catch (error) {
-    console.error('⚠️  Could not ensure demo user', error)
-  }
 
   await runRetentionPurge()
 

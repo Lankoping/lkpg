@@ -1,24 +1,23 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
 import { getDb } from '../db/runtime'
-import { users, activityLogs, posts, tickets, stadgar, avgangsRequests, agreements } from '../db/schema'
+import { users, activityLogs, posts, tickets } from '../db/schema'
 import { eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie, getCookie, deleteCookie } from '@tanstack/react-start/server'
 import {
-  ensureDemoTesterUser,
   enforceDemoOwnUserScope,
   getDemoAccountEmails,
   isDemoTesterUser,
   requireOrganizerUser,
   requireStaffUser,
 } from '../lib/access'
+import { hashPassword, isHashedPassword, verifyPassword } from '../lib/password'
 import { writeActivityLog } from './logs'
 
 export const loginFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ email: z.string(), passwordHash: z.string() }).parse(data))
   .handler(async ({ data }) => {
-    await ensureDemoTesterUser()
     const db = await getDb()
 
     const user = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
@@ -34,8 +33,16 @@ export const loginFn = createServerFn({ method: "POST" })
       throw new Error('Account is locked')
     }
 
-    if (user[0].passwordHash !== data.passwordHash) {
+    if (!verifyPassword(data.passwordHash, user[0].passwordHash)) {
       throw new Error('Invalid password') 
+    }
+
+    // Upgrade legacy plaintext password rows after successful login.
+    if (!isHashedPassword(user[0].passwordHash)) {
+      await db
+        .update(users)
+        .set({ passwordHash: hashPassword(data.passwordHash) })
+        .where(eq(users.id, user[0].id))
     }
 
     // Set a session cookie
@@ -132,7 +139,7 @@ export const createUserFn = createServerFn({ method: "POST" })
       .insert(users)
       .values({
         email: data.email,
-        passwordHash: data.password,
+        passwordHash: hashPassword(data.password),
         name: data.name,
         role: data.role,
         active: true,
@@ -183,7 +190,7 @@ export const changePasswordFn = createServerFn({ method: "POST" })
 
     await db
       .update(users)
-      .set({ passwordHash: data.newPassword })
+      .set({ passwordHash: hashPassword(data.newPassword) })
       .where(eq(users.id, data.userId))
 
     await writeActivityLog({
@@ -236,19 +243,6 @@ export const deleteUserFn = createServerFn({ method: "POST" })
     // Tickets issued or scanned by this user
     await db.update(tickets).set({ issuedBy: null }).where(eq(tickets.issuedBy, data.userId))
     await db.update(tickets).set({ scannedBy: null }).where(eq(tickets.scannedBy, data.userId))
-
-    // Stadgar updated by this user
-    await db.update(stadgar).set({ updatedBy: null }).where(eq(stadgar.updatedBy, data.userId))
-
-    // AvgangsRequests referencing this user
-    await db.update(avgangsRequests).set({ reviewedBy: null }).where(eq(avgangsRequests.reviewedBy, data.userId))
-    await db.update(avgangsRequests).set({ createdByUserId: null }).where(eq(avgangsRequests.createdByUserId, data.userId))
-    await db.update(avgangsRequests).set({ targetUserId: null }).where(eq(avgangsRequests.targetUserId, data.userId))
-    await db.update(avgangsRequests).set({ generatedBy: null }).where(eq(avgangsRequests.generatedBy, data.userId))
-
-    // Agreements referencing this user
-    await db.update(agreements).set({ createdByUserId: null }).where(eq(agreements.createdByUserId, data.userId))
-    await db.update(agreements).set({ generatedBy: null }).where(eq(agreements.generatedBy, data.userId))
 
     // Activity logs - delete logs where this user was the actor (actorUserId is NOT NULL)
     await db.delete(activityLogs).where(eq(activityLogs.actorUserId, data.userId))
@@ -378,7 +372,6 @@ export const updateUserFn = createServerFn({ method: 'POST' })
 
 export const getDemoAccountsFn = createServerFn({ method: 'GET' })
   .handler(async () => {
-    await ensureDemoTesterUser()
     const currentUser = await requireOrganizerUser()
     const db = await getDb()
 
@@ -397,7 +390,6 @@ export const getDemoAccountsFn = createServerFn({ method: 'GET' })
 export const setDemoAccountsActiveFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ active: z.boolean() }).parse(data))
   .handler(async ({ data }) => {
-    await ensureDemoTesterUser()
     const currentUser = await requireOrganizerUser()
     const db = await getDb()
 
