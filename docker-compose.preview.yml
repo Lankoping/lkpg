@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile.preview
     container_name: lankoping-preview
     restart: always
+    env_file:
+      - .env
     expose:
       - "3000"
     environment:
