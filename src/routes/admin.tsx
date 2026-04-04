@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, redirect, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect, useRouter } from '@tanstack/react-router'
 import { getSessionFn, logoutFn, updateProfileFn } from '../server/functions/auth'
 import { useState } from 'react'
 import {
@@ -7,11 +7,8 @@ import {
   Users,
   LogOut,
   Settings,
-  Ticket,
   History,
   ChevronDown,
-  ChevronRight,
-  Palette,
   Menu,
   X,
   ExternalLink
@@ -29,21 +26,15 @@ export const Route = createFileRoute('/admin')({
       })
     }
 
-    if (user.role !== 'organizer' && user.role !== 'volunteer') {
-      throw redirect({ to: '/' })
-    }
-
-    if (user.role === 'volunteer' && (location.pathname === '/admin' || location.pathname === '/admin/')) {
-      throw redirect({ to: '/admin/tickets' })
+    if (user.role !== 'organizer') {
+      throw redirect({ to: '/hosted' })
     }
 
     const isDemoTester = Boolean((user as { isDemoTester?: boolean }).isDemoTester)
     const isContentManagementPath =
       location.pathname === '/admin' ||
       location.pathname === '/admin/' ||
-      location.pathname === '/admin/posts' ||
-      location.pathname === '/admin/new' ||
-      location.pathname.startsWith('/admin/edit/')
+      location.pathname === '/admin/applications'
 
     if (isDemoTester && isContentManagementPath) {
       throw redirect({ to: '/admin/users' })
@@ -90,57 +81,6 @@ function NavItem({ href, label, icon, badge, isActive }: NavItemProps) {
   )
 }
 
-interface NavGroupProps {
-  label: string
-  icon: React.ReactNode
-  children: React.ReactNode
-  defaultOpen?: boolean
-}
-
-function NavGroup({ label, icon, children, defaultOpen = false }: NavGroupProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
-
-  return (
-    <div className="space-y-0.5">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-200"
-      >
-        <span className="w-5 h-5 text-muted-foreground">{icon}</span>
-        <span className="flex-1 text-left">{label}</span>
-        {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-      </button>
-      {isOpen && (
-        <div className="ml-8 space-y-0.5 border-l border-border pl-3">
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SubNavItem({ href, label, badge }: { href: string; label: string; badge?: number }) {
-  const isActive = typeof window !== 'undefined' && window.location.pathname === href
-
-  return (
-    <a
-      href={href}
-      className={`flex items-center justify-between px-3 py-2 text-sm transition-all duration-200 ${
-        isActive
-          ? 'text-primary font-medium'
-          : 'text-muted-foreground hover:text-foreground'
-      }`}
-    >
-      <span>{label}</span>
-      {badge != null && badge > 0 && (
-        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full">
-          {badge > 9 ? '9+' : badge}
-        </span>
-      )}
-    </a>
-  )
-}
-
 function AdminLayout() {
   const { user } = Route.useLoaderData()
   const router = useRouter()
@@ -151,16 +91,13 @@ function AdminLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
-  const isOrganizer = user.role === 'organizer'
-  const isDemoTester = Boolean((user as { isDemoTester?: boolean }).isDemoTester)
-
   const handleLogout = async () => {
     if (loggingOut) return
     setLoggingOut(true)
     try {
       await logoutFn({ data: {} })
       await router.invalidate()
-      window.location.replace('/')
+      window.location.replace('/hosted')
     } catch (error) {
       console.error('Logout failed:', error)
       setLoggingOut(false)
@@ -179,10 +116,8 @@ function AdminLayout() {
     }
   }
 
-  const roleLabel = user.role === 'organizer' ? 'Organisatör' : 'Volontär'
+  const roleLabel = 'Staff'
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
-  const isCmsPath = currentPath.startsWith('/admin/cms')
-  const isTicketsPath = currentPath.startsWith('/admin/tickets')
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -198,7 +133,7 @@ function AdminLayout() {
                 <span className="text-primary-foreground font-display text-lg">L</span>
               </div>
               <div>
-                <span className="font-display text-xl tracking-wide text-foreground">Lanköping</span>
+                <span className="font-display text-xl tracking-wide text-foreground">Lan Foundary</span>
                 <span className="block text-[10px] text-muted-foreground uppercase tracking-widest">Admin</span>
               </div>
             </a>
@@ -214,54 +149,22 @@ function AdminLayout() {
           <nav className="flex-1 py-4 overflow-y-auto">
             {/* Main Section */}
             <div className="mb-6">
-              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Huvudmeny</p>
-              {isOrganizer && !isDemoTester && (
-                <NavItem href="/admin" label="Översikt" icon={<LayoutDashboard className="w-5 h-5" />} />
-              )}
-              {isOrganizer && !isDemoTester && (
-                <NavItem href="/admin/posts" label="Inlägg" icon={<FileText className="w-5 h-5" />} />
-              )}
+              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Main</p>
+              <NavItem href="/admin" label="Overview" icon={<LayoutDashboard className="w-5 h-5" />} />
+              <NavItem href="/admin/applications" label="Applications" icon={<FileText className="w-5 h-5" />} />
             </div>
-
-            {/* Content Management */}
-            {isOrganizer && (
-              <div className="mb-6">
-                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Innehåll</p>
-                <NavGroup label="CMS" icon={<Palette className="w-5 h-5" />} defaultOpen={isCmsPath}>
-                  <SubNavItem href="/admin/cms" label="Översikt" />
-                  <SubNavItem href="/admin/cms/pages" label="Sidor" />
-                  <SubNavItem href="/admin/cms/navigation" label="Navigation" />
-                  <SubNavItem href="/admin/cms/settings" label="Inställningar" />
-                </NavGroup>
-              </div>
-            )}
 
             {/* Management */}
             <div className="mb-6">
-              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Hantering</p>
-              {isOrganizer && (
-                <NavItem href="/admin/users" label="Användare" icon={<Users className="w-5 h-5" />} />
-              )}
-            </div>
-
-            {/* Events & Tickets */}
-            <div className="mb-6">
-              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Event</p>
-              <NavGroup label="Biljetter" icon={<Ticket className="w-5 h-5" />} defaultOpen={isTicketsPath}>
-                <SubNavItem href="/admin/tickets" label="Översikt" />
-                <SubNavItem href="/admin/tickets/events" label="Evenemang" />
-                <SubNavItem href="/admin/tickets/types" label="Biljetttyper" />
-                <SubNavItem href="/admin/tickets/new" label="Utfärda biljett" />
-              </NavGroup>
+              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Management</p>
+              <NavItem href="/admin/users" label="Members" icon={<Users className="w-5 h-5" />} />
             </div>
 
             {/* System */}
-            {isOrganizer && (
-              <div className="mb-6">
-                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">System</p>
-                <NavItem href="/admin/logs" label="Aktivitetslogg" icon={<History className="w-5 h-5" />} />
-              </div>
-            )}
+            <div className="mb-6">
+              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">System</p>
+              <NavItem href="/admin/logs" label="Activity log" icon={<History className="w-5 h-5" />} />
+            </div>
           </nav>
 
           {/* User Card */}
@@ -274,7 +177,7 @@ function AdminLayout() {
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{user.name || 'Namnlös'}</p>
+                  <p className="text-sm font-medium text-foreground truncate">{user.name || 'Unnamed'}</p>
                   <p className="text-xs text-muted-foreground">{roleLabel}</p>
                 </div>
               </div>
@@ -284,7 +187,7 @@ function AdminLayout() {
                 className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
               >
                 <LogOut className="w-4 h-4" />
-                {loggingOut ? 'Loggar ut...' : 'Logga ut'}
+                {loggingOut ? 'Signing out...' : 'Sign out'}
               </button>
             </div>
           </div>
@@ -316,23 +219,19 @@ function AdminLayout() {
               <a href="/admin" className="text-muted-foreground hover:text-foreground transition-colors">Admin</a>
               <span className="text-muted">/</span>
               <span className="text-foreground font-medium">
-                {currentPath === '/admin' || currentPath === '/admin/' ? 'Översikt' :
-                 currentPath.includes('/cms') ? 'CMS' :
-                 currentPath.includes('/users') ? 'Användare' :
-                 currentPath.includes('/tickets') ? 'Biljetter' : 'Sida'}
+                {currentPath === '/admin' || currentPath === '/admin/' ? 'Overview' :
+                 currentPath.includes('/applications') ? 'Applications' :
+                 currentPath.includes('/users') ? 'Members' :
+                 'Page'}
               </span>
             </div>
           </div>
 
           {/* Right: Actions */}
           <div className="flex items-center gap-3">
-            <a
-              href="/"
-              target="_blank"
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <a href="/foundary" target="_blank" className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ExternalLink className="w-4 h-4" />
-              Visa sida
+              Open site
             </a>
             
             <div className="relative">
@@ -353,7 +252,7 @@ function AdminLayout() {
                   <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                   <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded shadow-lg py-2 z-50">
                     <div className="px-4 py-3 border-b border-border">
-                      <p className="text-sm font-medium text-foreground">{user.name || 'Namnlös'}</p>
+                      <p className="text-sm font-medium text-foreground">{user.name || 'Unnamed'}</p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                       <p className="text-xs text-muted-foreground mt-1">ID: {user.id}</p>
                     </div>
@@ -365,7 +264,7 @@ function AdminLayout() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             className="w-full px-3 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                            placeholder="Ange namn"
+                            placeholder="Enter name"
                           />
                           <div className="flex gap-2">
                             <button
@@ -373,13 +272,13 @@ function AdminLayout() {
                               disabled={savingName}
                               className="flex-1 px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 disabled:opacity-50"
                             >
-                              {savingName ? 'Sparar...' : 'Spara'}
+                              {savingName ? 'Saving...' : 'Save'}
                             </button>
                             <button
                               onClick={() => { setEditingName(false); setName(user.name || '') }}
                               className="px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded hover:bg-secondary/50"
                             >
-                              Avbryt
+                              Cancel
                             </button>
                           </div>
                         </div>
@@ -389,7 +288,7 @@ function AdminLayout() {
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded transition-colors"
                         >
                           <Settings className="w-4 h-4" />
-                          Redigera profil
+                          Edit profile
                         </button>
                       )}
                     </div>
@@ -401,7 +300,7 @@ function AdminLayout() {
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
                       >
                         <LogOut className="w-4 h-4" />
-                        {loggingOut ? 'Loggar ut...' : 'Logga ut'}
+                        {loggingOut ? 'Signing out...' : 'Sign out'}
                       </button>
                     </div>
                   </div>

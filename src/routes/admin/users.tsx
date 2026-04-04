@@ -65,20 +65,20 @@ function AdminUsers() {
       setNewPassword('')
       await router.invalidate()
     } catch (err: any) {
-      setChangePasswordError(err?.message || 'Kunde inte byta lösenord')
+      setChangePasswordError(err?.message || 'Could not change password')
     } finally {
       setIsChangingPassword(false)
     }
   }
 
   const handleDeleteUser = async (userId: number) => {
-    if (!window.confirm('Är du säker på att du vill ta bort den här användaren?')) return
+    if (!window.confirm('Are you sure you want to delete this user?')) return
     setIsDeletingId(userId)
     try {
       await deleteUserFn({ data: { userId } })
       await router.invalidate()
     } catch (err: any) {
-      alert(err?.message || 'Kunde inte ta bort användaren')
+      alert(err?.message || 'Could not delete user')
     } finally {
       setIsDeletingId(null)
     }
@@ -96,7 +96,7 @@ function AdminUsers() {
       setRole('volunteer')
       await router.invalidate()
     } catch (err: any) {
-      setError(err?.message || 'Kunde inte skapa användaren')
+      setError(err?.message || 'Could not create user')
     } finally {
       setIsSaving(false)
     }
@@ -119,12 +119,12 @@ function AdminUsers() {
     setIsUpdatingId(userId)
     try {
       await updateUserFn({
-        data: { userId, name: editingName || 'Namnlös användare', role: editingRole, active: editingActive },
+        data: { userId, name: editingName || 'Unnamed user', role: editingRole, active: editingActive },
       })
       setEditingUserId(null)
       await router.invalidate()
     } catch (err: any) {
-      alert(err?.message || 'Kunde inte uppdatera användaren')
+      alert(err?.message || 'Could not update user')
     } finally {
       setIsUpdatingId(null)
     }
@@ -137,7 +137,7 @@ function AdminUsers() {
       await setDemoAccountsActiveFn({ data: { active } })
       await router.invalidate()
     } catch (err: any) {
-      setDemoToggleError(err?.message || 'Kunde inte uppdatera demo-konton')
+      setDemoToggleError(err?.message || 'Could not update demo accounts')
     } finally {
       setIsTogglingDemo(false)
     }
@@ -160,9 +160,9 @@ function AdminUsers() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-foreground">Användare</h2>
+        <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-foreground">Members</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Skapa organisatörer och volontärer, byt namn och kopiera ID för digital signering.
+          Create organizers and hosts, rename users, and copy IDs for digital signing.
         </p>
       </div>
 
@@ -170,9 +170,9 @@ function AdminUsers() {
       <div className="bg-card border border-border p-5 rounded">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-foreground">Demo-konton</p>
+            <p className="text-sm font-medium text-foreground">Demo accounts</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Aktiva: {activeDemoCount} · Inaktiva: {inactiveDemoCount}
+              Active: {activeDemoCount} · Inactive: {inactiveDemoCount}
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -182,7 +182,7 @@ function AdminUsers() {
               disabled={isTogglingDemo || !hasDemoAccounts || !isAnyDemoActive}
               className="px-4 py-2 text-sm border border-red-200 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-40"
             >
-              {isTogglingDemo ? 'Arbetar...' : 'Inaktivera demo'}
+              {isTogglingDemo ? 'Working...' : 'Disable demo'}
             </button>
             <button
               type="button"
@@ -190,7 +190,7 @@ function AdminUsers() {
               disabled={isTogglingDemo || !hasDemoAccounts || isAnyDemoActive}
               className="px-4 py-2 text-sm border border-emerald-200 text-emerald-700 hover:bg-emerald-50 rounded transition-colors disabled:opacity-40"
             >
-              {isTogglingDemo ? 'Arbetar...' : 'Aktivera demo'}
+              {isTogglingDemo ? 'Working...' : 'Enable demo'}
             </button>
           </div>
         </div>
@@ -198,36 +198,36 @@ function AdminUsers() {
           {demoAccounts.map((account) => (
             <div key={account.id} className="flex flex-wrap items-center justify-between gap-2 p-3 border border-border bg-background rounded">
               <div>
-                <p className="text-sm text-foreground font-medium">{account.name || 'Demo-konto'}</p>
+                <p className="text-sm text-foreground font-medium">{account.name || 'Demo account'}</p>
                 <p className="text-xs text-muted-foreground font-mono">{account.email}</p>
               </div>
               <span className={`px-2 py-0.5 text-xs font-medium rounded border ${account.active === false ? 'border-red-200 text-red-600 bg-red-50' : 'border-emerald-200 text-emerald-700 bg-emerald-50'}`}>
-                {account.active === false ? 'Inaktivt' : 'Aktivt'}
+                {account.active === false ? 'Inactive' : 'Active'}
               </span>
             </div>
           ))}
-          {!hasDemoAccounts && <p className="text-sm text-muted-foreground">Inga demo-konton hittades.</p>}
+          {!hasDemoAccounts && <p className="text-sm text-muted-foreground">No demo accounts found.</p>}
           {demoToggleError && <p className="text-red-500 text-sm">{demoToggleError}</p>}
         </div>
       </div>
 
       {/* Create user */}
       <form onSubmit={handleCreateUser} className="bg-card border border-border p-5 rounded">
-        <h3 className="font-medium text-foreground mb-4">Skapa ny användare</h3>
+        <h3 className="font-medium text-foreground mb-4">Create new user</h3>
         <div className="grid gap-4 lg:grid-cols-2">
           <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">E-post</label>
+            <label className="block text-xs text-muted-foreground mb-1.5">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="namn@exempel.se"
+              placeholder="name@example.com"
               className="w-full p-2.5 bg-background border border-border rounded text-foreground text-sm placeholder:text-muted-foreground outline-none focus:border-primary/60 transition-colors font-mono"
               required
             />
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Lösenord</label>
+            <label className="block text-xs text-muted-foreground mb-1.5">Password</label>
             <input
               type="password"
               value={password}
@@ -238,24 +238,24 @@ function AdminUsers() {
             />
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Namn</label>
+            <label className="block text-xs text-muted-foreground mb-1.5">Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Visningsnamn (frivilligt)"
+              placeholder="Display name (optional)"
               className="w-full p-2.5 bg-background border border-border rounded text-foreground text-sm placeholder:text-muted-foreground outline-none focus:border-primary/60 transition-colors"
             />
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Behörighet</label>
+            <label className="block text-xs text-muted-foreground mb-1.5">Role</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as 'organizer' | 'volunteer')}
               className="w-full p-2.5 bg-background border border-border rounded text-foreground text-sm outline-none focus:border-primary/60 transition-colors"
             >
-              <option value="volunteer">Volontär</option>
-              <option value="organizer">Organisatör</option>
+              <option value="volunteer">Host</option>
+              <option value="organizer">Organizer</option>
             </select>
           </div>
           <div className="lg:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between pt-3 border-t border-border gap-3">
@@ -264,7 +264,7 @@ function AdminUsers() {
               disabled={isSaving}
               className="px-5 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded hover:bg-primary/90 transition-colors disabled:opacity-50 w-full sm:w-auto"
             >
-              {isSaving ? 'Skapar...' : 'Skapa användare'}
+              {isSaving ? 'Creating...' : 'Create user'}
             </button>
             {error && <p className="text-red-500 text-sm">{error}</p>}
           </div>
@@ -275,7 +275,7 @@ function AdminUsers() {
       <div className="relative">
         <input
           type="text"
-          placeholder="Sök på namn, e-post eller roll..."
+          placeholder="Search by name, email, or role..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full p-2.5 pl-9 bg-background border border-border rounded text-foreground text-sm transition-colors placeholder:text-muted-foreground outline-none focus:border-primary/60"
@@ -289,27 +289,27 @@ function AdminUsers() {
           <div key={user.id} className="bg-card border border-border hover:border-primary/30 rounded transition-all">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4">
               <div>
-                <p className="font-medium text-foreground">{user.name || 'Namnlös användare'}</p>
+                <p className="font-medium text-foreground">{user.name || 'Unnamed user'}</p>
                 <p className="text-xs text-muted-foreground font-mono mt-0.5">{user.email}</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span>ID {user.id}</span>
                   <span>·</span>
                   <button type="button" onClick={() => handleCopyId(user.id)} className="text-primary hover:underline transition-colors">
-                    {copiedId === user.id ? 'Kopierat!' : 'Kopiera ID'}
+                    {copiedId === user.id ? 'Copied!' : 'Copy ID'}
                   </button>
-                  {user.active === false && <span className="text-red-500 font-medium">· Låst</span>}
+                  {user.active === false && <span className="text-red-500 font-medium">· Locked</span>}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-1 text-xs font-medium border border-primary/30 text-primary bg-primary/5 rounded">
-                  {user.role === 'organizer' ? 'Organisatör' : 'Volontär'}
+                  {user.role === 'organizer' ? 'Organizer' : 'Host'}
                 </span>
                 <button
                   type="button"
                   onClick={() => handleStartEdit(user)}
                   className="px-3 py-1.5 text-xs border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 rounded transition-colors"
                 >
-                  Redigera
+                  Edit
                 </button>
                 {(user.role !== 'organizer' || user.id === currentUser?.id) && (
                   <button
@@ -317,7 +317,7 @@ function AdminUsers() {
                     onClick={() => { setChangingPasswordId(user.id); setNewPassword(''); setChangePasswordError('') }}
                     className="px-3 py-1.5 text-xs border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 rounded transition-colors"
                   >
-                    Byt lösenord
+                    Change password
                   </button>
                 )}
                 {user.id !== currentUser?.id && (
@@ -327,7 +327,7 @@ function AdminUsers() {
                     disabled={isDeletingId === user.id}
                     className="px-3 py-1.5 text-xs border border-red-200 text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                   >
-                    {isDeletingId === user.id ? 'Tar bort...' : 'Ta bort'}
+                    {isDeletingId === user.id ? 'Deleting...' : 'Delete'}
                   </button>
                 )}
               </div>
@@ -337,7 +337,7 @@ function AdminUsers() {
               <div className="px-4 pb-4 border-t border-border space-y-4 pt-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">Namn</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">Name</label>
                     <input
                       type="text"
                       value={editingName}
@@ -346,19 +346,19 @@ function AdminUsers() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">Roll</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">Role</label>
                     <select
                       value={editingRole}
                       onChange={(e) => setEditingRole(e.target.value as 'organizer' | 'volunteer')}
                       disabled={user.id === currentUser?.id}
                       className="w-full p-2.5 bg-background border border-border rounded text-sm text-foreground outline-none focus:border-primary/60 disabled:opacity-50"
                     >
-                      <option value="volunteer">Volontär</option>
-                      <option value="organizer">Organisatör</option>
+                      <option value="volunteer">Host</option>
+                      <option value="organizer">Organizer</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">Konto</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">Account</label>
                     <label className="flex items-center gap-2 p-2.5 border border-border rounded text-sm text-foreground cursor-pointer">
                       <input
                         type="checkbox"
@@ -367,7 +367,7 @@ function AdminUsers() {
                         disabled={user.id === currentUser?.id}
                         className="accent-primary"
                       />
-                      Aktivt konto
+                      Active account
                     </label>
                   </div>
                 </div>
@@ -378,14 +378,14 @@ function AdminUsers() {
                     disabled={isUpdatingId === user.id}
                     className="px-4 py-2 bg-primary text-primary-foreground text-sm rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
                   >
-                    {isUpdatingId === user.id ? 'Sparar...' : 'Spara användare'}
+                    {isUpdatingId === user.id ? 'Saving...' : 'Save user'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingUserId(null)}
                     className="px-4 py-2 border border-border text-muted-foreground text-sm rounded hover:text-foreground transition-colors"
                   >
-                    Avbryt
+                    Cancel
                   </button>
                 </div>
               </div>
@@ -395,12 +395,12 @@ function AdminUsers() {
               <form onSubmit={(e) => handleChangePassword(user.id, e)} className="px-4 pb-4 border-t border-border pt-4">
                 <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
                   <div className="flex-1">
-                    <label className="block text-xs text-muted-foreground mb-1.5">Nytt lösenord</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">New password</label>
                     <input
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Nytt lösenord"
+                      placeholder="New password"
                       className="w-full p-2.5 bg-background border border-border rounded text-foreground text-sm outline-none focus:border-primary/60 transition-colors font-mono"
                       required
                       autoFocus
@@ -412,14 +412,14 @@ function AdminUsers() {
                       disabled={isChangingPassword}
                       className="flex-1 sm:flex-none px-4 py-2.5 bg-primary text-primary-foreground text-sm rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
                     >
-                      {isChangingPassword ? 'Sparar...' : 'Spara'}
+                      {isChangingPassword ? 'Saving...' : 'Save'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setChangingPasswordId(null)}
                       className="flex-1 sm:flex-none px-4 py-2.5 border border-border text-muted-foreground text-sm rounded hover:text-foreground transition-colors"
                     >
-                      Avbryt
+                      Cancel
                     </button>
                   </div>
                 </div>
@@ -430,7 +430,7 @@ function AdminUsers() {
         ))}
         {filteredUsers.length === 0 && (
           <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded">
-            <p>{users.length === 0 ? 'Inga användare hittades.' : 'Inga användare matchade din sökning.'}</p>
+            <p>{users.length === 0 ? 'No users found.' : 'No users matched your search.'}</p>
           </div>
         )}
       </div>

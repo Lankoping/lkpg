@@ -2,15 +2,12 @@ import {
   HeadContent,
   Scripts,
   createRootRouteWithContext,
-  useRouterState,
 } from '@tanstack/react-router'
-import { useEffect } from 'react'
 import appCss from '../styles.css?url'
 
 import type { QueryClient } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from 'next-themes'
-import { LanguageSwitcher } from '@/components/language-switcher'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -40,21 +37,21 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
           content: 'width=device-width, initial-scale=1',
         },
         {
-          title: 'Lanköping.se – Kommer Snart',
+          title: 'Lan Foundary',
         },
         {
           name: 'description',
           content:
-            'Lanköping.se håller på med de sista detaljerna – snart är vi redo att välkomna dig!',
+            'Lan Foundary helps communities manage tickets, members, events, funding requests, and sponsor applications.',
         },
         {
           property: 'og:title',
-          content: 'Lanköping.se – Kommer Snart',
+          content: 'Lan Foundary',
         },
         {
           property: 'og:description',
           content:
-            'Lanköping.se håller på med de sista detaljerna – snart är vi redo att välkomna dig!',
+            'Lan Foundary helps communities manage tickets, members, events, funding requests, and sponsor applications.',
         },
         {
           property: 'og:type',
@@ -89,7 +86,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="sv" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
@@ -100,8 +97,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           enableSystem={false}
           disableTransitionOnChange
         >
-          <HtmlLangSync />
-          <LanguageSwitcher />
           {children}
           <Toaster />
         </ThemeProvider>
@@ -109,14 +104,4 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </body>
     </html>
   )
-}
-
-function HtmlLangSync() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname })
-
-  useEffect(() => {
-    document.documentElement.lang = pathname.startsWith('/en') ? 'en' : 'sv'
-  }, [pathname])
-
-  return null
 }

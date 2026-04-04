@@ -17,12 +17,12 @@ Password encryption is enabled.
 Generate hash from a password:
 
 ```bash
-node -e "const { randomBytes, scryptSync } = require('node:crypto'); const pwd='ChangeMeNow-StrongPass123!'; const N=16384,r=8,p=1,k=64; const salt=randomBytes(16).toString('base64'); const digest=scryptSync(pwd,salt,k,{N,r,p,maxmem:128*N*r+k}).toString('base64'); console.log(`scrypt$${N}$${r}$${p}$${salt}$${digest}`);"
+node -e "const { randomBytes, scryptSync } = require('node:crypto'); const pwd='ChangeMeNow-StrongPass123!'; const N=16384,r=8,p=1,k=64; const salt=randomBytes(16).toString('base64'); const maxmem=Math.max(128*N*r+k,64*1024*1024); const digest=scryptSync(pwd,salt,k,{N,r,p,maxmem}).toString('base64'); console.log(`scrypt$${N}$${r}$${p}$${salt}$${digest}`);"
 ```
 
 Copy the output and use it as `password_hash`.
 
-## Option 1: Create first admin with SQL (recommended)
+## Option 1: Create the first admin with SQL (recommended)
 
 Run this against the same database used by `DATABASE_URL`:
 

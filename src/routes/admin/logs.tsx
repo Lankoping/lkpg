@@ -57,14 +57,14 @@ function AdminLogs() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-foreground">Aktivitetslogg</h2>
-        <p className="text-muted-foreground text-sm mt-1">Viktiga åtgärder utförda av organisatörer och volontärer.</p>
+        <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-foreground">Activity log</h2>
+        <p className="text-muted-foreground text-sm mt-1">Important actions performed by staff and hosts.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-3">
         <input
           type="text"
-          placeholder="Sök på användare, handling eller objekt..."
+          placeholder="Search by user, action, or object..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="flex-1 p-2.5 bg-background border border-border rounded text-foreground text-sm transition-colors placeholder:text-muted-foreground outline-none focus:border-primary/60"
@@ -74,9 +74,9 @@ function AdminLogs() {
           onChange={(e) => setRoleFilter(e.target.value as 'all' | 'organizer' | 'volunteer')}
           className="md:w-52 p-2.5 bg-background border border-border rounded text-foreground text-sm outline-none focus:border-primary/60 transition-colors"
         >
-          <option value="all">Alla roller</option>
-          <option value="organizer">Endast organisatörer</option>
-          <option value="volunteer">Endast volontärer</option>
+          <option value="all">All roles</option>
+          <option value="organizer">Organizers only</option>
+          <option value="volunteer">Hosts only</option>
         </select>
       </div>
 
@@ -91,7 +91,7 @@ function AdminLogs() {
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-primary uppercase tracking-wider mb-1">{log.action}</p>
                   <p className="text-sm text-foreground">
-                    {log.actorName || 'Okänd användare'} ({log.actorRole === 'organizer' ? 'Organisatör' : 'Volontär'}) · {log.entityType}
+                    {log.actorName || 'Unknown user'} ({log.actorRole === 'organizer' ? 'Organizer' : 'Host'}) · {log.entityType}
                     {log.entityId ? ` #${log.entityId}` : ''}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -100,7 +100,7 @@ function AdminLogs() {
                   </p>
                 </div>
                 <p className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                  {log.createdAt ? new Date(log.createdAt).toLocaleString('sv-SE') : ''}
+                  {log.createdAt ? new Date(log.createdAt).toLocaleString('en-GB') : ''}
                 </p>
               </div>
               {details && (
@@ -113,7 +113,7 @@ function AdminLogs() {
         })}
         {filteredLogs.length === 0 && (
           <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded">
-            Inga loggrader matchade din sökning.
+            No log entries matched your search.
           </div>
         )}
       </div>

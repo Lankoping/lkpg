@@ -24,6 +24,16 @@ const config = defineConfig({
     devtoolsJson(),
     viteReact(),
   ],
+  optimizeDeps: {
+    // TanStack Start resolves these virtual entry imports at runtime.
+    // Excluding them avoids Rolldown prebundle resolve errors for #tanstack-* specifiers.
+    exclude: [
+      '@tanstack/start-server-core',
+      '@tanstack/start-client-core',
+      '@tanstack/react-start',
+      '@tanstack/start',
+    ],
+  },
   server: {
     host: '::',
     allowedHosts: true,

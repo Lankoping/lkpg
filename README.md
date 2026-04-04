@@ -1,18 +1,18 @@
-LKPG är en specialiserad webbaserad mjukvara för att hantera LAN-communities och ideella föreningar, som driver sajter som lankoping.se med inbyggd blogg, nyhetsposter och biljettsystem. Den saknar BankID-integration men fokuserar på enkla verktyg för evenemangsorganisation utan onödiga externa beroenden.
+Lan Foundary is a web-based system for LAN communities and nonprofits. It manages tickets, members, events, funding requests, and sponsor applications without depending on unnecessary external services.
 
-## Första admin (tom databas)
-- Om databasen är tom skapas ingen demo-användare automatiskt.
-- Följ guiden i [docs/first-admin-user.md](docs/first-admin-user.md) för att skapa första admin-kontot manuellt.
+## First admin on an empty database
+- No demo user is created automatically.
+- Follow [docs/first-admin-user.md](docs/first-admin-user.md) to create the first admin account manually.
 
-## Viktiga funktioner
-LKPG erbjuder grundläggande verktyg direkt från start:
-- Bloggsystem för nyheter och uppdateringar, synliga på lankoping.se med inlägg som LAN-förberedelser.
-- Biljettsystem för försäljning av evenemangsbiljetter, hantering av anmälningar och deltagare.
-- Admin-gränssnitt för arrangörer att övervaka evenemang, medlemmar och innehåll.
+## Key features
+Lan Foundary provides the core operational tools needed to run LAN communities:
+- Ticket handling for events and check-ins.
+- Member and staff management.
+- Event planning for LAN hosts and organizers.
+- Funding applications and sponsor/perk approval workflows.
 
-## Kommande förbättringar
-Planerade uppgraderingar inkluderar:
-- CMS-integration liknande WordPress, så att icke-tekniska användare kan redigera sidor, evenemang och detaljer utan kodning. (Klart 2026-03-31)
-- Uppfräschning och modernisering av admin-gränssnittet för bättre användarvänlighet och effektivitet. (Klart 2026-03-26)
+## Future work
+- Expand the host dashboard with richer funding and perk tracking.
+- Add stronger organization-level isolation for multi-tenant deployments.
 
-Intresserad av en LKPG-licens? Oavsett om du vill köpa eller hyra, kontakta elias@lankoping.se för detaljer och prissättning anpassad till din LAN-community eller förening. **Pssst, har du under 15 medlemmar så kan du få en sponsrad licens!**
+If you want to discuss licensing or deployment, contact elias@lankoping.se.

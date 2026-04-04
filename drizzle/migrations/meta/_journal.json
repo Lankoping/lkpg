@@ -15,6 +15,62 @@
       "when": 1773223900000,
       "tag": "0001_stadgar_avgang",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775139360640,
+      "tag": "0002_activity_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775309000000,
+      "tag": "0003_foundary_applications",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775318000000,
+      "tag": "0004_org_members_and_requested_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1775321000000,
+      "tag": "0005_login_two_factor_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775325000000,
+      "tag": "0006_organization_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775332000000,
+      "tag": "0007_foundary_application_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775340000000,
+      "tag": "0008_foundary_confidentiality",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1775345000000,
+      "tag": "0009_foundary_ticket_close",
+      "breakpoints": true
     }
   ]
 }

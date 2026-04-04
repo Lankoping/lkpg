@@ -11,6 +11,9 @@ import { writeActivityLog } from './logs'
 
 async function checkAdmin() {
   const user = await requireStaffUser()
+  if (user.role !== 'organizer') {
+    throw new Error('Forbidden')
+  }
   return user
 }
 

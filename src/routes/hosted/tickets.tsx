@@ -1,0 +1,189 @@
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import { useMemo, useState } from 'react'
+import { getSessionFn } from '../../server/functions/auth'
+import {
+  createHostedApplicationTicketFn,
+  getMyFoundaryApplicationMessagesFn,
+  getMyFoundaryApplicationsFn,
+  postFoundaryApplicationMessageFn,
+} from '../../server/functions/foundary'
+
+export const Route = createFileRoute('/hosted/tickets')({
+  loader: async () => {
+    const user = await getSessionFn()
+    if (!user) {
+      throw redirect({ to: '/hosted', search: { invite: undefined } })
+    }
+    if (user.role === 'organizer') {
+      throw redirect({ to: '/admin' })
+    }
+
+    const [applications, messages] = await Promise.all([
+      getMyFoundaryApplicationsFn(),
+      getMyFoundaryApplicationMessagesFn(),
+    ])
+
+    return { applications, messages }
+  },
+  component: HostedTicketsPage,
+})
+
+function HostedTicketsPage() {
+  const { applications, messages } = Route.useLoaderData()
+  const router = useRouter()
+  const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(applications[0]?.id ?? null)
+  const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({})
+  const [actionError, setActionError] = useState('')
+  const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
+
+  const messagesByApplication = useMemo(() => {
+    const grouped = new Map<number, typeof messages>()
+    for (const message of messages) {
+      const current = grouped.get(message.applicationId) ?? []
+      current.push(message)
+      grouped.set(message.applicationId, current)
+    }
+    return grouped
+  }, [messages])
+
+  const selectedApplication = useMemo(() => {
+    if (!applications.length) return null
+    if (!selectedApplicationId) return applications[0]
+    return applications.find((application) => application.id === selectedApplicationId) ?? applications[0]
+  }, [applications, selectedApplicationId])
+
+  const selectedMessages = selectedApplication ? (messagesByApplication.get(selectedApplication.id) ?? []) : []
+  const hasOrganizerThread = selectedMessages.some((msg) => msg.senderRole === 'organizer')
+  const hasAnyMessages = selectedMessages.length > 0
+
+  const submitTicketMessage = async (applicationId: number) => {
+    const message = replyDrafts[applicationId]?.trim()
+    if (!message) return
+
+    setActionError('')
+    setBusyApplicationId(applicationId)
+    try {
+      if (!hasAnyMessages) {
+        await createHostedApplicationTicketFn({ data: { applicationId, message } })
+      } else if (hasOrganizerThread) {
+        await postFoundaryApplicationMessageFn({ data: { applicationId, message } })
+      } else {
+        setActionError('Ticket already created. Please wait for staff to reply.')
+        return
+      }
+
+      setReplyDrafts((current) => ({ ...current, [applicationId]: '' }))
+      await router.invalidate()
+    } catch (error: any) {
+      setActionError(error?.message || 'Could not send ticket message')
+    } finally {
+      setBusyApplicationId(null)
+    }
+  }
+
+  if (applications.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center text-muted-foreground">
+        No applications found for this account yet.
+      </div>
+    )
+  }
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="grid gap-0 md:grid-cols-[320px_1fr]">
+        <aside className="border-b border-border bg-background/50 md:border-b-0 md:border-r">
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Tickets</p>
+            <p className="mt-1 text-sm text-muted-foreground">Create and follow support tickets for your requests</p>
+          </div>
+          <div className="max-h-[42rem] overflow-auto p-2">
+            {applications.map((application) => {
+              const thread = messagesByApplication.get(application.id) ?? []
+              const selected = selectedApplication?.id === application.id
+              const lastMessage = thread[0]
+              const hasThread = thread.some((msg) => msg.senderRole === 'organizer')
+
+              return (
+                <button
+                  key={application.id}
+                  type="button"
+                  onClick={() => setSelectedApplicationId(application.id)}
+                  className={`mb-2 w-full rounded-xl border px-3 py-3 text-left transition-colors ${
+                    selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:border-primary/40 hover:bg-background'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-foreground">#{application.id} {application.eventName}</p>
+                    <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                      {hasThread ? 'Open' : 'No reply yet'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{application.organizationName}</p>
+                  {lastMessage && (
+                    <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                      Latest: {lastMessage.message}
+                    </p>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </aside>
+
+        {selectedApplication ? (
+          <div className="p-5">
+            <h2 className="font-display text-2xl text-foreground">Ticket #{selectedApplication.id}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {selectedApplication.organizationName} · {selectedApplication.eventName}
+            </p>
+
+            <div className="mt-4 space-y-2 rounded-xl border border-border bg-background p-4">
+              {selectedMessages.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No messages yet.</p>
+              ) : (
+                selectedMessages.map((msg) => (
+                  <div key={msg.id} className="rounded-xl border border-border bg-card p-3 text-sm">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      {msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {msg.senderName || msg.senderEmail}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-foreground/90">{msg.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <textarea
+              value={replyDrafts[selectedApplication.id] ?? ''}
+              onChange={(event) =>
+                setReplyDrafts((current) => ({
+                  ...current,
+                  [selectedApplication.id]: event.target.value,
+                }))
+              }
+              placeholder="Reply to this ticket..."
+              className="mt-4 min-h-24 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+            />
+
+            {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
+
+            <button
+              type="button"
+              onClick={() => submitTicketMessage(selectedApplication.id)}
+              disabled={busyApplicationId === selectedApplication.id || (hasAnyMessages && !hasOrganizerThread)}
+              className="mt-3 rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {busyApplicationId === selectedApplication.id
+                ? 'Sending...'
+                : !hasAnyMessages
+                  ? 'Create ticket'
+                  : hasOrganizerThread
+                    ? 'Send reply'
+                    : 'Waiting for staff reply'}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  )
+}

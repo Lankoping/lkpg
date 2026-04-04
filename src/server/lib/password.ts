@@ -4,6 +4,11 @@ const SCRYPT_N = 16384
 const SCRYPT_R = 8
 const SCRYPT_P = 1
 const KEY_LENGTH = 64
+const MIN_SCRYPT_MAXMEM = 64 * 1024 * 1024
+
+function getScryptMaxmem(n: number, r: number) {
+  return Math.max(128 * n * r + KEY_LENGTH, MIN_SCRYPT_MAXMEM)
+}
 
 function parseScryptHash(value: string) {
   const parts = value.split('$')
@@ -34,7 +39,7 @@ export function hashPassword(password: string) {
     N: SCRYPT_N,
     r: SCRYPT_R,
     p: SCRYPT_P,
-    maxmem: 128 * SCRYPT_N * SCRYPT_R + KEY_LENGTH,
+    maxmem: getScryptMaxmem(SCRYPT_N, SCRYPT_R),
   })
 
   return `scrypt$${SCRYPT_N}$${SCRYPT_R}$${SCRYPT_P}$${salt}$${digest.toString('base64')}`
@@ -52,7 +57,7 @@ export function verifyPassword(password: string, storedPassword: string) {
     N: parsed.n,
     r: parsed.r,
     p: parsed.p,
-    maxmem: 128 * parsed.n * parsed.r + KEY_LENGTH,
+    maxmem: getScryptMaxmem(parsed.n, parsed.r),
   })
 
   const expected = Buffer.from(parsed.digestBase64, 'base64')

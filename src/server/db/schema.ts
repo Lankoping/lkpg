@@ -71,6 +71,16 @@ export const activityLogs = pgTable('activity_logs', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+export const loginTwoFactorCodes = pgTable('login_two_factor_codes', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id),
+  challengeId: text('challenge_id').notNull().unique(),
+  codeHash: text('code_hash').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  consumedAt: timestamp('consumed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 // CMS Tables
 
 export const siteSettings = pgTable('site_settings', {
@@ -140,6 +150,71 @@ export const pages = pgTable('pages', {
   isPublished: boolean('is_published').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const foundaryApplications = pgTable('foundary_applications', {
+  id: serial('id').primaryKey(),
+  applicantName: text('applicant_name').notNull(),
+  email: text('email').notNull(),
+  age: integer('age').notNull(),
+  cityCountry: text('city_country').notNull(),
+  organizationName: text('organization_name').notNull(),
+  organizationStatus: text('organization_status', {
+    enum: ['registered_nonprofit', 'equivalent_in_my_country', 'individual_group_for_reimbursements_only'],
+  }).notNull(),
+  hasHcbAccount: boolean('has_hcb_account').default(false).notNull(),
+  hcbUsername: text('hcb_username'),
+  preferredPaymentMethod: text('preferred_payment_method', {
+    enum: ['direct_hcb_transfer', 'receipt_reimbursement'],
+  }).notNull(),
+  eventName: text('event_name').notNull(),
+  plannedMonths: text('planned_months').notNull(),
+  expectedAttendees: integer('expected_attendees').notNull(),
+  requestedEvents: integer('requested_events').default(1).notNull(),
+  fundingRequestAmount: integer('funding_request_amount').notNull(),
+  briefEventDescription: text('brief_event_description').notNull(),
+  budgetJustification: text('budget_justification').notNull(),
+  termsAccepted: boolean('terms_accepted').default(true).notNull(),
+  createdByUserId: integer('created_by_user_id').references(() => users.id),
+  isConfidential: boolean('is_confidential').default(true).notNull(),
+  ticketClosed: boolean('ticket_closed').default(false).notNull(),
+  ticketClosedAt: timestamp('ticket_closed_at'),
+  ticketClosedByUserId: integer('ticket_closed_by_user_id').references(() => users.id),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] }).default('pending').notNull(),
+  reviewNotes: text('review_notes'),
+  reviewedBy: integer('reviewed_by').references(() => users.id),
+  reviewedAt: timestamp('reviewed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const organizationMembers = pgTable('organization_members', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id),
+  organizationName: text('organization_name').notNull(),
+  addedBy: integer('added_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+export const organizationInvitations = pgTable('organization_invitations', {
+  id: serial('id').primaryKey(),
+  token: text('token').notNull().unique(),
+  email: text('email').notNull(),
+  organizationName: text('organization_name').notNull(),
+  invitedBy: integer('invited_by').references(() => users.id),
+  acceptedBy: integer('accepted_by').references(() => users.id),
+  acceptedAt: timestamp('accepted_at'),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+export const foundaryApplicationMessages = pgTable('foundary_application_messages', {
+  id: serial('id').primaryKey(),
+  applicationId: integer('application_id').notNull().references(() => foundaryApplications.id),
+  senderUserId: integer('sender_user_id').notNull().references(() => users.id),
+  senderRole: text('sender_role', { enum: ['organizer', 'volunteer'] }).notNull(),
+  message: text('message').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
 export const navigationItems = pgTable('navigation_items', {

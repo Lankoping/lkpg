@@ -1,10 +1,11 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
 import { getDb } from '../db/runtime'
-import { users, activityLogs, posts, tickets } from '../db/schema'
-import { eq, inArray, or } from 'drizzle-orm'
+import { users, activityLogs, posts, tickets, loginTwoFactorCodes } from '../db/schema'
+import { and, eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie, getCookie, deleteCookie } from '@tanstack/react-start/server'
+import { createHash, randomInt } from 'node:crypto'
 import {
   enforceDemoOwnUserScope,
   getDemoAccountEmails,
@@ -15,12 +16,60 @@ import {
 import { hashPassword, isHashedPassword, verifyPassword } from '../lib/password'
 import { writeActivityLog } from './logs'
 
+const TWO_FACTOR_TTL_MS = 10 * 60 * 1000
+
+const maskEmail = (email: string) => {
+  const [local, domain] = email.split('@')
+  if (!local || !domain) return email
+  const safeLocal = `${local.slice(0, 2)}***`
+  return `${safeLocal}@${domain}`
+}
+
+const hashTwoFactorCode = (code: string) => createHash('sha256').update(code).digest('hex')
+
+async function sendTwoFactorCodeEmail(targetEmail: string, code: string) {
+  const host = process.env.SMTP_HOST
+  const port = Number(process.env.SMTP_PORT || 587)
+  const user = process.env.SMTP_USER
+  const pass = process.env.SMTP_PASS
+
+  if (!host || !user || !pass) {
+    throw new Error('SMTP configuration missing: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS')
+  }
+
+  const nodemailer = await import('nodemailer')
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  })
+
+  await transporter.sendMail({
+    from: 'foundary@lankoping.se',
+    to: targetEmail,
+    subject: 'Your Lan Foundary login code',
+    text: `Your Lan Foundary verification code is ${code}. It expires in 10 minutes.`,
+    html: `<p>Your Lan Foundary verification code is <strong>${code}</strong>.</p><p>It expires in 10 minutes.</p>`,
+  })
+}
+
 export const loginFn = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => z.object({ email: z.string(), passwordHash: z.string() }).parse(data))
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        email: z.string(),
+        passwordHash: z.string(),
+        twoFactorCode: z.string().optional(),
+        challengeId: z.string().optional(),
+      })
+      .parse(data),
+  )
   .handler(async ({ data }) => {
     const db = await getDb()
+    const normalizedEmail = data.email.trim().toLowerCase()
 
-    const user = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
+    const user = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1)
     if (!user || user.length === 0) {
       throw new Error('User not found')
     }
@@ -36,6 +85,55 @@ export const loginFn = createServerFn({ method: "POST" })
     if (!verifyPassword(data.passwordHash, user[0].passwordHash)) {
       throw new Error('Invalid password') 
     }
+
+    // Start 2FA step if no challenge/code has been submitted yet.
+    if (!data.twoFactorCode || !data.challengeId) {
+      const code = randomInt(100000, 1000000).toString()
+      const challengeId = createHash('sha256')
+        .update(`${user[0].id}:${Date.now()}:${Math.random()}`)
+        .digest('hex')
+      const expiresAt = new Date(Date.now() + TWO_FACTOR_TTL_MS)
+
+      await db.delete(loginTwoFactorCodes).where(eq(loginTwoFactorCodes.userId, user[0].id))
+      await db.insert(loginTwoFactorCodes).values({
+        userId: user[0].id,
+        challengeId,
+        codeHash: hashTwoFactorCode(code),
+        expiresAt,
+      })
+
+      await sendTwoFactorCodeEmail(user[0].email, code)
+
+      return {
+        success: false,
+        requiresTwoFactor: true,
+        challengeId,
+        email: maskEmail(user[0].email),
+      }
+    }
+
+    const challenge = await db
+      .select()
+      .from(loginTwoFactorCodes)
+      .where(and(eq(loginTwoFactorCodes.userId, user[0].id), eq(loginTwoFactorCodes.challengeId, data.challengeId)))
+      .limit(1)
+
+    if (!challenge[0]) {
+      throw new Error('2FA challenge not found. Please sign in again.')
+    }
+
+    if (challenge[0].consumedAt || challenge[0].expiresAt.getTime() < Date.now()) {
+      throw new Error('2FA code expired. Please sign in again.')
+    }
+
+    if (challenge[0].codeHash !== hashTwoFactorCode(data.twoFactorCode.trim())) {
+      throw new Error('Invalid 2FA code')
+    }
+
+    await db
+      .update(loginTwoFactorCodes)
+      .set({ consumedAt: new Date() })
+      .where(eq(loginTwoFactorCodes.id, challenge[0].id))
 
     // Upgrade legacy plaintext password rows after successful login.
     if (!isHashedPassword(user[0].passwordHash)) {
@@ -58,10 +156,10 @@ export const loginFn = createServerFn({ method: "POST" })
       actorRole: user[0].role,
       action: 'auth.login',
       entityType: 'session',
-      details: { email: user[0].email },
+      details: { email: user[0].email, twoFactor: true },
     })
 
-    return { success: true, user: user[0] }
+    return { success: true, requiresTwoFactor: false, user: user[0] }
   })
 
 export const logoutFn = createServerFn({ method: "POST" })
