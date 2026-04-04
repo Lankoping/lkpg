@@ -1168,6 +1168,120 @@ export const updateFoundaryApplicationConfidentialityFn = createServerFn({ metho
     return updated[0]
   })
 
+export const closeFoundaryApplicationTicketFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        applicationId: z.number(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+
+    const application = await db
+      .select({
+        id: foundaryApplications.id,
+        ticketClosed: foundaryApplications.ticketClosed,
+      })
+      .from(foundaryApplications)
+      .where(eq(foundaryApplications.id, data.applicationId))
+      .limit(1)
+
+    if (!application[0]) {
+      throw new Error('Application not found')
+    }
+
+    if (application[0].ticketClosed) {
+      return application[0]
+    }
+
+    const closed = await db
+      .update(foundaryApplications)
+      .set({
+        ticketClosed: true,
+        ticketClosedAt: new Date(),
+        ticketClosedByUserId: currentUser.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(foundaryApplications.id, data.applicationId))
+      .returning({
+        id: foundaryApplications.id,
+        ticketClosed: foundaryApplications.ticketClosed,
+      })
+
+    if (!closed[0]) {
+      throw new Error('Could not close ticket')
+    }
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.application.ticket.close',
+      entityType: 'foundary_application',
+      entityId: data.applicationId,
+    })
+
+    return closed[0]
+  })
+
+export const closeFoundaryApplicationFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        applicationId: z.number(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+
+    const existing = await db
+      .select({ id: foundaryApplications.id })
+      .from(foundaryApplications)
+      .where(eq(foundaryApplications.id, data.applicationId))
+      .limit(1)
+
+    if (!existing[0]) {
+      throw new Error('Application not found')
+    }
+
+    const now = new Date()
+    const closed = await db
+      .update(foundaryApplications)
+      .set({
+        status: 'rejected',
+        reviewedBy: currentUser.id,
+        reviewedAt: now,
+        ticketClosed: true,
+        ticketClosedAt: now,
+        ticketClosedByUserId: currentUser.id,
+        updatedAt: now,
+      })
+      .where(eq(foundaryApplications.id, data.applicationId))
+      .returning({
+        id: foundaryApplications.id,
+        status: foundaryApplications.status,
+        ticketClosed: foundaryApplications.ticketClosed,
+      })
+
+    if (!closed[0]) {
+      throw new Error('Could not close application')
+    }
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.application.close',
+      entityType: 'foundary_application',
+      entityId: data.applicationId,
+    })
+
+    return closed[0]
+  })
+
 export const createFoundaryApplicationTicketFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
     z

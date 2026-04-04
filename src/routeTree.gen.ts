@@ -24,6 +24,7 @@ import { Route as HostedRequestFundsRouteImport } from './routes/hosted/request-
 import { Route as HostedPerksRouteImport } from './routes/hosted/perks'
 import { Route as HostedApplicationsRouteImport } from './routes/hosted/applications'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminTicketsRouteImport } from './routes/admin/tickets'
 import { Route as AdminLogsRouteImport } from './routes/admin/logs'
 import { Route as AdminApplicationsRouteImport } from './routes/admin/applications'
 
@@ -102,6 +103,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminTicketsRoute = AdminTicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminLogsRoute = AdminLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
+  '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
   '/hosted/perks': typeof HostedPerksRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
+  '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
   '/hosted/perks': typeof HostedPerksRoute
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
+  '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
   '/hosted/perks': typeof HostedPerksRoute
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/applications'
     | '/admin/logs'
+    | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
     | '/hosted/perks'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/applications'
     | '/admin/logs'
+    | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
     | '/hosted/perks'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/applications'
     | '/admin/logs'
+    | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
     | '/hosted/perks'
@@ -344,6 +356,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/tickets': {
+      id: '/admin/tickets'
+      path: '/tickets'
+      fullPath: '/admin/tickets'
+      preLoaderRoute: typeof AdminTicketsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/logs': {
       id: '/admin/logs'
       path: '/logs'
@@ -364,6 +383,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminApplicationsRoute: typeof AdminApplicationsRoute
   AdminLogsRoute: typeof AdminLogsRoute
+  AdminTicketsRoute: typeof AdminTicketsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -371,6 +391,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminApplicationsRoute: AdminApplicationsRoute,
   AdminLogsRoute: AdminLogsRoute,
+  AdminTicketsRoute: AdminTicketsRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

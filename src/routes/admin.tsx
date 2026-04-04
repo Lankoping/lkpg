@@ -3,6 +3,7 @@ import { getSessionFn, logoutFn, updateProfileFn } from '../server/functions/aut
 import { useState } from 'react'
 import {
   LayoutDashboard,
+  Ticket,
   FileText,
   Users,
   LogOut,
@@ -151,6 +152,7 @@ function AdminLayout() {
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Main</p>
               <NavItem href="/admin" label="Overview" icon={<LayoutDashboard className="w-5 h-5" />} />
+              <NavItem href="/admin/tickets" label="Tickets" icon={<Ticket className="w-5 h-5" />} />
               <NavItem href="/admin/applications" label="Applications" icon={<FileText className="w-5 h-5" />} />
             </div>
 
@@ -220,6 +222,7 @@ function AdminLayout() {
               <span className="text-muted">/</span>
               <span className="text-foreground font-medium">
                 {currentPath === '/admin' || currentPath === '/admin/' ? 'Overview' :
+                 currentPath.includes('/tickets') ? 'Tickets' :
                  currentPath.includes('/applications') ? 'Applications' :
                  currentPath.includes('/users') ? 'Members' :
                  'Page'}
