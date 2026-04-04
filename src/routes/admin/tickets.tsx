@@ -35,6 +35,7 @@ function AdminTicketsPage() {
   const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
   const [closingApplicationId, setClosingApplicationId] = useState<number | null>(null)
   const [decidingApplicationId, setDecidingApplicationId] = useState<number | null>(null)
+  const [closedApplicationIds, setClosedApplicationIds] = useState<Record<number, boolean>>({})
 
   const rejectionReasons = [
     'The request is missing key budget details.',
@@ -68,6 +69,7 @@ function AdminTicketsPage() {
 
   const selectedMessages = selectedApplication ? (messagesByApplication.get(selectedApplication.id) ?? []) : []
   const hasOrganizerThread = selectedMessages.some((msg) => msg.senderRole === 'organizer')
+  const isTicketClosed = (applicationId: number) => Boolean(closedApplicationIds[applicationId] || applications.find((app) => app.id === applicationId)?.ticketClosed)
 
   const submitTicketMessage = async (applicationId: number) => {
     const message = messageDrafts[applicationId]?.trim()
@@ -107,10 +109,16 @@ function AdminTicketsPage() {
   const closeTicket = async (applicationId: number) => {
     setActionError('')
     setClosingApplicationId(applicationId)
+    setClosedApplicationIds((current) => ({ ...current, [applicationId]: true }))
     try {
       await closeFoundaryApplicationTicketFn({ data: { applicationId } })
       await router.invalidate()
     } catch (error: any) {
+      setClosedApplicationIds((current) => {
+        const next = { ...current }
+        delete next[applicationId]
+        return next
+      })
       setActionError(error?.message || 'Could not close ticket')
     } finally {
       setClosingApplicationId(null)
@@ -178,7 +186,7 @@ function AdminTicketsPage() {
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium text-foreground">#{application.id} {application.eventName}</p>
                     <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                      {application.ticketClosed ? 'Closed' : 'Open'}
+                      {isTicketClosed(application.id) ? 'Closed' : 'Open'}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{application.organizationName}</p>
@@ -200,6 +208,11 @@ function AdminTicketsPage() {
             <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
               Funding status: {selectedApplication.status}
             </p>
+            {isTicketClosed(selectedApplication.id) && (
+              <p className="mt-2 rounded-lg border border-border bg-background px-3 py-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                This ticket is closed.
+              </p>
+            )}
 
             <div className="mt-4 space-y-2 rounded-xl border border-border bg-background p-4">
               {selectedMessages.length === 0 ? (
@@ -290,7 +303,7 @@ function AdminTicketsPage() {
               <button
                 type="button"
                 onClick={() => submitTicketMessage(selectedApplication.id)}
-                disabled={busyApplicationId === selectedApplication.id || selectedApplication.ticketClosed}
+                disabled={busyApplicationId === selectedApplication.id || isTicketClosed(selectedApplication.id)}
                 className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
               >
                 {busyApplicationId === selectedApplication.id
@@ -303,18 +316,18 @@ function AdminTicketsPage() {
               <button
                 type="button"
                 onClick={() => closeTicket(selectedApplication.id)}
-                disabled={closingApplicationId === selectedApplication.id || selectedApplication.ticketClosed}
+                disabled={closingApplicationId === selectedApplication.id || isTicketClosed(selectedApplication.id)}
                 className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
               >
                 {closingApplicationId === selectedApplication.id
                   ? 'Closing...'
-                  : selectedApplication.ticketClosed
+                  : isTicketClosed(selectedApplication.id)
                     ? 'Ticket closed'
                     : 'Close ticket'}
               </button>
             </div>
 
-            {selectedApplication.status === 'pending' && hasOrganizerThread && !selectedApplication.ticketClosed && (
+            {selectedApplication.status === 'pending' && hasOrganizerThread && !isTicketClosed(selectedApplication.id) && (
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button
                   type="button"
