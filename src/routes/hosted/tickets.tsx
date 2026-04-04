@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
   createHostedApplicationTicketFn,
@@ -31,6 +31,7 @@ export const Route = createFileRoute('/hosted/tickets')({
 function HostedTicketsPage() {
   const { applications, messages } = Route.useLoaderData()
   const router = useRouter()
+  const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('all')
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(applications[0]?.id ?? null)
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({})
   const [actionError, setActionError] = useState('')
@@ -46,11 +47,28 @@ function HostedTicketsPage() {
     return grouped
   }, [messages])
 
+  const filteredApplications = useMemo(() => {
+    if (filter === 'all') return applications
+    if (filter === 'open') return applications.filter((application) => !application.ticketClosed)
+    return applications.filter((application) => application.ticketClosed)
+  }, [applications, filter])
+
+  useEffect(() => {
+    if (!filteredApplications.length) {
+      setSelectedApplicationId(null)
+      return
+    }
+
+    if (!selectedApplicationId || !filteredApplications.some((application) => application.id === selectedApplicationId)) {
+      setSelectedApplicationId(filteredApplications[0].id)
+    }
+  }, [filteredApplications, selectedApplicationId])
+
   const selectedApplication = useMemo(() => {
-    if (!applications.length) return null
-    if (!selectedApplicationId) return applications[0]
-    return applications.find((application) => application.id === selectedApplicationId) ?? applications[0]
-  }, [applications, selectedApplicationId])
+    if (!filteredApplications.length) return null
+    if (!selectedApplicationId) return filteredApplications[0]
+    return filteredApplications.find((application) => application.id === selectedApplicationId) ?? filteredApplications[0]
+  }, [filteredApplications, selectedApplicationId])
 
   const selectedMessages = selectedApplication ? (messagesByApplication.get(selectedApplication.id) ?? []) : []
   const hasOrganizerThread = selectedMessages.some((msg) => msg.senderRole === 'organizer')
@@ -59,6 +77,14 @@ function HostedTicketsPage() {
   const submitTicketMessage = async (applicationId: number) => {
     const message = replyDrafts[applicationId]?.trim()
     if (!message) return
+
+    const application = applications.find((item) => item.id === applicationId)
+    if (!application) return
+
+    if (application.ticketClosed) {
+      setActionError('This ticket is closed.')
+      return
+    }
 
     setActionError('')
     setBusyApplicationId(applicationId)
@@ -97,8 +123,26 @@ function HostedTicketsPage() {
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Tickets</p>
             <p className="mt-1 text-sm text-muted-foreground">Create and follow support tickets for your requests</p>
           </div>
+
+          <div className="px-4 py-3">
+            <div className="inline-grid grid-cols-3 gap-2 rounded-xl border border-border bg-background p-1">
+              {(['all', 'open', 'closed'] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setFilter(item)}
+                  className={`rounded-lg px-2 py-1.5 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${
+                    filter === item ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="max-h-[42rem] overflow-auto p-2">
-            {applications.map((application) => {
+            {filteredApplications.map((application) => {
               const thread = messagesByApplication.get(application.id) ?? []
               const selected = selectedApplication?.id === application.id
               const lastMessage = thread[0]
@@ -116,7 +160,7 @@ function HostedTicketsPage() {
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium text-foreground">#{application.id} {application.eventName}</p>
                     <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                      {hasThread ? 'Open' : 'No reply yet'}
+                      {application.ticketClosed ? 'Closed' : hasThread ? 'Open' : 'No reply yet'}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{application.organizationName}</p>
@@ -128,6 +172,12 @@ function HostedTicketsPage() {
                 </button>
               )
             })}
+
+            {filteredApplications.length === 0 && (
+              <div className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
+                No {filter} tickets found.
+              </div>
+            )}
           </div>
         </aside>
 
@@ -170,16 +220,22 @@ function HostedTicketsPage() {
             <button
               type="button"
               onClick={() => submitTicketMessage(selectedApplication.id)}
-              disabled={busyApplicationId === selectedApplication.id || (hasAnyMessages && !hasOrganizerThread)}
-              className="mt-3 rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+              disabled={
+                busyApplicationId === selectedApplication.id ||
+                selectedApplication.ticketClosed ||
+                (hasAnyMessages && !hasOrganizerThread)
+              }
+              className="mt-3 rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
             >
               {busyApplicationId === selectedApplication.id
                 ? 'Sending...'
-                : !hasAnyMessages
-                  ? 'Create ticket'
-                  : hasOrganizerThread
-                    ? 'Send reply'
-                    : 'Waiting for staff reply'}
+                : selectedApplication.ticketClosed
+                  ? 'Ticket closed'
+                  : !hasAnyMessages
+                    ? 'Create ticket'
+                    : hasOrganizerThread
+                      ? 'Send reply'
+                      : 'Waiting for staff reply'}
             </button>
           </div>
         ) : null}

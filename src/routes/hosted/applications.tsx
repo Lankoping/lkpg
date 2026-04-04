@@ -178,6 +178,18 @@ function HostedApplicationsPage() {
 
             {applicationTab === 'overview' ? (
               <div className="mt-4 space-y-2 rounded-2xl border border-border bg-background p-4">
+                {selectedApplication.status === 'approved' && (
+                  <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-800">
+                    <p className="font-medium">Funding approved</p>
+                    <p className="mt-1">Your request has been approved. {selectedApplication.reviewNotes ? `Note: ${selectedApplication.reviewNotes}` : ''}</p>
+                  </div>
+                )}
+                {selectedApplication.status === 'rejected' && (
+                  <div className="rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-800">
+                    <p className="font-medium">Funding request rejected</p>
+                    <p className="mt-1">{selectedApplication.reviewNotes || 'No reason was provided.'}</p>
+                  </div>
+                )}
                 <p className="text-sm text-muted-foreground">Planned months: {selectedApplication.plannedMonths}</p>
                 <p className="text-sm text-muted-foreground">Expected attendees: {selectedApplication.expectedAttendees}</p>
                 <p className="text-sm text-muted-foreground">Status: {selectedApplication.status}</p>

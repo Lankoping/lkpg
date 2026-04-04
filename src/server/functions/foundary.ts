@@ -1003,6 +1003,9 @@ export const getFoundaryApplicationsFn = createServerFn({ method: 'GET' }).handl
         status: foundaryApplications.status,
         createdByUserId: foundaryApplications.createdByUserId,
         isConfidential: foundaryApplications.isConfidential,
+        ticketClosed: foundaryApplications.ticketClosed,
+        ticketClosedAt: foundaryApplications.ticketClosedAt,
+        ticketClosedByUserId: foundaryApplications.ticketClosedByUserId,
         reviewNotes: foundaryApplications.reviewNotes,
         reviewedAt: foundaryApplications.reviewedAt,
         reviewerName: users.name,
@@ -1280,6 +1283,103 @@ export const closeFoundaryApplicationFn = createServerFn({ method: 'POST' })
     })
 
     return closed[0]
+  })
+
+export const decideFoundaryApplicationFundingFromTicketFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        applicationId: z.number(),
+        decision: z.enum(['approved', 'rejected']),
+        reason: z.string().optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+
+    const application = await db
+      .select()
+      .from(foundaryApplications)
+      .where(eq(foundaryApplications.id, data.applicationId))
+      .limit(1)
+
+    if (!application[0]) {
+      throw new Error('Application not found')
+    }
+
+    if (data.decision === 'rejected' && !data.reason?.trim()) {
+      throw new Error('Please provide a rejection reason')
+    }
+
+    const now = new Date()
+    const cleanReason = data.reason?.trim() || null
+
+    const updated = await db
+      .update(foundaryApplications)
+      .set({
+        status: data.decision,
+        reviewNotes: cleanReason,
+        reviewedBy: currentUser.id,
+        reviewedAt: now,
+        ticketClosed: true,
+        ticketClosedAt: now,
+        ticketClosedByUserId: currentUser.id,
+        updatedAt: now,
+      })
+      .where(eq(foundaryApplications.id, data.applicationId))
+      .returning()
+
+    const decisionLabel = data.decision === 'approved' ? 'approved' : 'rejected'
+    const cleanMessage = [
+      data.decision === 'approved'
+        ? 'Funding request approved.'
+        : 'Funding request rejected and ticket closed.',
+      cleanReason ? `Reason: ${cleanReason}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+
+    await db.insert(foundaryApplicationMessages).values({
+      applicationId: data.applicationId,
+      senderUserId: currentUser.id,
+      senderRole: currentUser.role,
+      message: cleanMessage,
+    })
+
+    const staffName = currentUser.name?.trim() || currentUser.email
+    const emailText = [
+      `Your funding request #${data.applicationId} has been ${decisionLabel}.`,
+      '',
+      `${staffName} wrote:`,
+      cleanMessage,
+    ].join('\n')
+    const emailHtml = `<p>Your funding request #${data.applicationId} has been <strong>${decisionLabel}</strong>.</p><p><strong>${staffName}</strong> wrote:</p><p>${cleanMessage.replace(/\n/g, '<br />')}</p>`
+
+    await sendApplicationThreadEmail({
+      to: application[0].email,
+      subject: `Lanfoundary funding request #${data.applicationId} ${decisionLabel}`,
+      text: emailText,
+      html: emailHtml,
+      applicationId: data.applicationId,
+    })
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action:
+        data.decision === 'approved'
+          ? 'foundary.application.ticket.approve'
+          : 'foundary.application.ticket.reject_and_close',
+      entityType: 'foundary_application',
+      entityId: data.applicationId,
+      details: {
+        reason: cleanReason,
+      },
+    })
+
+    return updated[0]
   })
 
 export const createFoundaryApplicationTicketFn = createServerFn({ method: 'POST' })

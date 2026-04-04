@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
+  decideFoundaryApplicationFundingFromTicketFn,
   closeFoundaryApplicationTicketFn,
   createFoundaryApplicationTicketFn,
   getFoundaryApplicationMessagesFn,
@@ -29,9 +30,25 @@ function AdminTicketsPage() {
 
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(applications[0]?.id ?? null)
   const [messageDrafts, setMessageDrafts] = useState<Record<number, string>>({})
+  const [decisionDrafts, setDecisionDrafts] = useState<Record<number, string>>({})
   const [actionError, setActionError] = useState('')
   const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
   const [closingApplicationId, setClosingApplicationId] = useState<number | null>(null)
+  const [decidingApplicationId, setDecidingApplicationId] = useState<number | null>(null)
+
+  const rejectionReasons = [
+    'The request is missing key budget details.',
+    'The event scope is not clear enough to approve funding.',
+    'The request does not align with current funding priorities.',
+    'Duplicate request already handled in a previous ticket.',
+    'We need more information before reconsidering this request.',
+  ]
+
+  const approvalNotes = [
+    'Approved as requested.',
+    'Approved with thanks for the additional details.',
+    'Approved and ticket closed.',
+  ]
 
   const messagesByApplication = useMemo(() => {
     const grouped = new Map<number, typeof messages>()
@@ -50,6 +67,7 @@ function AdminTicketsPage() {
   }, [applications, selectedApplicationId])
 
   const selectedMessages = selectedApplication ? (messagesByApplication.get(selectedApplication.id) ?? []) : []
+  const hasOrganizerThread = selectedMessages.some((msg) => msg.senderRole === 'organizer')
 
   const submitTicketMessage = async (applicationId: number) => {
     const message = messageDrafts[applicationId]?.trim()
@@ -96,6 +114,33 @@ function AdminTicketsPage() {
       setActionError(error?.message || 'Could not close ticket')
     } finally {
       setClosingApplicationId(null)
+    }
+  }
+
+  const decideFunding = async (applicationId: number, decision: 'approved' | 'rejected') => {
+    const reason = decisionDrafts[applicationId]?.trim()
+
+    if (decision === 'rejected' && !reason) {
+      setActionError('Please provide a rejection reason before rejecting.')
+      return
+    }
+
+    setActionError('')
+    setDecidingApplicationId(applicationId)
+    try {
+      await decideFoundaryApplicationFundingFromTicketFn({
+        data: {
+          applicationId,
+          decision,
+          reason,
+        },
+      })
+      setDecisionDrafts((current) => ({ ...current, [applicationId]: '' }))
+      await router.invalidate()
+    } catch (error: any) {
+      setActionError(error?.message || 'Could not apply decision')
+    } finally {
+      setDecidingApplicationId(null)
     }
   }
 
@@ -152,6 +197,9 @@ function AdminTicketsPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {selectedApplication.organizationName} · {selectedApplication.eventName}
             </p>
+            <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              Funding status: {selectedApplication.status}
+            </p>
 
             <div className="mt-4 space-y-2 rounded-xl border border-border bg-background p-4">
               {selectedMessages.length === 0 ? (
@@ -179,6 +227,62 @@ function AdminTicketsPage() {
               placeholder="Write a general ticket message..."
               className="mt-4 min-h-24 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
             />
+
+            <textarea
+              value={decisionDrafts[selectedApplication.id] ?? ''}
+              onChange={(event) =>
+                setDecisionDrafts((current) => ({
+                  ...current,
+                  [selectedApplication.id]: event.target.value,
+                }))
+              }
+              placeholder="Decision note (required for rejection, optional for approval)"
+              className="mt-3 min-h-20 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+            />
+
+            <div className="mt-3 space-y-3 rounded-xl border border-border bg-background p-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Premade reject reasons</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {rejectionReasons.map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() =>
+                        setDecisionDrafts((current) => ({
+                          ...current,
+                          [selectedApplication.id]: reason,
+                        }))
+                      }
+                      className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-red-400/40 hover:text-red-700"
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Premade approval notes</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {approvalNotes.map((note) => (
+                    <button
+                      key={note}
+                      type="button"
+                      onClick={() =>
+                        setDecisionDrafts((current) => ({
+                          ...current,
+                          [selectedApplication.id]: note,
+                        }))
+                      }
+                      className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-emerald-400/40 hover:text-emerald-700"
+                    >
+                      {note}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
 
@@ -209,6 +313,27 @@ function AdminTicketsPage() {
                     : 'Close ticket'}
               </button>
             </div>
+
+            {selectedApplication.status === 'pending' && hasOrganizerThread && !selectedApplication.ticketClosed && (
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => decideFunding(selectedApplication.id, 'approved')}
+                  disabled={decidingApplicationId === selectedApplication.id}
+                  className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-400/20 disabled:opacity-60"
+                >
+                  {decidingApplicationId === selectedApplication.id ? 'Applying...' : 'Approve funding'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => decideFunding(selectedApplication.id, 'rejected')}
+                  disabled={decidingApplicationId === selectedApplication.id}
+                  className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
+                >
+                  {decidingApplicationId === selectedApplication.id ? 'Applying...' : 'Reject fund request & close ticket'}
+                </button>
+              </div>
+            )}
           </div>
         ) : null}
       </div>
