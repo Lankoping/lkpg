@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect, useLocation, useRouter } from '@tanstack/react-router'
 import { getSessionFn, logoutFn, updateProfileFn } from '../server/functions/auth'
 import { useState } from 'react'
 import {
@@ -59,7 +59,7 @@ interface NavItemProps {
 }
 
 function NavItem({ href, label, icon, badge, isActive }: NavItemProps) {
-  const active = isActive ?? (typeof window !== 'undefined' && window.location.pathname === href)
+  const active = isActive ?? false
 
   return (
     <a
@@ -86,6 +86,7 @@ function NavItem({ href, label, icon, badge, isActive }: NavItemProps) {
 function AdminLayout() {
   const { user } = Route.useLoaderData()
   const router = useRouter()
+  const location = useLocation()
   const [editingName, setEditingName] = useState(false)
   const [name, setName] = useState(user.name || '')
   const [savingName, setSavingName] = useState(false)
@@ -119,7 +120,7 @@ function AdminLayout() {
   }
 
   const roleLabel = 'Staff'
-  const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
+  const currentPath = location.pathname
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -152,22 +153,52 @@ function AdminLayout() {
             {/* Main Section */}
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Main</p>
-              <NavItem href="/admin" label="Overview" icon={<LayoutDashboard className="w-5 h-5" />} />
-              <NavItem href="/admin/tickets" label="Tickets" icon={<Ticket className="w-5 h-5" />} />
-              <NavItem href="/admin/applications" label="Applications" icon={<FileText className="w-5 h-5" />} />
-              <NavItem href="/admin/storage-perks" label="Storage" icon={<HardDrive className="w-5 h-5" />} />
+              <NavItem
+                href="/admin"
+                label="Overview"
+                icon={<LayoutDashboard className="w-5 h-5" />}
+                isActive={currentPath === '/admin' || currentPath === '/admin/'}
+              />
+              <NavItem
+                href="/admin/tickets"
+                label="Tickets"
+                icon={<Ticket className="w-5 h-5" />}
+                isActive={currentPath.startsWith('/admin/tickets')}
+              />
+              <NavItem
+                href="/admin/applications"
+                label="Applications"
+                icon={<FileText className="w-5 h-5" />}
+                isActive={currentPath.startsWith('/admin/applications')}
+              />
+              <NavItem
+                href="/admin/storage-perks"
+                label="Storage"
+                icon={<HardDrive className="w-5 h-5" />}
+                isActive={currentPath.startsWith('/admin/storage-perks')}
+              />
             </div>
 
             {/* Management */}
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Management</p>
-              <NavItem href="/admin/users" label="Members" icon={<Users className="w-5 h-5" />} />
+              <NavItem
+                href="/admin/users"
+                label="Members"
+                icon={<Users className="w-5 h-5" />}
+                isActive={currentPath.startsWith('/admin/users')}
+              />
             </div>
 
             {/* System */}
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">System</p>
-              <NavItem href="/admin/logs" label="Activity log" icon={<History className="w-5 h-5" />} />
+              <NavItem
+                href="/admin/logs"
+                label="Activity log"
+                icon={<History className="w-5 h-5" />}
+                isActive={currentPath.startsWith('/admin/logs')}
+              />
             </div>
           </nav>
 

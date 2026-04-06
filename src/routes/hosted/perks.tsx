@@ -71,6 +71,7 @@ function HostedPerksPage() {
   const uploadSelectedFile = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!uploadFile || !storage.organizationName) return
+    const uploadContentType = uploadFile.type || 'application/octet-stream'
 
     setUploadBusy(true)
     setUploadError('')
@@ -81,7 +82,7 @@ function HostedPerksPage() {
         data: {
           organizationName: storage.organizationName,
           fileName: uploadFile.name,
-          contentType: uploadFile.type || 'application/octet-stream',
+          contentType: uploadContentType,
           sizeBytes: uploadFile.size,
         },
       })
@@ -93,7 +94,7 @@ function HostedPerksPage() {
       try {
         putResult = await fetch(reservation.uploadUrl, {
           method: 'PUT',
-          headers: uploadFile.type ? { 'Content-Type': uploadFile.type } : undefined,
+          headers: { 'Content-Type': uploadContentType },
           body: uploadFile,
           signal: uploadController.signal,
         })

@@ -675,7 +675,10 @@ export const getMyStoragePerkFn = createServerFn({ method: 'GET' }).handler(asyn
     }
   }
 
-  await reconcileMissingStorageFiles(organizationName)
+  // Reconcile stale DB entries without blocking the hosted storage page render.
+  void reconcileMissingStorageFiles(organizationName).catch((error) => {
+    console.error('Failed to reconcile storage files', error)
+  })
 
   const [request, usage, files] = await Promise.all([
     getStorageRequestForOrganization(organizationName),

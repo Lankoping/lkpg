@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect, useLocation, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { getSessionFn, logoutFn } from '../server/functions/auth'
 import { acceptOrganizationInviteFn } from '../server/functions/foundary'
@@ -57,6 +57,7 @@ function HostedNavItem({ href, label, icon, isActive }: HostedNavItemProps) {
 function HostedLayout() {
   const { user } = Route.useLoaderData()
   const search = Route.useSearch()
+  const location = useLocation()
   const inviteToken = search.invite
   const router = useRouter()
   const [loggingOut, setLoggingOut] = useState(false)
@@ -95,7 +96,7 @@ function HostedLayout() {
     run()
   }, [inviteToken, router, user])
 
-  const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
+  const currentPath = location.pathname
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
       ? 'Request funds'
