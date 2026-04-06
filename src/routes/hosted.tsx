@@ -124,7 +124,7 @@ function HostedLayout() {
 
   const currentPath = location.pathname
   const currentHash = location.hash
-  const isStoragePath = currentPath === '/hosted/perks'
+  const isStoragePath = currentPath.startsWith('/hosted/perks')
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
       ? 'Request funds'
@@ -132,13 +132,21 @@ function HostedLayout() {
         ? 'Tickets'
       : currentPath.includes('/hosted/team')
         ? 'Team'
-        : currentPath.includes('/hosted/perks')
-          ? 'Storage'
-          : currentPath.includes('/hosted/applications')
-            ? 'Applications'
-            : 'Sign in'
+        : currentPath.includes('/hosted/perks/upload')
+          ? 'Upload file'
+          : currentPath.includes('/hosted/perks/explorer')
+            ? 'File explorer'
+            : currentPath.includes('/hosted/perks/cdn')
+              ? 'CDN and links'
+              : currentPath.includes('/hosted/perks/limits')
+                ? 'Limits'
+                : currentPath.includes('/hosted/perks')
+                  ? 'Storage'
+                  : currentPath.includes('/hosted/applications')
+                    ? 'Applications'
+                    : 'Sign in'
 
-      const isHashActive = (hash: string) => isStoragePath && currentHash === hash
+  const isStorageActive = (path: string) => currentPath === path
 
   if (!user) {
     return (
@@ -200,34 +208,34 @@ function HostedLayout() {
                   Back to hosted
                 </a>
                 <HostedStorageNavItem
-                  href="/hosted/perks#storage-overview"
+                  href="/hosted/perks"
                   label="Overview"
                   icon={<Gauge className="w-5 h-5" />}
-                  isActive={isHashActive('#storage-overview') || currentPath === '/hosted/perks' && !currentHash}
+                  isActive={isStorageActive('/hosted/perks')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks#storage-upload"
+                  href="/hosted/perks/upload"
                   label="Upload file"
                   icon={<Upload className="w-5 h-5" />}
-                  isActive={isHashActive('#storage-upload')}
+                  isActive={isStorageActive('/hosted/perks/upload')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks#storage-explorer"
+                  href="/hosted/perks/explorer"
                   label="File explorer"
                   icon={<FolderOpen className="w-5 h-5" />}
-                  isActive={isHashActive('#storage-explorer')}
+                  isActive={isStorageActive('/hosted/perks/explorer')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks#storage-cdn"
+                  href="/hosted/perks/cdn"
                   label="CDN and links"
                   icon={<Link2 className="w-5 h-5" />}
-                  isActive={isHashActive('#storage-cdn')}
+                  isActive={isStorageActive('/hosted/perks/cdn')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks#storage-limits"
+                  href="/hosted/perks/limits"
                   label="Limits"
                   icon={<MonitorSmartphone className="w-5 h-5" />}
-                  isActive={isHashActive('#storage-limits')}
+                  isActive={isStorageActive('/hosted/perks/limits')}
                 />
               </div>
             ) : (
