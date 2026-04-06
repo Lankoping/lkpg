@@ -382,7 +382,7 @@ function HostedPerksPage() {
 
   return (
     <section className="space-y-6 rounded-3xl border border-border bg-card p-6 md:p-8">
-      <div className="rounded-3xl border border-border bg-background p-6 md:p-7">
+      <div id="storage-overview" className="rounded-3xl border border-border bg-background p-6 md:p-7 scroll-mt-24">
         <p className="text-sm font-medium uppercase tracking-[0.24em] text-primary">Perks</p>
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -556,7 +556,7 @@ function HostedPerksPage() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-            <form onSubmit={uploadSelectedFile} className="rounded-3xl border border-border bg-background p-6 md:p-7">
+            <form id="storage-upload" onSubmit={uploadSelectedFile} className="rounded-3xl border border-border bg-background p-6 md:p-7 scroll-mt-24">
               <div className="flex items-center gap-4">
                 <Upload className="h-6 w-6 text-primary" />
                 <div>
@@ -596,7 +596,7 @@ function HostedPerksPage() {
               </button>
             </form>
 
-            <div className="rounded-3xl border border-border bg-background p-6 md:p-7">
+            <div id="storage-explorer" className="rounded-3xl border border-border bg-background p-6 md:p-7 scroll-mt-24">
               <div className="flex items-center gap-4">
                 <HardDrive className="h-6 w-6 text-primary" />
                 <div>
@@ -722,12 +722,22 @@ function HostedPerksPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-border bg-background p-6 md:p-7">
+          <div id="storage-cdn" className="rounded-3xl border border-border bg-background p-6 md:p-7 scroll-mt-24">
             <p className="text-base font-medium text-foreground">Integration details</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground md:text-base">
               Use the CDN URL for public delivery. Uploads are blocked once the organization reaches 5GB of stored files.
             </p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground md:text-base">
+              The file explorer tab bar is available in the storage panel above for switching between uploads, explorer categories, and CDN-related views.
+            </p>
             <p className="mt-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">Current usage: {formatBytes(storage.usedBytes)}</p>
+          </div>
+
+          <div id="storage-limits" className="rounded-3xl border border-border bg-background p-6 md:p-7 scroll-mt-24">
+            <p className="text-base font-medium text-foreground">Limits</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground md:text-base">
+              Storage is capped at 5GB per organization. The explorer and upload controls above respect the same limit and the security blocklist.
+            </p>
           </div>
         </div>
       )}

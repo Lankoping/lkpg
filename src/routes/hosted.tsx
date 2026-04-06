@@ -13,6 +13,12 @@ import {
   X,
   ChevronDown,
   ExternalLink,
+  ChevronLeft,
+  Upload,
+  FolderOpen,
+  MonitorSmartphone,
+  Link2,
+  Gauge,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/hosted')({
@@ -33,7 +39,7 @@ export const Route = createFileRoute('/hosted')({
 
 interface HostedNavItemProps {
   href: string
-  label: string
+  label: React.ReactNode
   icon: React.ReactNode
   isActive?: boolean
 }
@@ -51,6 +57,26 @@ function HostedNavItem({ href, label, icon, isActive }: HostedNavItemProps) {
       <span className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>{icon}</span>
       <span className="flex-1">{label}</span>
     </a>
+  )
+}
+
+interface HostedStorageNavItemProps extends HostedNavItemProps {
+  badge?: string
+}
+
+function HostedStorageNavItem({ href, label, icon, isActive, badge }: HostedStorageNavItemProps) {
+  return (
+    <HostedNavItem
+      href={href}
+      label={
+        <span className="flex w-full items-center justify-between gap-2">
+          <span>{label}</span>
+          {badge ? <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{badge}</span> : null}
+        </span>
+      }
+      icon={icon}
+      isActive={isActive}
+    />
   )
 }
 
@@ -97,6 +123,8 @@ function HostedLayout() {
   }, [inviteToken, router, user])
 
   const currentPath = location.pathname
+  const currentHash = location.hash
+  const isStoragePath = currentPath === '/hosted/perks'
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
       ? 'Request funds'
@@ -109,6 +137,8 @@ function HostedLayout() {
           : currentPath.includes('/hosted/applications')
             ? 'Applications'
             : 'Sign in'
+
+      const isHashActive = (hash: string) => isStoragePath && currentHash === hash
 
   if (!user) {
     return (
@@ -159,7 +189,49 @@ function HostedLayout() {
           </div>
 
           <nav className="flex-1 py-4 overflow-y-auto">
-            <div className="mb-6">
+            {isStoragePath ? (
+              <div className="mb-6">
+                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Storage</p>
+                <a
+                  href="/hosted/applications"
+                  className="mb-2 mx-2 flex items-center gap-2 rounded-2xl border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Back to hosted
+                </a>
+                <HostedStorageNavItem
+                  href="/hosted/perks#storage-overview"
+                  label="Overview"
+                  icon={<Gauge className="w-5 h-5" />}
+                  isActive={isHashActive('#storage-overview') || currentPath === '/hosted/perks' && !currentHash}
+                />
+                <HostedStorageNavItem
+                  href="/hosted/perks#storage-upload"
+                  label="Upload file"
+                  icon={<Upload className="w-5 h-5" />}
+                  isActive={isHashActive('#storage-upload')}
+                />
+                <HostedStorageNavItem
+                  href="/hosted/perks#storage-explorer"
+                  label="File explorer"
+                  icon={<FolderOpen className="w-5 h-5" />}
+                  isActive={isHashActive('#storage-explorer')}
+                />
+                <HostedStorageNavItem
+                  href="/hosted/perks#storage-cdn"
+                  label="CDN and links"
+                  icon={<Link2 className="w-5 h-5" />}
+                  isActive={isHashActive('#storage-cdn')}
+                />
+                <HostedStorageNavItem
+                  href="/hosted/perks#storage-limits"
+                  label="Limits"
+                  icon={<MonitorSmartphone className="w-5 h-5" />}
+                  isActive={isHashActive('#storage-limits')}
+                />
+              </div>
+            ) : (
+              <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Main</p>
               <HostedNavItem
                 href="/hosted/applications"
@@ -179,7 +251,8 @@ function HostedLayout() {
                 icon={<HardDrive className="w-5 h-5" />}
                 isActive={currentPath === '/hosted/perks'}
               />
-            </div>
+              </div>
+            )}
 
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Management</p>
