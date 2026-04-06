@@ -1,0 +1,37 @@
+codespace@codespaces-1c5f12:/workspaces/lkpg$ npm run run:clean
+
+> run:clean
+> tsx scripts/cleanup-storage-db.ts
+
+[run:clean] Failed: Unknown: UnknownError
+    at ProtocolLib.getErrorSchemaOrThrowBaseException (/workspaces/lkpg/node_modules/@aws-sdk/core/dist-cjs/submodules/protocols/index.js:72:67)
+    at S3RestXmlProtocol.handleError (/workspaces/lkpg/node_modules/@aws-sdk/core/dist-cjs/submodules/protocols/index.js:1834:65)
+    at S3RestXmlProtocol.deserializeResponse (/workspaces/lkpg/node_modules/@smithy/core/dist-cjs/submodules/protocols/index.js:337:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /workspaces/lkpg/node_modules/@smithy/core/dist-cjs/submodules/schema/index.js:27:24
+    at async /workspaces/lkpg/node_modules/@aws-sdk/middleware-sdk-s3/dist-cjs/index.js:387:20
+    at async /workspaces/lkpg/node_modules/@smithy/middleware-retry/dist-cjs/index.js:251:46
+    at async /workspaces/lkpg/node_modules/@aws-sdk/middleware-sdk-s3/dist-cjs/index.js:64:28
+    at async /workspaces/lkpg/node_modules/@aws-sdk/middleware-sdk-s3/dist-cjs/index.js:91:20
+    at async /workspaces/lkpg/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:5:26 {
+  '$fault': 'client',
+  '$retryable': undefined,
+  '$metadata': {
+    httpStatusCode: 403,
+    requestId: 'tx00000590e9da9b8e8f316-0069d37b5a-293883-default',
+    extendedRequestId: undefined,
+    cfId: undefined,
+    attempts: 1,
+    totalRetryDelay: 0
+  }
+}
+codespace@codespaces-1c5f12:/workspaces/lkpg$ DATABASE_URL=postgresql://default:GGtUVlmYoIRex17wInhj@45.131.64.179:6651/postgres
+SMTP_HOST=mail.lankoping.se
+SMTP_PORT=587
+SMTP_USER=foundary@lankoping.se
+SMTP_PASS=:,89,tManAC
+# Public hosted base URL used for invite/token links
+baseurl=https://beta.lankoping.se
+
+# Storage (S3)
+S3_BUCKET=storageperk

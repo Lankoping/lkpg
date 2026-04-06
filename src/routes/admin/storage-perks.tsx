@@ -4,6 +4,13 @@ import { toast } from 'sonner'
 import { getSessionFn } from '../../server/functions/auth'
 import { getStoragePerkRequestsFn, reviewStoragePerkRequestFn } from '../../server/functions/storage'
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return fallback
+}
+
 export const Route = createFileRoute('/admin/storage-perks')({
   beforeLoad: async () => {
     const user = await getSessionFn()
@@ -12,14 +19,21 @@ export const Route = createFileRoute('/admin/storage-perks')({
     }
   },
   loader: async () => {
-    const requests = await getStoragePerkRequestsFn()
-    return { requests }
+    try {
+      const requests = await getStoragePerkRequestsFn()
+      return { requests, loadError: '' }
+    } catch (error: unknown) {
+      return {
+        requests: [],
+        loadError: error instanceof Error ? error.message : 'Could not load storage requests',
+      }
+    }
   },
   component: AdminStoragePerksPage,
 })
 
 function AdminStoragePerksPage() {
-  const { requests } = Route.useLoaderData()
+  const { requests, loadError } = Route.useLoaderData()
   const router = useRouter()
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(requests[0]?.id ?? null)
   const [reviewNotes, setReviewNotes] = useState<Record<number, string>>({})
@@ -56,13 +70,21 @@ function AdminStoragePerksPage() {
         `${selectedRequest?.organizationName || 'Storage request'} ${status === 'approved' ? 'approved' : 'rejected'}. Notification email sent.`,
       )
       await router.invalidate()
-    } catch (error: any) {
-      const message = error?.message || 'Could not review storage request'
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, 'Could not review storage request')
       setActionError(message)
       toast.error(message)
     } finally {
       setBusyRequestId(null)
     }
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-2xl border border-red-400/30 bg-red-400/10 px-6 py-5 text-sm text-red-200">
+        Storage requests failed to load: {loadError}
+      </div>
+    )
   }
 
   if (requests.length === 0) {

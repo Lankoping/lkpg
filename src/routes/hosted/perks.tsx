@@ -4,12 +4,29 @@ import { HardDrive, Trash2, Upload } from 'lucide-react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
   activateStoragePerkFn,
-  completeStorageUploadFn,
   createStorageUploadReservationFn,
   deleteStorageFileFn,
   getMyStoragePerkFn,
   requestStoragePerkFn,
 } from '../../server/functions/storage'
+
+const EMPTY_STORAGE_STATE = {
+  organizationName: null,
+  request: null,
+  fileCount: 0,
+  usedBytes: 0,
+  reservedBytes: 0,
+  remainingBytes: 5 * 1024 * 1024 * 1024,
+  files: [],
+  limitBytes: 5 * 1024 * 1024 * 1024,
+} as const
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return fallback
+}
 
 export const Route = createFileRoute('/hosted/perks')({
   loader: async () => {
@@ -20,15 +37,22 @@ export const Route = createFileRoute('/hosted/perks')({
     if (user.role === 'organizer') {
       throw redirect({ to: '/admin' })
     }
-    const storage = await getMyStoragePerkFn()
-    return { storage }
+    try {
+      const storage = await getMyStoragePerkFn()
+      return { storage, storageLoadError: '' }
+    } catch (error: unknown) {
+      return {
+        storage: EMPTY_STORAGE_STATE,
+        storageLoadError: getErrorMessage(error, 'Could not load storage data'),
+      }
+    }
   },
   component: HostedPerksPage,
 })
 
 function HostedPerksPage() {
   const router = useRouter()
-  const { storage } = Route.useLoaderData()
+  const { storage, storageLoadError } = Route.useLoaderData()
   const [requestOpen, setRequestOpen] = useState(false)
   const [requestReason, setRequestReason] = useState('')
   const [requestMessage, setRequestMessage] = useState('')
@@ -47,6 +71,26 @@ function HostedPerksPage() {
 
   const storageOutageMessage = 'Our servers are curently experiencing connection issues please dont upload any files.'
 
+  const readUploadErrorBody = async (response: Response) => {
+    try {
+      const body = (await response.text()).trim()
+      if (!body) return ''
+
+      const compact = body.replace(/\s+/g, ' ')
+      const messageMatch = compact.match(/<Message>(.*?)<\/Message>/i)
+      const codeMatch = compact.match(/<Code>(.*?)<\/Code>/i)
+
+      if (messageMatch?.[1]) {
+        const codePrefix = codeMatch?.[1] ? `${codeMatch[1]}: ` : ''
+        return `${codePrefix}${messageMatch[1]}`
+      }
+
+      return compact.slice(0, 400)
+    } catch {
+      return ''
+    }
+  }
+
   const progressPercent = useMemo(() => {
     if (!storage.limitBytes) return 0
     return Math.min(100, Math.round((storage.usedBytes / storage.limitBytes) * 100))
@@ -63,8 +107,8 @@ function HostedPerksPage() {
       setRequestReason('')
       setRequestOpen(false)
       await router.invalidate()
-    } catch (error: any) {
-      setRequestError(error?.message || 'Could not submit storage request')
+    } catch (error: unknown) {
+      setRequestError(getErrorMessage(error, 'Could not submit storage request'))
     }
   }
 
@@ -87,34 +131,24 @@ function HostedPerksPage() {
         },
       })
 
-      const uploadController = new AbortController()
-      const uploadTimeout = window.setTimeout(() => uploadController.abort(), 8000)
-
-      let putResult: Response
-      try {
-        putResult = await fetch(reservation.uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': uploadContentType },
-          body: uploadFile,
-          signal: uploadController.signal,
-        })
-      } catch {
-        throw new Error(storageOutageMessage)
-      } finally {
-        window.clearTimeout(uploadTimeout)
-      }
+      const putResult = await fetch(reservation.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': uploadContentType },
+        body: uploadFile,
+      })
 
       if (!putResult.ok) {
-        throw new Error(storageOutageMessage)
+        const bodyDetails = await readUploadErrorBody(putResult)
+        const details = bodyDetails ? ` - ${bodyDetails}` : ''
+        throw new Error(`S3 upload failed (${putResult.status} ${putResult.statusText})${details}`)
       }
 
-      await completeStorageUploadFn({ data: { reservationId: reservation.reservationId } })
       setUploadMessage('File uploaded successfully.')
       setUploadFile(null)
       setStorageServiceError('')
       await router.invalidate()
-    } catch (error: any) {
-      const message = error?.message || 'Could not upload file'
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, 'Could not upload file')
       setUploadError(message)
       if (message === storageOutageMessage) {
         setStorageServiceError(message)
@@ -130,8 +164,8 @@ function HostedPerksPage() {
     try {
       await deleteStorageFileFn({ data: { fileId } })
       await router.invalidate()
-    } catch (error: any) {
-      setUploadError(error?.message || 'Could not delete file')
+    } catch (error: unknown) {
+      setUploadError(getErrorMessage(error, 'Could not delete file'))
     } finally {
       setDeleteBusyId(null)
     }
@@ -159,11 +193,22 @@ function HostedPerksPage() {
       })
       setActivationMessage('Storage activated. Uploads are now enabled.')
       await router.invalidate()
-    } catch (error: any) {
-      setActivationError(error?.message || 'Could not activate storage')
+    } catch (error: unknown) {
+      setActivationError(getErrorMessage(error, 'Could not activate storage'))
     } finally {
       setActivationBusy(false)
     }
+  }
+
+  if (storageLoadError) {
+    return (
+      <section className="rounded-2xl border border-border bg-card p-5">
+        <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Perks</p>
+        <div className="mt-3 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+          Storage failed to load: {storageLoadError}
+        </div>
+      </section>
+    )
   }
 
   if (!storage.organizationName) {

@@ -1,13 +1,13 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
-import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, or, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
-import { DeleteObjectCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 import { z } from 'zod'
 import { getDb } from '../db/runtime'
 import {
   foundaryApplications,
+  organizationInvitations,
   organizationMembers,
   storageFiles,
   storagePerkRequests,
@@ -15,22 +15,27 @@ import {
   users,
 } from '../db/schema'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
+import {
+  getStorageClient,
+  getStorageConfig,
+  logStorageError,
+  getStoragePublicUrl,
+  getStorageUpstreamErrorMessage,
+  isStorageMissingObjectError,
+} from '../lib/s3-compatible'
 import { writeActivityLog } from './logs'
 
 export const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024 * 1024
 const STORAGE_UPLOAD_RESERVATION_TTL_MS = 15 * 60 * 1000
-const STORAGE_UPSTREAM_TIMEOUT_MS = 8000
+const STORAGE_UPSTREAM_TIMEOUT_MS = Number(process.env.STORAGE_UPSTREAM_TIMEOUT_MS || 20000)
+const STORAGE_PAGE_LOAD_TIMEOUT_MS = Number(process.env.STORAGE_PAGE_LOAD_TIMEOUT_MS || 45000)
+const STORAGE_AUTO_SCHEMA_SYNC = (process.env.STORAGE_AUTO_SCHEMA_SYNC ?? '').trim().toLowerCase() === 'true'
+
+let storageSchemaSyncNoticeShown = false
 
 let ensureStorageTablesPromise: Promise<void> | null = null
-
-type StorageConfig = {
-  bucket: string
-  region: string
-  accessKeyId: string
-  secretAccessKey: string
-  endpoint?: string
-  cdnBaseUrl?: string
-}
+type StorageDb = Awaited<ReturnType<typeof getDb>>
+type StorageDbLike = Pick<StorageDb, 'select' | 'delete' | 'insert' | 'update' | 'execute'>
 
 function normalizeOrg(value: string) {
   return value.trim()
@@ -54,126 +59,44 @@ function buildObjectKey(organizationName: string, fileName: string) {
   return `${prefix}/${Date.now()}-${randomUUID()}-${sanitizeFileName(fileName)}`
 }
 
-function getS3Config(): StorageConfig {
-  const bucket = (process.env.S3_BUCKET ?? process.env.AWS_S3_BUCKET ?? '').trim()
-  const region = (process.env.S3_REGION ?? process.env.AWS_REGION ?? '').trim()
-  const accessKeyId = (process.env.S3_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID ?? '').trim()
-  const secretAccessKey = (process.env.S3_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_ACCESS_KEY ?? '').trim()
-  const endpoint = (process.env.S3_ENDPOINT ?? process.env.AWS_S3_ENDPOINT ?? '').trim() || undefined
-  const cdnBaseUrl = (process.env.S3_CDN_BASE_URL ?? process.env.AWS_S3_CDN_BASE_URL ?? '').trim() || undefined
-
-  if (!bucket || !region || !accessKeyId || !secretAccessKey) {
-    throw new Error('Storage configuration missing: set S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY')
-  }
-
-  return { bucket, region, accessKeyId, secretAccessKey, endpoint, cdnBaseUrl }
-}
-
-function getS3Client() {
-  const config = getS3Config()
-  return new S3Client({
-    region: config.region,
-    credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey,
-    },
-    endpoint: config.endpoint,
-    forcePathStyle: Boolean(config.endpoint),
-  })
-}
-
-async function isStorageUpstreamAvailable() {
-  const config = getS3Config()
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), STORAGE_UPSTREAM_TIMEOUT_MS)
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null
 
   try {
-    await getS3Client().send(
-      new HeadBucketCommand({ Bucket: config.bucket }),
-      { abortSignal: controller.signal },
-    )
-    return true
-  } catch {
-    return false
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        reject(new Error(`${label} timed out after ${timeoutMs}ms`))
+      }, timeoutMs)
+    })
+
+    return await Promise.race([promise, timeoutPromise])
   } finally {
-    clearTimeout(timeout)
-  }
-}
-
-function isStorageMissingObjectError(error: unknown) {
-  const anyError = error as { name?: string; $metadata?: { httpStatusCode?: number } } | null | undefined
-  return (
-    anyError?.name === 'NotFound' ||
-    anyError?.name === 'NoSuchKey' ||
-    anyError?.name === 'NotFoundException' ||
-    anyError?.$metadata?.httpStatusCode === 404
-  )
-}
-
-async function reconcileMissingStorageFiles(organizationName: string, dbLike: any = null) {
-  if (!(await isStorageUpstreamAvailable())) {
-    return
-  }
-
-  const db = dbLike ?? (await getDb())
-  const files = await db
-    .select({ id: storageFiles.id, objectKey: storageFiles.objectKey })
-    .from(storageFiles)
-    .where(eq(storageFiles.organizationName, organizationName))
-
-  if (files.length === 0) {
-    return
-  }
-
-  const s3 = getS3Client()
-  const config = getS3Config()
-  const staleFileIds: number[] = []
-
-  for (const file of files) {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), STORAGE_UPSTREAM_TIMEOUT_MS)
-
-    try {
-      await s3.send(
-        new HeadObjectCommand({
-          Bucket: config.bucket,
-          Key: file.objectKey,
-        }),
-        { abortSignal: controller.signal },
-      )
-    } catch (error) {
-      if (isStorageMissingObjectError(error)) {
-        staleFileIds.push(file.id)
-      }
-    } finally {
-      clearTimeout(timeout)
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle)
     }
-  }
-
-  if (staleFileIds.length > 0) {
-    await db.delete(storageFiles).where(inArray(storageFiles.id, staleFileIds))
   }
 }
 
 function getPublicUrl(objectKey: string) {
-  const config = getS3Config()
-  const encodedKey = objectKey.split('/').map(encodeURIComponent).join('/')
-
-  if (config.cdnBaseUrl) {
-    return `${config.cdnBaseUrl.replace(/\/$/, '')}/${encodedKey}`
-  }
-
-  if (config.endpoint) {
-    return `${config.endpoint.replace(/\/$/, '')}/${config.bucket}/${encodedKey}`
-  }
-
-  return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${encodedKey}`
+  return getStoragePublicUrl(objectKey)
 }
 
 async function ensureStorageTables() {
+  if (!STORAGE_AUTO_SCHEMA_SYNC) {
+    if (!storageSchemaSyncNoticeShown) {
+      console.log('[storage] runtime schema sync disabled (set STORAGE_AUTO_SCHEMA_SYNC=true to enable)')
+      storageSchemaSyncNoticeShown = true
+    }
+    return
+  }
+
   if (!ensureStorageTablesPromise) {
     ensureStorageTablesPromise = (async () => {
-      const db = await getDb()
+      const db = await withTimeout(
+        getDb(),
+        STORAGE_PAGE_LOAD_TIMEOUT_MS,
+        'Storage database connection (schema sync)',
+      )
 
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS "storage_perk_requests" (
@@ -460,6 +383,7 @@ async function sendStorageRequestReceivedEmail({
 
 async function getPrimaryOrganizationNameForUser(user: { id: number; email: string | null }) {
   const db = await getDb()
+  const normalizedEmail = (user.email ?? '').trim().toLowerCase()
 
   const memberships = await db
     .select({ organizationName: organizationMembers.organizationName })
@@ -472,10 +396,45 @@ async function getPrimaryOrganizationNameForUser(user: { id: number; email: stri
     return normalizedMemberships[0]
   }
 
+  const acceptedInvites = await db
+    .select({ organizationName: organizationInvitations.organizationName })
+    .from(organizationInvitations)
+    .where(
+      and(
+        sql`${organizationInvitations.acceptedAt} IS NOT NULL`,
+        or(
+          eq(organizationInvitations.acceptedBy, user.id),
+          normalizedEmail ? sql`lower(${organizationInvitations.email}) = ${normalizedEmail}` : sql`false`,
+        ),
+      ),
+    )
+    .orderBy(organizationInvitations.createdAt)
+
+  const acceptedInviteNames = Array.from(new Set(acceptedInvites.map((row) => normalizeOrg(row.organizationName)).filter(Boolean)))
+  if (acceptedInviteNames.length > 0) {
+    for (const organizationName of acceptedInviteNames) {
+      const existing = await db
+        .select({ id: organizationMembers.id })
+        .from(organizationMembers)
+        .where(and(eq(organizationMembers.userId, user.id), eq(organizationMembers.organizationName, organizationName)))
+        .limit(1)
+
+      if (!existing[0]) {
+        await db.insert(organizationMembers).values({
+          userId: user.id,
+          organizationName,
+          addedBy: user.id,
+        })
+      }
+    }
+
+    return acceptedInviteNames[0]
+  }
+
   const legacyApplications = await db
     .select({ organizationName: foundaryApplications.organizationName })
     .from(foundaryApplications)
-    .where(eq(foundaryApplications.email, (user.email ?? '').trim().toLowerCase()))
+    .where(normalizedEmail ? sql`lower(${foundaryApplications.email}) = ${normalizedEmail}` : sql`false`)
     .orderBy(desc(foundaryApplications.createdAt))
 
   const legacyNames = Array.from(new Set(legacyApplications.map((row) => normalizeOrg(row.organizationName)).filter(Boolean)))
@@ -529,7 +488,7 @@ async function fetchUserNames(userIds: number[]) {
   return new Map(rows.map((row) => [row.id, { name: row.name, email: row.email }]))
 }
 
-async function getStorageRequestForOrganization(organizationName: string, dbLike: any = null) {
+async function getStorageRequestForOrganization(organizationName: string, dbLike: StorageDbLike | null = null) {
   await ensureStorageTables()
   const db = dbLike ?? (await getDb())
   const rows = await db
@@ -566,7 +525,7 @@ async function getStorageRequestForOrganization(organizationName: string, dbLike
   }
 }
 
-async function getStorageUsageSummary(organizationName: string, dbLike: any = null) {
+async function getStorageUsageSummary(organizationName: string, dbLike: StorageDbLike | null = null) {
   await ensureStorageTables()
   const db = dbLike ?? (await getDb())
   const now = new Date()
@@ -598,7 +557,7 @@ async function getStorageUsageSummary(organizationName: string, dbLike: any = nu
   }
 }
 
-async function getStorageFiles(organizationName: string, dbLike: any = null) {
+async function getStorageFiles(organizationName: string, dbLike: StorageDbLike | null = null) {
   await ensureStorageTables()
   const db = dbLike ?? (await getDb())
   const rows = await db
@@ -658,9 +617,15 @@ async function getRequestList() {
 }
 
 export const getMyStoragePerkFn = createServerFn({ method: 'GET' }).handler(async () => {
-  await ensureStorageTables()
   const currentUser = await requireStaffUser()
-  const organizationName = await getPrimaryOrganizationNameForUser(currentUser)
+  console.log('[s3] getMyStoragePerkFn start', { userId: currentUser.id })
+
+  await withTimeout(ensureStorageTables(), STORAGE_PAGE_LOAD_TIMEOUT_MS, 'Storage table check')
+  const organizationName = await withTimeout(
+    getPrimaryOrganizationNameForUser(currentUser),
+    STORAGE_PAGE_LOAD_TIMEOUT_MS,
+    'Primary org lookup',
+  )
 
   if (!organizationName) {
     return {
@@ -675,16 +640,21 @@ export const getMyStoragePerkFn = createServerFn({ method: 'GET' }).handler(asyn
     }
   }
 
-  // Reconcile stale DB entries without blocking the hosted storage page render.
-  void reconcileMissingStorageFiles(organizationName).catch((error) => {
-    console.error('Failed to reconcile storage files', error)
-  })
+  const [request, usage, files] = await withTimeout(
+    Promise.all([
+      getStorageRequestForOrganization(organizationName),
+      getStorageUsageSummary(organizationName),
+      getStorageFiles(organizationName),
+    ]),
+    STORAGE_PAGE_LOAD_TIMEOUT_MS,
+    'Storage page data load',
+  )
 
-  const [request, usage, files] = await Promise.all([
-    getStorageRequestForOrganization(organizationName),
-    getStorageUsageSummary(organizationName),
-    getStorageFiles(organizationName),
-  ])
+  console.log('[s3] getMyStoragePerkFn success', {
+    userId: currentUser.id,
+    organizationName,
+    fileCount: usage.fileCount,
+  })
 
   return {
     organizationName,
@@ -701,7 +671,11 @@ export const requestStoragePerkFn = createServerFn({ method: 'POST' })
     await ensureStorageTables()
     const currentUser = await requireStaffUser()
     const db = await getDb()
-    const organizationName = await getPrimaryOrganizationNameForUser(currentUser)
+    const organizationName = await withTimeout(
+      getPrimaryOrganizationNameForUser(currentUser),
+      STORAGE_PAGE_LOAD_TIMEOUT_MS,
+      'Primary org lookup (request)',
+    )
 
     if (!organizationName) {
       throw new Error('You need an organization before requesting storage')
@@ -764,9 +738,22 @@ export const requestStoragePerkFn = createServerFn({ method: 'POST' })
   })
 
 export const getStoragePerkRequestsFn = createServerFn({ method: 'GET' }).handler(async () => {
-  await ensureStorageTables()
-  await requireOrganizerUser()
-  return await getRequestList()
+  console.log('[storage] getStoragePerkRequestsFn start')
+
+  await withTimeout(ensureStorageTables(), STORAGE_PAGE_LOAD_TIMEOUT_MS, 'Storage table check (admin)')
+  console.log('[storage] getStoragePerkRequestsFn schema check complete')
+
+  await withTimeout(requireOrganizerUser(), STORAGE_PAGE_LOAD_TIMEOUT_MS, 'Organizer auth check (admin)')
+  console.log('[storage] getStoragePerkRequestsFn organizer auth complete')
+
+  const requests = await withTimeout(
+    getRequestList(),
+    STORAGE_PAGE_LOAD_TIMEOUT_MS,
+    'Storage requests list load (admin)',
+  )
+
+  console.log('[storage] getStoragePerkRequestsFn success', { count: requests.length })
+  return requests
 })
 
 export const reviewStoragePerkRequestFn = createServerFn({ method: 'POST' })
@@ -854,14 +841,12 @@ export const createStorageUploadReservationFn = createServerFn({ method: 'POST' 
     const db = await getDb()
     const organizationName = normalizeOrg(data.organizationName)
 
-    await reconcileMissingStorageFiles(organizationName, db)
-
     await requireStorageOrgAccess(currentUser, organizationName)
 
     const { reservation, usage } = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${organizationName}))`)
 
-      const request = await getStorageRequestForOrganization(organizationName, tx)
+      const request = await getStorageRequestForOrganization(organizationName, tx as unknown as StorageDbLike)
       if (!request || request.status !== 'approved') {
         throw new Error('Storage must be approved before uploading files')
       }
@@ -869,7 +854,7 @@ export const createStorageUploadReservationFn = createServerFn({ method: 'POST' 
         throw new Error('Storage is approved but not activated yet. Open Storage and accept terms first.')
       }
 
-      const usage = await getStorageUsageSummary(organizationName, tx)
+      const usage = await getStorageUsageSummary(organizationName, tx as unknown as StorageDbLike)
       if (usage.remainingBytes < data.sizeBytes) {
         throw new Error('Storage limit reached. Upload denied.')
       }
@@ -895,16 +880,7 @@ export const createStorageUploadReservationFn = createServerFn({ method: 'POST' 
 
     const objectKey = reservation.objectKey
     const expiresAt = reservation.expiresAt
-    const config = getS3Config()
-    const uploadUrl = await getSignedUrl(
-      getS3Client(),
-      new PutObjectCommand({
-        Bucket: config.bucket,
-        Key: objectKey,
-        ContentType: data.contentType?.trim() || undefined,
-      }),
-      { expiresIn: 900 },
-    )
+    const uploadUrl = `/api/storage-upload?reservationId=${reservation.id}`
 
     return {
       reservationId: reservation.id,
@@ -945,8 +921,8 @@ export const completeStorageUploadFn = createServerFn({ method: 'POST' })
       throw new Error('Upload reservation expired. Please try again.')
     }
 
-    const config = getS3Config()
-    const s3 = getS3Client()
+    const config = getStorageConfig()
+    const s3 = getStorageClient(config)
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), STORAGE_UPSTREAM_TIMEOUT_MS)
     let head
@@ -965,7 +941,13 @@ export const completeStorageUploadFn = createServerFn({ method: 'POST' })
         throw new Error('Uploaded file is missing from storage. Please upload it again.')
       }
 
-      throw new Error('Our servers are curently experiencing connection issues please dont upload any files.')
+      logStorageError('completeStorageUploadFn HeadObject', error, {
+        reservationId: reservation[0].id,
+        objectKey: reservation[0].objectKey,
+        bucket: config.bucket,
+      })
+
+      throw new Error(getStorageUpstreamErrorMessage(error))
     } finally {
       clearTimeout(timeout)
     }
@@ -976,12 +958,20 @@ export const completeStorageUploadFn = createServerFn({ method: 'POST' })
     }
 
     if (uploadedSize !== reservation[0].sizeBytes) {
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: config.bucket,
-          Key: reservation[0].objectKey,
-        }),
-      )
+      try {
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: config.bucket,
+            Key: reservation[0].objectKey,
+          }),
+        )
+      } catch (error) {
+        logStorageError('completeStorageUploadFn DeleteObject after size mismatch', error, {
+          reservationId: reservation[0].id,
+          objectKey: reservation[0].objectKey,
+          bucket: config.bucket,
+        })
+      }
       throw new Error('Uploaded file size did not match the reserved size')
     }
 
@@ -1039,13 +1029,22 @@ export const deleteStorageFileFn = createServerFn({ method: 'POST' })
 
     await requireStorageOrgAccess(currentUser, file[0].organizationName)
 
-    const config = getS3Config()
-    await getS3Client().send(
-      new DeleteObjectCommand({
-        Bucket: config.bucket,
-        Key: file[0].objectKey,
-      }),
-    )
+    const config = getStorageConfig()
+    try {
+      await getStorageClient(config).send(
+        new DeleteObjectCommand({
+          Bucket: config.bucket,
+          Key: file[0].objectKey,
+        }),
+      )
+    } catch (error) {
+      logStorageError('deleteStorageFileFn DeleteObject', error, {
+        fileId: file[0].id,
+        objectKey: file[0].objectKey,
+        bucket: config.bucket,
+      })
+      throw new Error(getStorageUpstreamErrorMessage(error))
+    }
 
     await db.delete(storageFiles).where(eq(storageFiles.id, file[0].id))
 

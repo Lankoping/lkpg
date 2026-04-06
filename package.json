@@ -13,6 +13,7 @@
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "generate:routes": "tsr generate",
+    "run:clean": "tsx scripts/cleanup-storage-db.ts",
     "clean": "rm -rf .ouptut dist node_modules/.vite .nitro .tanstack"
   },
   "dependencies": {

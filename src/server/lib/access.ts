@@ -7,6 +7,25 @@ export type StaffRole = 'organizer' | 'volunteer'
 export const DEMO_TESTER_EMAIL = (process.env.DEMO_TESTER_EMAIL ?? 'tester@lankoping.se').trim().toLowerCase()
 export const DEMO_TESTER_PASSWORD = process.env.DEMO_TESTER_PASSWORD ?? 'TesterDemo2026!'
 export const DEMO_TESTER_NAME = process.env.DEMO_TESTER_NAME ?? 'Tester'
+const AUTH_LOOKUP_TIMEOUT_MS = Number(process.env.AUTH_LOOKUP_TIMEOUT_MS || 45000)
+
+async function withAuthTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null
+
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        reject(new Error(`${label} timed out after ${AUTH_LOOKUP_TIMEOUT_MS}ms`))
+      }, AUTH_LOOKUP_TIMEOUT_MS)
+    })
+
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle)
+    }
+  }
+}
 
 export function getDemoAccountEmails() {
   const raw = process.env.DEMO_ACCOUNT_EMAILS
@@ -71,8 +90,12 @@ export async function requireStaffUser() {
     throw new Error('Unauthorized')
   }
 
-  const db = await getDb()
-  const result = await db.select().from(users).where(eq(users.id, parseInt(userId))).limit(1)
+  const parsedUserId = Number.parseInt(userId, 10)
+  const db = await withAuthTimeout(getDb(), 'Auth DB connection')
+  const result = await withAuthTimeout(
+    db.select().from(users).where(eq(users.id, parsedUserId)).limit(1),
+    'Auth user lookup',
+  )
   const user = result[0]
   if (!user || user.active === false || (user.role !== 'organizer' && user.role !== 'volunteer')) {
     throw new Error('Forbidden')
