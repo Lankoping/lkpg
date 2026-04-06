@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect, useLocation, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Gauge, LockKeyhole, PlusCircle, FolderOpen, Link2, MonitorSmartphone } from 'lucide-react'
 import { getSessionFn } from '../../server/functions/auth'
@@ -48,6 +48,7 @@ export const Route = createFileRoute('/hosted/perks')({
 
 function HostedPerksPage() {
   const router = useRouter()
+  const location = useLocation()
   const { storage, storageLoadError } = Route.useLoaderData()
   const [requestOpen, setRequestOpen] = useState(false)
   const [requestReason, setRequestReason] = useState('')
@@ -62,6 +63,10 @@ function HostedPerksPage() {
   const isActivated = Boolean(storage.request?.termsAcceptedAt)
   const isPending = storage.request?.status === 'pending'
   const isRejected = storage.request?.status === 'rejected'
+
+  if (location.pathname !== '/hosted/perks') {
+    return <Outlet />
+  }
 
   const submitRequest = async (event: React.FormEvent) => {
     event.preventDefault()
