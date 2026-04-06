@@ -349,28 +349,28 @@ function HostedPerksPage() {
   }
 
   return (
-    <section className="space-y-5 rounded-2xl border border-border bg-card p-5">
-      <div className="rounded-2xl border border-border bg-background p-5">
-        <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Perks</p>
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+    <section className="space-y-6 rounded-3xl border border-border bg-card p-6 md:p-8">
+      <div className="rounded-3xl border border-border bg-background p-6 md:p-7">
+        <p className="text-sm font-medium uppercase tracking-[0.24em] text-primary">Perks</p>
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="font-display text-2xl text-foreground">Storage</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            <h2 className="font-display text-3xl text-foreground md:text-4xl">Storage</h2>
+            <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
               Request 5GB of hosted storage for uploads, assets, and CDN-backed files.
             </p>
           </div>
-          <div className="rounded-full border border-border px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="rounded-full border border-border px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
             {isApproved ? 'Approved' : isPending ? 'Pending review' : isRejected ? 'Rejected' : 'Not requested'}
           </div>
         </div>
       </div>
 
       {!isApproved ? (
-        <div className="rounded-2xl border border-border bg-background p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-3xl border border-border bg-background p-6 md:p-7">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-foreground">Activate storage</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="text-base font-medium text-foreground">Activate storage</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground md:text-base">
                 Tell us why your organization needs storage and a staff member will review the request.
               </p>
             </div>
@@ -378,7 +378,7 @@ function HostedPerksPage() {
               <button
                 type="button"
                 onClick={() => setRequestOpen(true)}
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                className="rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
                 Activate storage
               </button>
@@ -394,7 +394,7 @@ function HostedPerksPage() {
                   minLength={10}
                   value={requestReason}
                   onChange={(event) => setRequestReason(event.target.value)}
-                  className="mt-1 min-h-28 w-full rounded-xl border border-border bg-card px-3 py-2 text-foreground outline-none focus:border-primary/60"
+                  className="mt-2 min-h-32 w-full rounded-2xl border border-border bg-card px-4 py-3 text-foreground outline-none focus:border-primary/60"
                   placeholder="Explain what you will store and why the organization needs CDN-backed storage."
                 />
               </label>
@@ -403,14 +403,14 @@ function HostedPerksPage() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  className="rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                 >
                   Send for review
                 </button>
                 <button
                   type="button"
                   onClick={() => setRequestOpen(false)}
-                  className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  className="rounded-2xl border border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground"
                 >
                   Cancel
                 </button>
@@ -419,21 +419,21 @@ function HostedPerksPage() {
           )}
 
           {isPending && storage.request && (
-            <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-foreground">
+            <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-5 text-sm text-foreground">
               <p className="font-medium">Request pending review</p>
               <p className="mt-1 text-muted-foreground">{storage.request.reason}</p>
             </div>
           )}
 
           {isRejected && storage.request && (
-            <div className="mt-4 rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-foreground">
+            <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-400/10 p-5 text-sm text-foreground">
               <p className="font-medium">Request rejected</p>
               <p className="mt-1 text-muted-foreground">{storage.request.reviewNotes || 'No review note was provided.'}</p>
               {!requestOpen && (
                 <button
                   type="button"
                   onClick={() => setRequestOpen(true)}
-                  className="mt-3 rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  className="mt-4 rounded-2xl border border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground"
                 >
                   Request again
                 </button>
@@ -443,17 +443,17 @@ function HostedPerksPage() {
         </div>
       ) : !isActivated ? (
         <div className="space-y-5">
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">
-            <p className="text-sm font-medium text-foreground">Storage approved</p>
-            <p className="mt-2 text-sm text-muted-foreground">
+          <div className="rounded-3xl border border-emerald-400/30 bg-emerald-400/10 p-6 md:p-7">
+            <p className="text-base font-medium text-foreground">Storage approved</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground md:text-base">
               Your organization has been approved. Press Activate storage, then scroll through the terms and accept them to unlock uploads.
             </p>
           </div>
 
-          <form onSubmit={activateStorage} className="rounded-2xl border border-border bg-background p-5">
-            <p className="text-sm font-medium text-foreground">Storage terms</p>
+          <form onSubmit={activateStorage} className="rounded-3xl border border-border bg-background p-6 md:p-7">
+            <p className="text-base font-medium text-foreground">Storage terms</p>
             <div
-              className="mt-3 max-h-56 overflow-auto rounded-xl border border-border bg-card p-4 text-sm leading-6 text-muted-foreground"
+              className="mt-4 max-h-64 overflow-auto rounded-2xl border border-border bg-card p-5 text-sm leading-7 text-muted-foreground"
               onScroll={(event) => {
                 const target = event.currentTarget
                 const reachedBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 8
@@ -475,9 +475,9 @@ function HostedPerksPage() {
                 type="checkbox"
                 checked={termsAccepted}
                 onChange={(event) => setTermsAccepted(event.target.checked)}
-                className="mt-1 accent-primary"
+                className="mt-1 h-5 w-5 accent-primary"
               />
-              <span>I have scrolled through and accept the Storage terms.</span>
+              <span className="text-base leading-6">I have scrolled through and accept the Storage terms.</span>
             </label>
 
             {!termsScrolledToBottom && (
@@ -490,7 +490,7 @@ function HostedPerksPage() {
             <button
               type="submit"
               disabled={activationBusy || !termsAccepted || !termsScrolledToBottom}
-              className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="mt-5 rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {activationBusy ? 'Activating...' : 'Activate storage'}
             </button>
@@ -498,55 +498,55 @@ function HostedPerksPage() {
         </div>
       ) : (
         <div className="space-y-5">
-          <div className="rounded-2xl border border-border bg-background p-5">
+          <div className="rounded-3xl border border-border bg-background p-6 md:p-7">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-foreground">Storage enabled</p>
-                <p className="mt-1 text-sm text-muted-foreground">Organization: {storage.organizationName}</p>
+                <p className="text-base font-medium text-foreground">Storage enabled</p>
+                <p className="mt-2 text-sm text-muted-foreground md:text-base">Organization: {storage.organizationName}</p>
               </div>
-              <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-emerald-700">
+              <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-emerald-700">
                 Live
               </div>
             </div>
 
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            <div className="mt-5 space-y-3">
+              <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-muted-foreground md:text-sm">
                 <span>Used storage</span>
                 <span>{Math.round((storage.usedBytes / 1024 / 1024) * 10) / 10} MB of 5120 MB</span>
               </div>
-              <div className="h-3 overflow-hidden rounded-full border border-border bg-card">
+              <div className="h-4 overflow-hidden rounded-full border border-border bg-card">
                 <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm leading-6 text-muted-foreground md:text-base">
                 {Math.max(0, storage.remainingBytes)} bytes remaining before the 5GB hard limit blocks new uploads.
               </p>
             </div>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-            <form onSubmit={uploadSelectedFile} className="rounded-2xl border border-border bg-background p-5">
-              <div className="flex items-center gap-3">
-                <Upload className="h-5 w-5 text-primary" />
+            <form onSubmit={uploadSelectedFile} className="rounded-3xl border border-border bg-background p-6 md:p-7">
+              <div className="flex items-center gap-4">
+                <Upload className="h-6 w-6 text-primary" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Upload a file</p>
-                  <p className="text-sm text-muted-foreground">Files are uploaded to S3 and exposed through the CDN URL.</p>
+                  <p className="text-base font-medium text-foreground">Upload a file</p>
+                  <p className="text-sm leading-6 text-muted-foreground md:text-base">Files are uploaded to S3 and exposed through the CDN URL.</p>
                 </div>
               </div>
 
-              <label className="mt-4 block text-sm text-muted-foreground">
+              <label className="mt-5 block text-sm text-muted-foreground">
                 Select file
                 <input
                   type="file"
                   required
                   onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
-                  className="mt-1 block w-full rounded-xl border border-border bg-card px-3 py-2 text-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-primary-foreground"
+                  className="mt-2 block w-full rounded-2xl border border-border bg-card px-4 py-3 text-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary file:px-4 file:py-2.5 file:text-primary-foreground"
                 />
               </label>
 
               {uploadFile && (
-                <div className="mt-3 rounded-xl border border-border bg-card p-3 text-sm text-muted-foreground">
+                <div className="mt-4 rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
                   <p className="text-foreground">{uploadFile.name}</p>
-                  <p className="mt-1">{formatBytes(uploadFile.size)}</p>
+                  <p className="mt-1 text-base">{formatBytes(uploadFile.size)}</p>
                 </div>
               )}
 
@@ -557,34 +557,34 @@ function HostedPerksPage() {
               <button
                 type="submit"
                 disabled={uploadBusy || !uploadFile || Boolean(storageServiceError)}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
                 <Upload className="h-4 w-4" />
                 {uploadBusy ? 'Uploading...' : 'Upload to storage'}
               </button>
             </form>
 
-            <div className="rounded-2xl border border-border bg-background p-5">
-              <div className="flex items-center gap-3">
-                <HardDrive className="h-5 w-5 text-primary" />
+            <div className="rounded-3xl border border-border bg-background p-6 md:p-7">
+              <div className="flex items-center gap-4">
+                <HardDrive className="h-6 w-6 text-primary" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">File explorer</p>
-                  <p className="text-sm text-muted-foreground">Search, filter, sort, and manage uploaded files.</p>
+                  <p className="text-base font-medium text-foreground">File explorer</p>
+                  <p className="text-sm leading-6 text-muted-foreground md:text-base">Search, filter, sort, and manage uploaded files.</p>
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto_auto]">
+              <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_auto]">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
                     value={explorerQuery}
                     onChange={(event) => setExplorerQuery(event.target.value)}
                     placeholder="Search files, MIME types, uploader"
-                    className="w-full rounded-xl border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground outline-none focus:border-primary/60"
+                    className="w-full rounded-2xl border border-border bg-card py-3 pl-9 pr-4 text-sm text-foreground outline-none focus:border-primary/60"
                   />
                 </label>
 
-                <label className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
+                <label className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
                   <ArrowUpDown className="h-4 w-4" />
                   <select
                     value={explorerSort}
@@ -603,7 +603,7 @@ function HostedPerksPage() {
                 <select
                   value={explorerFilter}
                   onChange={(event) => setExplorerFilter(event.target.value as ExplorerFilter)}
-                  className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                  className="rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none focus:border-primary/60"
                 >
                   <option value="all">All types</option>
                   <option value="image">Images</option>
@@ -623,31 +623,31 @@ function HostedPerksPage() {
                 {copyMessage && <span className="text-emerald-600">{copyMessage}</span>}
               </div>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-5 space-y-4">
                 {explorerFiles.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+                  <div className="rounded-2xl border border-dashed border-border px-4 py-12 text-center text-base text-muted-foreground">
                     {storage.files.length === 0 ? 'No files uploaded yet.' : 'No files match your current explorer filters.'}
                   </div>
                 ) : (
                   explorerFiles.map((file) => (
-                    <div key={file.id} className="rounded-xl border border-border bg-card p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div key={file.id} className="rounded-2xl border border-border bg-card p-4 md:p-5">
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div>
-                          <p className="text-sm font-medium text-foreground">{file.fileName}</p>
+                          <p className="text-base font-medium text-foreground md:text-lg">{file.fileName}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {formatBytes(file.sizeBytes)} · {file.contentType || 'unknown type'}
                           </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
+                          <p className="mt-2 text-xs text-muted-foreground">
                             Uploaded {formatDate(file.createdAt)} by {file.uploadedByName || file.uploadedByEmail || 'unknown user'}
                           </p>
-                          <p className="mt-1 truncate text-xs text-muted-foreground">{file.objectKey}</p>
+                          <p className="mt-2 break-all text-xs text-muted-foreground">{file.objectKey}</p>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                           <button
                             type="button"
                             onClick={() => copyToClipboard(file.publicUrl, 'CDN URL copied')}
-                            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                            className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
                           >
                             <Copy className="h-4 w-4" />
                             Copy URL
@@ -655,7 +655,7 @@ function HostedPerksPage() {
                           <button
                             type="button"
                             onClick={() => copyToClipboard(file.objectKey, 'Object key copied')}
-                            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                            className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
                           >
                             <Copy className="h-4 w-4" />
                             Copy key
@@ -664,21 +664,21 @@ function HostedPerksPage() {
                             href={file.publicUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs text-primary hover:text-primary/80"
+                            className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-primary hover:text-primary/80"
                           >
                             <ExternalLink className="h-4 w-4" />
                             Open
                           </a>
+                          <button
+                            type="button"
+                            onClick={() => removeFile(file.id)}
+                            disabled={deleteBusyId === file.id}
+                            className="inline-flex items-center gap-2 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm text-red-700 hover:bg-red-400/20 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            {deleteBusyId === file.id ? 'Deleting...' : 'Delete'}
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeFile(file.id)}
-                          disabled={deleteBusyId === file.id}
-                          className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-1.5 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          {deleteBusyId === file.id ? 'Deleting...' : 'Delete'}
-                        </button>
                       </div>
                     </div>
                   ))
@@ -687,12 +687,12 @@ function HostedPerksPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-background p-5">
-            <p className="text-sm font-medium text-foreground">Integration details</p>
-            <p className="mt-2 text-sm text-muted-foreground">
+          <div className="rounded-3xl border border-border bg-background p-6 md:p-7">
+            <p className="text-base font-medium text-foreground">Integration details</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground md:text-base">
               Use the CDN URL for public delivery. Uploads are blocked once the organization reaches 5GB of stored files.
             </p>
-            <p className="mt-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">Current usage: {storage.usedBytes} bytes</p>
+            <p className="mt-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">Current usage: {formatBytes(storage.usedBytes)}</p>
           </div>
         </div>
       )}
