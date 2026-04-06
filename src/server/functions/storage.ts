@@ -2,7 +2,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
-import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { z } from 'zod'
 import { getDb } from '../db/runtime'
@@ -19,6 +19,7 @@ import { writeActivityLog } from './logs'
 
 export const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024 * 1024
 const STORAGE_UPLOAD_RESERVATION_TTL_MS = 15 * 60 * 1000
+const STORAGE_UPSTREAM_TIMEOUT_MS = 8000
 
 let ensureStorageTablesPromise: Promise<void> | null = null
 
@@ -79,6 +80,79 @@ function getS3Client() {
     endpoint: config.endpoint,
     forcePathStyle: Boolean(config.endpoint),
   })
+}
+
+async function isStorageUpstreamAvailable() {
+  const config = getS3Config()
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), STORAGE_UPSTREAM_TIMEOUT_MS)
+
+  try {
+    await getS3Client().send(
+      new HeadBucketCommand({ Bucket: config.bucket }),
+      { abortSignal: controller.signal },
+    )
+    return true
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+function isStorageMissingObjectError(error: unknown) {
+  const anyError = error as { name?: string; $metadata?: { httpStatusCode?: number } } | null | undefined
+  return (
+    anyError?.name === 'NotFound' ||
+    anyError?.name === 'NoSuchKey' ||
+    anyError?.name === 'NotFoundException' ||
+    anyError?.$metadata?.httpStatusCode === 404
+  )
+}
+
+async function reconcileMissingStorageFiles(organizationName: string, dbLike: any = null) {
+  if (!(await isStorageUpstreamAvailable())) {
+    return
+  }
+
+  const db = dbLike ?? (await getDb())
+  const files = await db
+    .select({ id: storageFiles.id, objectKey: storageFiles.objectKey })
+    .from(storageFiles)
+    .where(eq(storageFiles.organizationName, organizationName))
+
+  if (files.length === 0) {
+    return
+  }
+
+  const s3 = getS3Client()
+  const config = getS3Config()
+  const staleFileIds: number[] = []
+
+  for (const file of files) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), STORAGE_UPSTREAM_TIMEOUT_MS)
+
+    try {
+      await s3.send(
+        new HeadObjectCommand({
+          Bucket: config.bucket,
+          Key: file.objectKey,
+        }),
+        { abortSignal: controller.signal },
+      )
+    } catch (error) {
+      if (isStorageMissingObjectError(error)) {
+        staleFileIds.push(file.id)
+      }
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
+  if (staleFileIds.length > 0) {
+    await db.delete(storageFiles).where(inArray(storageFiles.id, staleFileIds))
+  }
 }
 
 function getPublicUrl(objectKey: string) {
@@ -601,6 +675,8 @@ export const getMyStoragePerkFn = createServerFn({ method: 'GET' }).handler(asyn
     }
   }
 
+  await reconcileMissingStorageFiles(organizationName)
+
   const [request, usage, files] = await Promise.all([
     getStorageRequestForOrganization(organizationName),
     getStorageUsageSummary(organizationName),
@@ -775,6 +851,12 @@ export const createStorageUploadReservationFn = createServerFn({ method: 'POST' 
     const db = await getDb()
     const organizationName = normalizeOrg(data.organizationName)
 
+    await reconcileMissingStorageFiles(organizationName, db)
+
+    if (!(await isStorageUpstreamAvailable())) {
+      throw new Error('Our servers are curently experiencing connection issues please dont upload any files.')
+    }
+
     await requireStorageOrgAccess(currentUser, organizationName)
 
     const { reservation, usage } = await db.transaction(async (tx) => {
@@ -866,12 +948,28 @@ export const completeStorageUploadFn = createServerFn({ method: 'POST' })
 
     const config = getS3Config()
     const s3 = getS3Client()
-    const head = await s3.send(
-      new HeadObjectCommand({
-        Bucket: config.bucket,
-        Key: reservation[0].objectKey,
-      }),
-    )
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), STORAGE_UPSTREAM_TIMEOUT_MS)
+    let head
+
+    try {
+      head = await s3.send(
+        new HeadObjectCommand({
+          Bucket: config.bucket,
+          Key: reservation[0].objectKey,
+        }),
+        { abortSignal: controller.signal },
+      )
+    } catch (error) {
+      if (isStorageMissingObjectError(error)) {
+        await db.delete(storageUploadReservations).where(eq(storageUploadReservations.id, reservation[0].id))
+        throw new Error('Uploaded file is missing from storage. Please upload it again.')
+      }
+
+      throw new Error('Our servers are curently experiencing connection issues please dont upload any files.')
+    } finally {
+      clearTimeout(timeout)
+    }
 
     const uploadedSize = Number(head.ContentLength ?? 0)
     if (uploadedSize <= 0) {

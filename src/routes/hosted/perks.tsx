@@ -43,6 +43,9 @@ function HostedPerksPage() {
   const [activationBusy, setActivationBusy] = useState(false)
   const [activationError, setActivationError] = useState('')
   const [activationMessage, setActivationMessage] = useState('')
+  const [storageServiceError, setStorageServiceError] = useState('')
+
+  const storageOutageMessage = 'Our servers are curently experiencing connection issues please dont upload any files.'
 
   const progressPercent = useMemo(() => {
     if (!storage.limitBytes) return 0
@@ -83,22 +86,38 @@ function HostedPerksPage() {
         },
       })
 
-      const putResult = await fetch(reservation.uploadUrl, {
-        method: 'PUT',
-        headers: uploadFile.type ? { 'Content-Type': uploadFile.type } : undefined,
-        body: uploadFile,
-      })
+      const uploadController = new AbortController()
+      const uploadTimeout = window.setTimeout(() => uploadController.abort(), 8000)
+
+      let putResult: Response
+      try {
+        putResult = await fetch(reservation.uploadUrl, {
+          method: 'PUT',
+          headers: uploadFile.type ? { 'Content-Type': uploadFile.type } : undefined,
+          body: uploadFile,
+          signal: uploadController.signal,
+        })
+      } catch {
+        throw new Error(storageOutageMessage)
+      } finally {
+        window.clearTimeout(uploadTimeout)
+      }
 
       if (!putResult.ok) {
-        throw new Error('S3 upload failed')
+        throw new Error(storageOutageMessage)
       }
 
       await completeStorageUploadFn({ data: { reservationId: reservation.reservationId } })
       setUploadMessage('File uploaded successfully.')
       setUploadFile(null)
+      setStorageServiceError('')
       await router.invalidate()
     } catch (error: any) {
-      setUploadError(error?.message || 'Could not upload file')
+      const message = error?.message || 'Could not upload file'
+      setUploadError(message)
+      if (message === storageOutageMessage) {
+        setStorageServiceError(message)
+      }
     } finally {
       setUploadBusy(false)
     }
@@ -357,12 +376,13 @@ function HostedPerksPage() {
                 </div>
               )}
 
-              {uploadError && <p className="mt-3 text-sm text-red-400">{uploadError}</p>}
+              {storageServiceError && <p className="mt-3 text-sm text-red-400">{storageServiceError}</p>}
+              {!storageServiceError && uploadError && <p className="mt-3 text-sm text-red-400">{uploadError}</p>}
               {uploadMessage && <p className="mt-3 text-sm text-emerald-400">{uploadMessage}</p>}
 
               <button
                 type="submit"
-                disabled={uploadBusy || !uploadFile}
+                disabled={uploadBusy || !uploadFile || Boolean(storageServiceError)}
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
                 <Upload className="h-4 w-4" />

@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { getSessionFn } from '../../server/functions/auth'
 import { getStoragePerkRequestsFn, reviewStoragePerkRequestFn } from '../../server/functions/storage'
 
@@ -23,7 +24,10 @@ function AdminStoragePerksPage() {
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(requests[0]?.id ?? null)
   const [reviewNotes, setReviewNotes] = useState<Record<number, string>>({})
   const [actionError, setActionError] = useState('')
+  const [actionMessage, setActionMessage] = useState('')
   const [busyRequestId, setBusyRequestId] = useState<number | null>(null)
+  const [completedRequestId, setCompletedRequestId] = useState<number | null>(null)
+  const [completedDecision, setCompletedDecision] = useState<'approved' | 'rejected' | null>(null)
 
   const selectedRequest = useMemo(() => {
     if (!requests.length) return null
@@ -33,6 +37,7 @@ function AdminStoragePerksPage() {
 
   const reviewRequest = async (requestId: number, status: 'approved' | 'rejected') => {
     setActionError('')
+    setActionMessage('')
     setBusyRequestId(requestId)
     try {
       await reviewStoragePerkRequestFn({
@@ -42,9 +47,19 @@ function AdminStoragePerksPage() {
           reviewNotes: reviewNotes[requestId] || undefined,
         },
       })
+      setCompletedRequestId(requestId)
+      setCompletedDecision(status)
+      setActionMessage(
+        `${selectedRequest?.organizationName || 'Storage request'} ${status === 'approved' ? 'approved' : 'rejected'} successfully. Notification email sent.`,
+      )
+      toast.success(
+        `${selectedRequest?.organizationName || 'Storage request'} ${status === 'approved' ? 'approved' : 'rejected'}. Notification email sent.`,
+      )
       await router.invalidate()
     } catch (error: any) {
-      setActionError(error?.message || 'Could not review storage request')
+      const message = error?.message || 'Could not review storage request'
+      setActionError(message)
+      toast.error(message)
     } finally {
       setBusyRequestId(null)
     }
@@ -127,25 +142,34 @@ function AdminStoragePerksPage() {
               )}
 
               {actionError && <p className="text-sm text-red-400">{actionError}</p>}
+              {actionMessage && <p className="text-sm text-emerald-400">{actionMessage}</p>}
 
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => reviewRequest(selectedRequest.id, 'approved')}
-                  disabled={busyRequestId === selectedRequest.id}
-                  className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-400/20 disabled:opacity-60"
-                >
-                  {busyRequestId === selectedRequest.id ? 'Saving...' : 'Approve storage'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => reviewRequest(selectedRequest.id, 'rejected')}
-                  disabled={busyRequestId === selectedRequest.id}
-                  className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
-                >
-                  {busyRequestId === selectedRequest.id ? 'Saving...' : 'Reject storage'}
-                </button>
-              </div>
+              {selectedRequest.status === 'pending' && completedRequestId !== selectedRequest.id ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => reviewRequest(selectedRequest.id, 'approved')}
+                    disabled={busyRequestId === selectedRequest.id}
+                    className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-400/20 disabled:opacity-60"
+                  >
+                    {busyRequestId === selectedRequest.id ? 'Saving...' : 'Approve storage'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => reviewRequest(selectedRequest.id, 'rejected')}
+                    disabled={busyRequestId === selectedRequest.id}
+                    className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
+                  >
+                    {busyRequestId === selectedRequest.id ? 'Saving...' : 'Reject storage'}
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
+                  {completedRequestId === selectedRequest.id
+                    ? `This request was ${completedDecision} and the requester has been notified.`
+                    : `This request is ${selectedRequest.status}.`}
+                </div>
+              )}
             </div>
 
             <div className="mt-4 rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
