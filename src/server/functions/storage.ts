@@ -853,10 +853,6 @@ export const createStorageUploadReservationFn = createServerFn({ method: 'POST' 
 
     await reconcileMissingStorageFiles(organizationName, db)
 
-    if (!(await isStorageUpstreamAvailable())) {
-      throw new Error('Our servers are curently experiencing connection issues please dont upload any files.')
-    }
-
     await requireStorageOrgAccess(currentUser, organizationName)
 
     const { reservation, usage } = await db.transaction(async (tx) => {
