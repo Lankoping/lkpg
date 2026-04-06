@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { HardDrive, Trash2, Upload } from 'lucide-react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
+  activateStoragePerkFn,
   completeStorageUploadFn,
   createStorageUploadReservationFn,
   deleteStorageFileFn,
@@ -37,6 +38,11 @@ function HostedPerksPage() {
   const [deleteBusyId, setDeleteBusyId] = useState<number | null>(null)
   const [uploadMessage, setUploadMessage] = useState('')
   const [uploadError, setUploadError] = useState('')
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [termsScrolledToBottom, setTermsScrolledToBottom] = useState(false)
+  const [activationBusy, setActivationBusy] = useState(false)
+  const [activationError, setActivationError] = useState('')
+  const [activationMessage, setActivationMessage] = useState('')
 
   const progressPercent = useMemo(() => {
     if (!storage.limitBytes) return 0
@@ -112,8 +118,33 @@ function HostedPerksPage() {
   }
 
   const isApproved = storage.request?.status === 'approved'
+  const isActivated = Boolean(storage.request?.termsAcceptedAt)
   const isPending = storage.request?.status === 'pending'
   const isRejected = storage.request?.status === 'rejected'
+
+  const activateStorage = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!storage.organizationName) return
+
+    setActivationBusy(true)
+    setActivationError('')
+    setActivationMessage('')
+
+    try {
+      await activateStoragePerkFn({
+        data: {
+          organizationName: storage.organizationName,
+          acceptTerms: true,
+        },
+      })
+      setActivationMessage('Storage activated. Uploads are now enabled.')
+      await router.invalidate()
+    } catch (error: any) {
+      setActivationError(error?.message || 'Could not activate storage')
+    } finally {
+      setActivationBusy(false)
+    }
+  }
 
   if (!storage.organizationName) {
     return (
@@ -216,6 +247,61 @@ function HostedPerksPage() {
               )}
             </div>
           )}
+        </div>
+      ) : !isActivated ? (
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">
+            <p className="text-sm font-medium text-foreground">Storage approved</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your organization has been approved. Press Activate storage, then scroll through the terms and accept them to unlock uploads.
+            </p>
+          </div>
+
+          <form onSubmit={activateStorage} className="rounded-2xl border border-border bg-background p-5">
+            <p className="text-sm font-medium text-foreground">Storage terms</p>
+            <div
+              className="mt-3 max-h-56 overflow-auto rounded-xl border border-border bg-card p-4 text-sm leading-6 text-muted-foreground"
+              onScroll={(event) => {
+                const target = event.currentTarget
+                const reachedBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 8
+                if (reachedBottom) {
+                  setTermsScrolledToBottom(true)
+                }
+              }}
+            >
+              <p>1. Storage is limited to 5GB per organization. Uploads beyond that limit are blocked automatically.</p>
+              <p className="mt-3">2. You are responsible for all uploaded content and must have rights to distribute it.</p>
+              <p className="mt-3">3. Do not upload illegal content, malware, or private data you are not authorized to store.</p>
+              <p className="mt-3">4. Lan Foundary may suspend or remove files that violate policy or applicable law.</p>
+              <p className="mt-3">5. Keep your team accounts secure. Any uploaded content is attributable to your organization.</p>
+              <p className="mt-3">6. CDN URLs are public and should be treated as public links unless additional access controls are added by your integration.</p>
+            </div>
+
+            <label className="mt-4 flex items-start gap-3 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(event) => setTermsAccepted(event.target.checked)}
+                className="mt-1 accent-primary"
+              />
+              <span>I have scrolled through and accept the Storage terms.</span>
+            </label>
+
+            {!termsScrolledToBottom && (
+              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-amber-600">Scroll to the end of terms to continue.</p>
+            )}
+
+            {activationError && <p className="mt-3 text-sm text-red-400">{activationError}</p>}
+            {activationMessage && <p className="mt-3 text-sm text-emerald-400">{activationMessage}</p>}
+
+            <button
+              type="submit"
+              disabled={activationBusy || !termsAccepted || !termsScrolledToBottom}
+              className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {activationBusy ? 'Activating...' : 'Activate storage'}
+            </button>
+          </form>
         </div>
       ) : (
         <div className="space-y-5">

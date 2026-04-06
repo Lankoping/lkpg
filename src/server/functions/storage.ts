@@ -20,6 +20,8 @@ import { writeActivityLog } from './logs'
 export const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024 * 1024
 const STORAGE_UPLOAD_RESERVATION_TTL_MS = 15 * 60 * 1000
 
+let ensureStorageTablesPromise: Promise<void> | null = null
+
 type StorageConfig = {
   bucket: string
   region: string
@@ -94,6 +96,171 @@ function getPublicUrl(objectKey: string) {
   return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${encodedKey}`
 }
 
+async function ensureStorageTables() {
+  if (!ensureStorageTablesPromise) {
+    ensureStorageTablesPromise = (async () => {
+      const db = await getDb()
+
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "storage_perk_requests" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "organization_name" text NOT NULL,
+          "requested_by_user_id" integer NOT NULL,
+          "reason" text NOT NULL,
+          "status" text DEFAULT 'pending' NOT NULL,
+          "review_notes" text,
+          "reviewed_by" integer,
+          "reviewed_at" timestamp,
+          "approved_at" timestamp,
+          "terms_accepted_at" timestamp,
+          "terms_accepted_by_user_id" integer,
+          "created_at" timestamp DEFAULT now() NOT NULL,
+          "updated_at" timestamp DEFAULT now() NOT NULL
+        );
+      `)
+
+      await db.execute(sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS "storage_perk_requests_organization_name_unique"
+        ON "storage_perk_requests" ("organization_name");
+      `)
+
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "storage_upload_reservations" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "organization_name" text NOT NULL,
+          "requested_by_user_id" integer NOT NULL,
+          "file_name" text NOT NULL,
+          "content_type" text,
+          "object_key" text NOT NULL,
+          "size_bytes" bigint NOT NULL,
+          "expires_at" timestamp NOT NULL,
+          "created_at" timestamp DEFAULT now() NOT NULL
+        );
+      `)
+
+      await db.execute(sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS "storage_upload_reservations_object_key_unique"
+        ON "storage_upload_reservations" ("object_key");
+      `)
+
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "storage_files" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "organization_name" text NOT NULL,
+          "uploaded_by_user_id" integer NOT NULL,
+          "file_name" text NOT NULL,
+          "content_type" text,
+          "object_key" text NOT NULL,
+          "size_bytes" bigint NOT NULL,
+          "created_at" timestamp DEFAULT now() NOT NULL
+        );
+      `)
+
+      await db.execute(sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS "storage_files_object_key_unique"
+        ON "storage_files" ("object_key");
+      `)
+
+      await db.execute(sql`
+        ALTER TABLE "storage_perk_requests"
+        ADD COLUMN IF NOT EXISTS "terms_accepted_at" timestamp,
+        ADD COLUMN IF NOT EXISTS "terms_accepted_by_user_id" integer;
+      `)
+    })().finally(() => {
+      ensureStorageTablesPromise = null
+    })
+  }
+
+  await ensureStorageTablesPromise
+}
+
+async function sendStorageReviewEmail({
+  to,
+  organizationName,
+  decision,
+  notes,
+}: {
+  to: string
+  organizationName: string
+  decision: 'approved' | 'rejected'
+  notes?: string | null
+}) {
+  const host = process.env.SMTP_HOST
+  const port = Number(process.env.SMTP_PORT || 587)
+  const user = process.env.SMTP_USER
+  const pass = process.env.SMTP_PASS
+
+  if (!host || !user || !pass) {
+    throw new Error('SMTP configuration missing: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS')
+  }
+
+  const nodemailer = await import('nodemailer')
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  })
+
+  const hostedBaseUrl = (process.env.baseurl || process.env.BASEURL || process.env.BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
+  const storagePageUrl = `${/^https?:\/\//i.test(hostedBaseUrl) ? hostedBaseUrl : `https://${hostedBaseUrl}`}/hosted/perks`
+
+  if (decision === 'approved') {
+    const text = [
+      `Your storage perk request for ${organizationName} was approved.`,
+      '',
+      'Next steps:',
+      '1. Go to the Hosted portal Storage page.',
+      '2. Press Activate storage.',
+      '3. Scroll through the Storage terms and accept them.',
+      '',
+      storagePageUrl,
+      '',
+      notes ? `Review notes: ${notes}` : '',
+    ].filter(Boolean).join('\n')
+
+    const html = `
+      <p>Your storage perk request for <strong>${organizationName}</strong> was approved.</p>
+      <p><strong>Next steps:</strong></p>
+      <ol>
+        <li>Go to the Hosted portal Storage page.</li>
+        <li>Press <strong>Activate storage</strong>.</li>
+        <li>Scroll through the Storage terms and accept them.</li>
+      </ol>
+      <p><a href="${storagePageUrl}">${storagePageUrl}</a></p>
+      ${notes ? `<p><strong>Review notes:</strong> ${notes}</p>` : ''}
+    `
+
+    await transporter.sendMail({
+      from: 'foundary@lankoping.se',
+      to,
+      subject: 'Lan Foundary storage approved',
+      text,
+      html,
+    })
+    return
+  }
+
+  const text = [
+    `Your storage perk request for ${organizationName} was rejected.`,
+    '',
+    notes ? `Review notes: ${notes}` : 'No review notes were provided.',
+  ].join('\n')
+
+  const html = `
+    <p>Your storage perk request for <strong>${organizationName}</strong> was rejected.</p>
+    <p>${notes ? `<strong>Review notes:</strong> ${notes}` : 'No review notes were provided.'}</p>
+  `
+
+  await transporter.sendMail({
+    from: 'foundary@lankoping.se',
+    to,
+    subject: 'Lan Foundary storage review update',
+    text,
+    html,
+  })
+}
+
 async function getPrimaryOrganizationNameForUser(user: { id: number; email: string | null }) {
   const db = await getDb()
 
@@ -166,6 +333,7 @@ async function fetchUserNames(userIds: number[]) {
 }
 
 async function getStorageRequestForOrganization(organizationName: string, dbLike: any = null) {
+  await ensureStorageTables()
   const db = dbLike ?? (await getDb())
   const rows = await db
     .select({
@@ -178,6 +346,8 @@ async function getStorageRequestForOrganization(organizationName: string, dbLike
       reviewedBy: storagePerkRequests.reviewedBy,
       reviewedAt: storagePerkRequests.reviewedAt,
       approvedAt: storagePerkRequests.approvedAt,
+      termsAcceptedAt: storagePerkRequests.termsAcceptedAt,
+      termsAcceptedByUserId: storagePerkRequests.termsAcceptedByUserId,
       createdAt: storagePerkRequests.createdAt,
       updatedAt: storagePerkRequests.updatedAt,
     })
@@ -200,6 +370,7 @@ async function getStorageRequestForOrganization(organizationName: string, dbLike
 }
 
 async function getStorageUsageSummary(organizationName: string, dbLike: any = null) {
+  await ensureStorageTables()
   const db = dbLike ?? (await getDb())
   const now = new Date()
 
@@ -231,6 +402,7 @@ async function getStorageUsageSummary(organizationName: string, dbLike: any = nu
 }
 
 async function getStorageFiles(organizationName: string, dbLike: any = null) {
+  await ensureStorageTables()
   const db = dbLike ?? (await getDb())
   const rows = await db
     .select({
@@ -257,6 +429,7 @@ async function getStorageFiles(organizationName: string, dbLike: any = null) {
 }
 
 async function getRequestList() {
+  await ensureStorageTables()
   const db = await getDb()
   const rows = await db
     .select({
@@ -269,6 +442,8 @@ async function getRequestList() {
       reviewedBy: storagePerkRequests.reviewedBy,
       reviewedAt: storagePerkRequests.reviewedAt,
       approvedAt: storagePerkRequests.approvedAt,
+      termsAcceptedAt: storagePerkRequests.termsAcceptedAt,
+      termsAcceptedByUserId: storagePerkRequests.termsAcceptedByUserId,
       createdAt: storagePerkRequests.createdAt,
       updatedAt: storagePerkRequests.updatedAt,
     })
@@ -286,6 +461,7 @@ async function getRequestList() {
 }
 
 export const getMyStoragePerkFn = createServerFn({ method: 'GET' }).handler(async () => {
+  await ensureStorageTables()
   const currentUser = await requireStaffUser()
   const organizationName = await getPrimaryOrganizationNameForUser(currentUser)
 
@@ -320,6 +496,7 @@ export const getMyStoragePerkFn = createServerFn({ method: 'GET' }).handler(asyn
 export const requestStoragePerkFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ reason: z.string().min(10).max(5000) }).parse(data))
   .handler(async ({ data }) => {
+    await ensureStorageTables()
     const currentUser = await requireStaffUser()
     const db = await getDb()
     const organizationName = await getPrimaryOrganizationNameForUser(currentUser)
@@ -374,6 +551,7 @@ export const requestStoragePerkFn = createServerFn({ method: 'POST' })
   })
 
 export const getStoragePerkRequestsFn = createServerFn({ method: 'GET' }).handler(async () => {
+  await ensureStorageTables()
   await requireOrganizerUser()
   return await getRequestList()
 })
@@ -387,6 +565,7 @@ export const reviewStoragePerkRequestFn = createServerFn({ method: 'POST' })
     }).parse(data),
   )
   .handler(async ({ data }) => {
+    await ensureStorageTables()
     const currentUser = await requireOrganizerUser()
     const db = await getDb()
 
@@ -401,18 +580,36 @@ export const reviewStoragePerkRequestFn = createServerFn({ method: 'POST' })
     }
 
     const now = new Date()
+    const cleanNotes = data.reviewNotes?.trim() || null
     const updated = await db
       .update(storagePerkRequests)
       .set({
         status: data.status,
-        reviewNotes: data.reviewNotes?.trim() || null,
+        reviewNotes: cleanNotes,
         reviewedBy: currentUser.id,
         reviewedAt: now,
         approvedAt: data.status === 'approved' ? now : null,
+        termsAcceptedAt: data.status === 'approved' ? request[0].termsAcceptedAt : null,
+        termsAcceptedByUserId: data.status === 'approved' ? request[0].termsAcceptedByUserId : null,
         updatedAt: now,
       })
       .where(eq(storagePerkRequests.id, data.requestId))
       .returning()
+
+    const requester = await fetchUserNames([request[0].requestedByUserId])
+    const requesterEmail = requester.get(request[0].requestedByUserId)?.email
+    if (requesterEmail) {
+      try {
+        await sendStorageReviewEmail({
+          to: requesterEmail,
+          organizationName: request[0].organizationName,
+          decision: data.status,
+          notes: cleanNotes,
+        })
+      } catch (error) {
+        console.error('Failed to send storage review email', error)
+      }
+    }
 
     await writeActivityLog({
       actorUserId: currentUser.id,
@@ -422,7 +619,7 @@ export const reviewStoragePerkRequestFn = createServerFn({ method: 'POST' })
       entityId: data.requestId,
       details: {
         organizationName: request[0].organizationName,
-        reviewNotes: data.reviewNotes?.trim() || null,
+        reviewNotes: cleanNotes,
       },
     })
 
@@ -439,6 +636,7 @@ export const createStorageUploadReservationFn = createServerFn({ method: 'POST' 
     }).parse(data),
   )
   .handler(async ({ data }) => {
+    await ensureStorageTables()
     const currentUser = await requireStaffUser()
     const db = await getDb()
     const organizationName = normalizeOrg(data.organizationName)
@@ -451,6 +649,9 @@ export const createStorageUploadReservationFn = createServerFn({ method: 'POST' 
       const request = await getStorageRequestForOrganization(organizationName, tx)
       if (!request || request.status !== 'approved') {
         throw new Error('Storage must be approved before uploading files')
+      }
+      if (!request.termsAcceptedAt) {
+        throw new Error('Storage is approved but not activated yet. Open Storage and accept terms first.')
       }
 
       const usage = await getStorageUsageSummary(organizationName, tx)
@@ -504,6 +705,7 @@ export const createStorageUploadReservationFn = createServerFn({ method: 'POST' 
 export const completeStorageUploadFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ reservationId: z.number() }).parse(data))
   .handler(async ({ data }) => {
+    await ensureStorageTables()
     const currentUser = await requireStaffUser()
     const db = await getDb()
 
@@ -590,6 +792,7 @@ export const completeStorageUploadFn = createServerFn({ method: 'POST' })
 export const deleteStorageFileFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => z.object({ fileId: z.number() }).parse(data))
   .handler(async ({ data }) => {
+    await ensureStorageTables()
     const currentUser = await requireStaffUser()
     const db = await getDb()
 
@@ -628,4 +831,49 @@ export const deleteStorageFileFn = createServerFn({ method: 'POST' })
     })
 
     return { success: true }
+  })
+
+export const activateStoragePerkFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z.object({
+      organizationName: z.string().min(1),
+      acceptTerms: z.literal(true),
+    }).parse(data),
+  )
+  .handler(async ({ data }) => {
+    await ensureStorageTables()
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+    const organizationName = normalizeOrg(data.organizationName)
+
+    await requireStorageOrgAccess(currentUser, organizationName)
+
+    const request = await getStorageRequestForOrganization(organizationName)
+    if (!request || request.status !== 'approved') {
+      throw new Error('Storage must be approved before activation')
+    }
+
+    const now = new Date()
+    const [updated] = await db
+      .update(storagePerkRequests)
+      .set({
+        termsAcceptedAt: now,
+        termsAcceptedByUserId: currentUser.id,
+        updatedAt: now,
+      })
+      .where(eq(storagePerkRequests.id, request.id))
+      .returning()
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'storage.perk.activate',
+      entityType: 'storage_perk_request',
+      entityId: request.id,
+      details: {
+        organizationName,
+      },
+    })
+
+    return updated
   })

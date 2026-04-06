@@ -227,6 +227,8 @@ export const storagePerkRequests = pgTable('storage_perk_requests', {
   reviewedBy: integer('reviewed_by').references(() => users.id),
   reviewedAt: timestamp('reviewed_at'),
   approvedAt: timestamp('approved_at'),
+  termsAcceptedAt: timestamp('terms_accepted_at'),
+  termsAcceptedByUserId: integer('terms_accepted_by_user_id').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
