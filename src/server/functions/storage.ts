@@ -174,6 +174,81 @@ async function ensureStorageTables() {
   await ensureStorageTablesPromise
 }
 
+function formatDuration(ms: number) {
+  const totalMinutes = Math.max(1, Math.round(ms / 60000))
+  const days = Math.floor(totalMinutes / (60 * 24))
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+  const minutes = totalMinutes % 60
+
+  if (days > 0) {
+    if (hours > 0) {
+      return `${days} day${days === 1 ? '' : 's'} ${hours} hour${hours === 1 ? '' : 's'}`
+    }
+
+    return `${days} day${days === 1 ? '' : 's'}`
+  }
+
+  if (hours > 0) {
+    if (minutes > 0) {
+      return `${hours} hour${hours === 1 ? '' : 's'} ${minutes} minute${minutes === 1 ? '' : 's'}`
+    }
+
+    return `${hours} hour${hours === 1 ? '' : 's'}`
+  }
+
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`
+}
+
+async function getStorageReviewEtaStats() {
+  await ensureStorageTables()
+  const db = await getDb()
+
+  const rows = await db
+    .select({
+      createdAt: storagePerkRequests.createdAt,
+      reviewedAt: storagePerkRequests.reviewedAt,
+    })
+    .from(storagePerkRequests)
+    .where(and(sql`${storagePerkRequests.createdAt} IS NOT NULL`, sql`${storagePerkRequests.reviewedAt} IS NOT NULL`))
+    .orderBy(desc(storagePerkRequests.reviewedAt))
+    .limit(100)
+
+  const durations = rows
+    .map((row) => {
+      if (!row.createdAt || !row.reviewedAt) {
+        return null
+      }
+
+      const duration = row.reviewedAt.getTime() - row.createdAt.getTime()
+      return duration > 0 ? duration : null
+    })
+    .filter((duration): duration is number => duration !== null)
+
+  if (durations.length === 0) {
+    return {
+      sampleCount: 0,
+      estimatedDurationMs: null,
+      etaText: '3-5 business days',
+    }
+  }
+
+  const sorted = [...durations].sort((left, right) => left - right)
+  const totalDuration = durations.reduce((sum, duration) => sum + duration, 0)
+  const averageDuration = totalDuration / durations.length
+  const medianDuration =
+    sorted.length % 2 === 0
+      ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+      : sorted[Math.floor(sorted.length / 2)]
+  const fastestDuration = sorted[0]
+  const slowestDuration = sorted[sorted.length - 1]
+
+  return {
+    sampleCount: durations.length,
+    estimatedDurationMs: Math.round(medianDuration),
+    etaText: `about ${formatDuration(medianDuration)} based on ${durations.length} previous review${durations.length === 1 ? '' : 's'} (avg ${formatDuration(averageDuration)}, range ${formatDuration(fastestDuration)}-${formatDuration(slowestDuration)})`,
+  }
+}
+
 async function sendStorageReviewEmail({
   to,
   organizationName,
@@ -256,6 +331,54 @@ async function sendStorageReviewEmail({
     from: 'foundary@lankoping.se',
     to,
     subject: 'Lan Foundary storage review update',
+    text,
+    html,
+  })
+}
+
+async function sendStorageRequestReceivedEmail({
+  to,
+  organizationName,
+}: {
+  to: string
+  organizationName: string
+}) {
+  const host = process.env.SMTP_HOST
+  const port = Number(process.env.SMTP_PORT || 587)
+  const user = process.env.SMTP_USER
+  const pass = process.env.SMTP_PASS
+
+  if (!host || !user || !pass) {
+    throw new Error('SMTP configuration missing: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS')
+  }
+
+  const nodemailer = await import('nodemailer')
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  })
+
+  const etaStats = await getStorageReviewEtaStats()
+
+  const text = [
+    `We have received your request and will review it soon.`,
+    `ETA based on other reviews: ${etaStats.etaText}`,
+    '',
+    `Organization: ${organizationName}`,
+  ].join('\n')
+
+  const html = `
+    <p>We have received your request and will review it soon.</p>
+    <p><strong>ETA based on other reviews:</strong> ${etaStats.etaText}</p>
+    <p><strong>Organization:</strong> ${organizationName}</p>
+  `
+
+  await transporter.sendMail({
+    from: 'foundary@lankoping.se',
+    to,
+    subject: 'Lan Foundary storage request received',
     text,
     html,
   })
@@ -546,6 +669,17 @@ export const requestStoragePerkFn = createServerFn({ method: 'POST' })
       entityType: 'storage_perk_request',
       details: { organizationName, reasonLength: cleanReason.length },
     })
+
+    if (currentUser.email) {
+      try {
+        await sendStorageRequestReceivedEmail({
+          to: currentUser.email,
+          organizationName,
+        })
+      } catch (error) {
+        console.error('Failed to send storage request receipt email', error)
+      }
+    }
 
     return { success: true, organizationName }
   })
