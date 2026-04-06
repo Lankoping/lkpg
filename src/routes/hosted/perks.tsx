@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { ArrowUpDown, Copy, ExternalLink, HardDrive, Search, Trash2, Upload } from 'lucide-react'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getSessionFn } from '../../server/functions/auth'
 import {
   activateStoragePerkFn,
@@ -66,6 +67,17 @@ function detectFileCategory(fileName: string, contentType: string | null | undef
 
 type ExplorerSort = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc'
 type ExplorerFilter = 'all' | 'image' | 'video' | 'audio' | 'document' | 'archive' | 'code' | 'other'
+
+const EXPLORER_TAB_LABELS: Record<ExplorerFilter, string> = {
+  all: 'All files',
+  image: 'Images',
+  video: 'Videos',
+  audio: 'Audio',
+  document: 'Documents',
+  archive: 'Archives',
+  code: 'Code',
+  other: 'Other',
+}
 
 export const Route = createFileRoute('/hosted/perks')({
   loader: async () => {
@@ -189,6 +201,26 @@ function HostedPerksPage() {
 
     return filtered
   }, [explorerFilter, explorerQuery, explorerSort, storage.files])
+
+  const explorerTabCounts = useMemo(() => {
+    const counts: Record<ExplorerFilter, number> = {
+      all: storage.files.length,
+      image: 0,
+      video: 0,
+      audio: 0,
+      document: 0,
+      archive: 0,
+      code: 0,
+      other: 0,
+    }
+
+    for (const file of storage.files) {
+      const category = detectFileCategory(file.fileName, file.contentType)
+      counts[category] += 1
+    }
+
+    return counts
+  }, [storage.files])
 
   const copyToClipboard = async (text: string, successMessage: string) => {
     try {
@@ -600,21 +632,24 @@ function HostedPerksPage() {
                   </select>
                 </label>
 
-                <select
-                  value={explorerFilter}
-                  onChange={(event) => setExplorerFilter(event.target.value as ExplorerFilter)}
-                  className="rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none focus:border-primary/60"
-                >
-                  <option value="all">All types</option>
-                  <option value="image">Images</option>
-                  <option value="video">Videos</option>
-                  <option value="audio">Audio</option>
-                  <option value="document">Documents</option>
-                  <option value="archive">Archives</option>
-                  <option value="code">Code/Data</option>
-                  <option value="other">Other</option>
-                </select>
               </div>
+
+              <Tabs value={explorerFilter} onValueChange={(value) => setExplorerFilter(value as ExplorerFilter)} className="mt-4">
+                <TabsList className="h-auto w-full flex-wrap gap-2 bg-transparent p-0">
+                  {(Object.keys(EXPLORER_TAB_LABELS) as ExplorerFilter[]).map((key) => (
+                    <TabsTrigger
+                      key={key}
+                      value={key}
+                      className="h-11 rounded-2xl border border-border bg-card px-4 text-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                    >
+                      <span>{EXPLORER_TAB_LABELS[key]}</span>
+                      <span className="rounded-full bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground data-[state=active]:bg-primary-foreground/15 data-[state=active]:text-primary-foreground">
+                        {explorerTabCounts[key]}
+                      </span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">
                 <span>
