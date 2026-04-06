@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CalendarDays, CheckCircle2, Coins, Shield, Sparkles, Users } from 'lucide-react'
+import { CalendarDays, CheckCircle2, CircleDollarSign, ClipboardList, FileText, Shield, Users } from 'lucide-react'
 import { submitFoundaryApplicationFn } from '../server/functions/foundary'
 
 export function HomeApplicationPage() {
@@ -25,13 +25,32 @@ export function HomeApplicationPage() {
     termsAccepted: false,
   })
 
-  const perks = useMemo(
+  const programFacts = useMemo(
     () => [
-      'Apply for funding to host LANs and community events.',
-      'Track your application status from pending to approved.',
-      'Request access to perks provided by Lan Foundary staff.',
-      'Activate storage to request CDN-backed uploads with a 5GB hard limit per organization.',
-      'Designed for multiple organizations, not only one local group.',
+      'Funding is intended for LANs and related community-focused events.',
+      'Each application is reviewed manually by staff before approval.',
+      'Hosted accounts can track status, review notes, and team access.',
+      'Storage access is optional and must be approved separately.',
+      'Storage is capped at 5GB per organization when enabled.',
+    ],
+    [],
+  )
+
+  const timeline = useMemo(
+    () => [
+      'Submit your application with organizer and event details.',
+      'Staff reviews your request, budget, and timeline.',
+      'If approved, use Hosted to manage follow-up actions and funds requests.',
+    ],
+    [],
+  )
+
+  const prepareList = useMemo(
+    () => [
+      'Organization status and legal/payment context.',
+      'Expected attendance and event schedule.',
+      'Requested amount and budget justification.',
+      'Short description of what the event delivers for the community.',
     ],
     [],
   )
@@ -96,23 +115,23 @@ export function HomeApplicationPage() {
       <main className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="space-y-6">
           <div className="rounded-2xl border border-border bg-card p-6">
-            <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary">Multi-tenant event support</p>
+            <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary">Lan Foundary information</p>
             <h2 className="mt-4 font-display text-4xl leading-tight text-foreground md:text-5xl">
-              Apply for funding, manage your LAN, and unlock perks.
+              Funding applications for LAN and community events.
             </h2>
             <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-              Submitting an application creates your hosted account. Use the same email and password later on the hosted portal to track status.
+              This page lets you submit a funding application and create your hosted account in one step. Use the hosted portal later to check review status, updates, and next actions.
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-border bg-background p-4">
-                <Coins className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-sm font-medium text-foreground">Funding requests</p>
-                <p className="mt-1 text-sm text-muted-foreground">Ask for support when hosting LANs or related events.</p>
+                <CircleDollarSign className="h-5 w-5 text-primary" />
+                <p className="mt-3 text-sm font-medium text-foreground">Funding support</p>
+                <p className="mt-1 text-sm text-muted-foreground">Request event funding with clear budget and attendance details.</p>
               </div>
               <div className="rounded-xl border border-border bg-background p-4">
                 <Users className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-sm font-medium text-foreground">Hosted account access</p>
-                <p className="mt-1 text-sm text-muted-foreground">Sign in via /hosted to view application progress and review notes.</p>
+                <p className="mt-3 text-sm font-medium text-foreground">Hosted access</p>
+                <p className="mt-1 text-sm text-muted-foreground">Track application progress and follow staff review notes after submission.</p>
               </div>
             </div>
           </div>
@@ -121,28 +140,49 @@ export function HomeApplicationPage() {
             <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center gap-3">
                 <CalendarDays className="h-5 w-5 text-primary" />
-                <p className="font-medium text-foreground">Plan ahead</p>
+                <p className="font-medium text-foreground">Submission timing</p>
               </div>
-              <p className="mt-3 text-sm text-muted-foreground">Submit applications at least two months before the event you want to host.</p>
+              <p className="mt-3 text-sm text-muted-foreground">Submit at least two months before your event date to allow for full review.</p>
             </div>
             <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center gap-3">
                 <Shield className="h-5 w-5 text-primary" />
                 <p className="font-medium text-foreground">Manual review</p>
               </div>
-              <p className="mt-3 text-sm text-muted-foreground">Every application is reviewed by Lan Foundary staff before approval.</p>
+              <p className="mt-3 text-sm text-muted-foreground">Approvals are not automatic. Staff manually checks eligibility and budget context.</p>
             </div>
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-6">
-            <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary">How it works</p>
+            <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary">Program facts</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {perks.map((perk) => (
-                <div key={perk} className="flex gap-3 rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
-                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <span>{perk}</span>
+              {programFacts.map((fact) => (
+                <div key={fact} className="flex gap-3 rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
+                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>{fact}</span>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-5 rounded-xl border border-border bg-background p-4">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-primary" />
+                <p className="text-sm font-medium text-foreground">What to prepare before filling the form</p>
+              </div>
+              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                {prepareList.map((item) => (
+                  <li key={item}>- {item}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-border bg-background p-4">
+              <p className="text-sm font-medium text-foreground">Review timeline</p>
+              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                {timeline.map((step, index) => (
+                  <li key={step}>{index + 1}. {step}</li>
+                ))}
+              </ul>
             </div>
 
             <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
@@ -152,7 +192,7 @@ export function HomeApplicationPage() {
                   Available on request
                 </span>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">Request 5GB of hosted storage. Admin approval is required before files can be uploaded.</p>
+              <p className="mt-2 text-sm text-muted-foreground">Request up to 5GB of hosted storage after approval. Upload access is disabled until staff approves and terms are accepted.</p>
             </div>
           </div>
         </section>
@@ -169,9 +209,9 @@ export function HomeApplicationPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary">Application and registration</p>
-                <h2 className="mt-2 font-display text-3xl text-foreground">Apply for funding</h2>
-                <p className="mt-2 text-sm text-muted-foreground">Fill in the form below. This also creates your hosted account.</p>
+                <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary">Application form</p>
+                <h2 className="mt-2 font-display text-3xl text-foreground">Submit funding request</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Complete all sections carefully. This form also creates your hosted sign-in account.</p>
               </div>
 
               <Field label="Full name" required><input className={inputStyle} value={formData.applicantName} onChange={(e) => setFormData({ ...formData, applicantName: e.target.value })} /></Field>
