@@ -5,8 +5,11 @@ import viteTsConfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 import devtoolsJson from 'vite-plugin-devtools-json'
 import { nitroV2Plugin } from '@tanstack/nitro-v2-vite-plugin'
+import { resolve } from 'pathe'
 
-const forSites = process.env?.FOR_SITES === 'true'
+// Keep server routes enabled by default so /api/* handlers are always built.
+// Set FOR_SITES=false only when intentionally creating a client-only build.
+const forSites = process.env?.FOR_SITES !== 'false'
 
 const config = defineConfig({
   plugins: [
@@ -20,6 +23,19 @@ const config = defineConfig({
       nitroV2Plugin({
         compatibilityDate: '2025-10-08',
         preset: 'node-server',
+        scanDirs: ['./server', './src/server'],
+        handlers: [
+          {
+            route: '/api/storage-upload',
+            method: 'put',
+            handler: resolve('./src/server/api/storage-upload.put.ts'),
+          },
+          {
+            route: '/api/healthz',
+            method: 'get',
+            handler: resolve('./src/server/api/healthz.get.ts'),
+          },
+        ],
       }),
     devtoolsJson(),
     viteReact(),

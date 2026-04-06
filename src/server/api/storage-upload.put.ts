@@ -1,10 +1,10 @@
 import { defineEventHandler, createError, getCookie, getQuery, getRequestHeader, setResponseStatus } from 'h3'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { eq } from 'drizzle-orm'
-import { getDb } from '../../src/server/db/runtime'
-import { storageFiles, storageUploadReservations, users } from '../../src/server/db/schema'
-import { getStorageClient, getStorageConfig, getStorageUpstreamErrorMessage, logStorageError } from '../../src/server/lib/s3-compatible'
-import { writeActivityLog } from '../../src/server/functions/logs'
+import { getDb } from '../db/runtime'
+import { storageFiles, storageUploadReservations, users } from '../db/schema'
+import { getStorageClient, getStorageConfig, getStorageUpstreamErrorMessage, logStorageError } from '../lib/s3-compatible'
+import { writeActivityLog } from '../functions/logs'
 
 const UPLOAD_DB_TIMEOUT_MS = Number(process.env.STORAGE_UPLOAD_DB_TIMEOUT_MS || 45000)
 const UPLOAD_S3_TIMEOUT_MS = Number(process.env.STORAGE_UPLOAD_S3_TIMEOUT_MS || 20000)
@@ -124,7 +124,7 @@ export default defineEventHandler(async (event) => {
       { abortSignal: controller.signal },
     )
   } catch (error) {
-    logStorageError('server/api/storage-upload.put PutObject', error, {
+    logStorageError('src/server/api/storage-upload.put PutObject', error, {
       reservationId: reservation[0].id,
       objectKey: reservation[0].objectKey,
       bucket: config.bucket,
