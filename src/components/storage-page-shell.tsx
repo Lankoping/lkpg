@@ -1,4 +1,4 @@
-import { ChevronLeft, FolderOpen, Gauge, Link2, MonitorSmartphone, Upload } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 
 export type StorageFileRecord = {
   id: number
@@ -92,41 +92,20 @@ export function StoragePageShell({
   children: React.ReactNode
 }) {
   return (
-    <section className="space-y-6 rounded-3xl border border-border bg-card p-6 md:p-8">
+    <section data-active-tab={activeTab} className="space-y-6 rounded-3xl border border-border bg-card p-6 md:p-8">
       <div className="sticky top-4 z-20 rounded-3xl border border-border bg-background/95 p-6 shadow-sm backdrop-blur scroll-mt-24 md:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.24em] text-primary">Storage</p>
             <h2 className="mt-2 font-display text-3xl text-foreground md:text-4xl">{storage.organizationName}</h2>
             <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-              Separate pages for upload, explorer, CDN links, and limits. Use the tabs below to move between them.
+              Use the left sidebar to move between overview, upload, explorer, CDN links, and limits.
             </p>
           </div>
           <div className="rounded-2xl border border-border bg-card px-4 py-3 text-right">
             <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Account</p>
             <p className="mt-1 text-sm font-medium text-foreground">{storage.organizationName}</p>
           </div>
-        </div>
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          {(Object.keys(storageTabLabels) as StorageTab[]).map((tab) => (
-            <a
-              key={tab}
-              href={storageTabRoutes[tab]}
-              className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm transition-colors ${
-                tab === activeTab
-                  ? 'border-primary/40 bg-primary text-primary-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tab === 'overview' ? <Gauge className="h-4 w-4" /> : null}
-              {tab === 'upload' ? <Upload className="h-4 w-4" /> : null}
-              {tab === 'explorer' ? <FolderOpen className="h-4 w-4" /> : null}
-              {tab === 'cdn' ? <Link2 className="h-4 w-4" /> : null}
-              {tab === 'limits' ? <MonitorSmartphone className="h-4 w-4" /> : null}
-              <span>{storageTabLabels[tab]}</span>
-            </a>
-          ))}
         </div>
       </div>
 
