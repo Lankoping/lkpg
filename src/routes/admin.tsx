@@ -12,7 +12,8 @@ import {
   ChevronDown,
   Menu,
   X,
-  ExternalLink
+  ExternalLink,
+  HardDrive,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/admin')({
@@ -154,6 +155,7 @@ function AdminLayout() {
               <NavItem href="/admin" label="Overview" icon={<LayoutDashboard className="w-5 h-5" />} />
               <NavItem href="/admin/tickets" label="Tickets" icon={<Ticket className="w-5 h-5" />} />
               <NavItem href="/admin/applications" label="Applications" icon={<FileText className="w-5 h-5" />} />
+              <NavItem href="/admin/storage-perks" label="Storage" icon={<HardDrive className="w-5 h-5" />} />
             </div>
 
             {/* Management */}
@@ -224,6 +226,7 @@ function AdminLayout() {
                 {currentPath === '/admin' || currentPath === '/admin/' ? 'Overview' :
                  currentPath.includes('/tickets') ? 'Tickets' :
                  currentPath.includes('/applications') ? 'Applications' :
+                  currentPath.includes('/storage-perks') ? 'Storage' :
                  currentPath.includes('/users') ? 'Members' :
                  'Page'}
               </span>

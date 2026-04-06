@@ -5,7 +5,7 @@ import { acceptOrganizationInviteFn } from '../server/functions/foundary'
 import {
   LayoutDashboard,
   Ticket,
-  Gift,
+  HardDrive,
   Users,
   HandCoins,
   LogOut,
@@ -104,7 +104,7 @@ function HostedLayout() {
       : currentPath.includes('/hosted/team')
         ? 'Team'
         : currentPath.includes('/hosted/perks')
-          ? 'Perks'
+          ? 'Storage'
           : currentPath.includes('/hosted/applications')
             ? 'Applications'
             : 'Sign in'
@@ -174,8 +174,8 @@ function HostedLayout() {
               />
               <HostedNavItem
                 href="/hosted/perks"
-                label="Perks"
-                icon={<Gift className="w-5 h-5" />}
+                label="Storage"
+                icon={<HardDrive className="w-5 h-5" />}
                 isActive={currentPath === '/hosted/perks'}
               />
             </div>

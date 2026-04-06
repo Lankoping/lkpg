@@ -25,6 +25,7 @@ import { Route as HostedPerksRouteImport } from './routes/hosted/perks'
 import { Route as HostedApplicationsRouteImport } from './routes/hosted/applications'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminTicketsRouteImport } from './routes/admin/tickets'
+import { Route as AdminStoragePerksRouteImport } from './routes/admin/storage-perks'
 import { Route as AdminLogsRouteImport } from './routes/admin/logs'
 import { Route as AdminApplicationsRouteImport } from './routes/admin/applications'
 
@@ -108,6 +109,11 @@ const AdminTicketsRoute = AdminTicketsRouteImport.update({
   path: '/tickets',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminStoragePerksRoute = AdminStoragePerksRouteImport.update({
+  id: '/storage-perks',
+  path: '/storage-perks',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminLogsRoute = AdminLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
+  '/admin/storage-perks': typeof AdminStoragePerksRoute
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
+  '/admin/storage-perks': typeof AdminStoragePerksRoute
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
+  '/admin/storage-perks': typeof AdminStoragePerksRoute
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/applications'
     | '/admin/logs'
+    | '/admin/storage-perks'
     | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/applications'
     | '/admin/logs'
+    | '/admin/storage-perks'
     | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/applications'
     | '/admin/logs'
+    | '/admin/storage-perks'
     | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
@@ -363,6 +375,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTicketsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/storage-perks': {
+      id: '/admin/storage-perks'
+      path: '/storage-perks'
+      fullPath: '/admin/storage-perks'
+      preLoaderRoute: typeof AdminStoragePerksRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/logs': {
       id: '/admin/logs'
       path: '/logs'
@@ -383,6 +402,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminApplicationsRoute: typeof AdminApplicationsRoute
   AdminLogsRoute: typeof AdminLogsRoute
+  AdminStoragePerksRoute: typeof AdminStoragePerksRoute
   AdminTicketsRoute: typeof AdminTicketsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -391,6 +411,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminApplicationsRoute: AdminApplicationsRoute,
   AdminLogsRoute: AdminLogsRoute,
+  AdminStoragePerksRoute: AdminStoragePerksRoute,
   AdminTicketsRoute: AdminTicketsRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -431,3 +452,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

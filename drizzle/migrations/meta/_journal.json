@@ -71,6 +71,13 @@
       "when": 1775345000000,
       "tag": "0009_foundary_ticket_close",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1775346000000,
+      "tag": "0010_storage_perks",
+      "breakpoints": true
     }
   ]
 }

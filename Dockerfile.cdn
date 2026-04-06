@@ -1,0 +1,9 @@
+FROM node:22-slim
+
+WORKDIR /app
+
+COPY server/cdn/index.mjs ./index.mjs
+
+EXPOSE 9962
+
+CMD ["node", "index.mjs"]

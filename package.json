@@ -16,6 +16,8 @@
     "clean": "rm -rf .ouptut dist node_modules/.vite .nitro .tanstack"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1024.0",
+    "@aws-sdk/s3-request-presigner": "^3.1024.0",
     "@better-auth/cli": "^1.4.21",
     "@google/genai": "^1.44.0",
     "@hookform/resolvers": "^5.2.2",

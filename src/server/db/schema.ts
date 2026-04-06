@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core'
+import { bigint, pgTable, text, serial, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -217,6 +217,43 @@ export const foundaryApplicationMessages = pgTable('foundary_application_message
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+export const storagePerkRequests = pgTable('storage_perk_requests', {
+  id: serial('id').primaryKey(),
+  organizationName: text('organization_name').notNull().unique(),
+  requestedByUserId: integer('requested_by_user_id').notNull().references(() => users.id),
+  reason: text('reason').notNull(),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] }).default('pending').notNull(),
+  reviewNotes: text('review_notes'),
+  reviewedBy: integer('reviewed_by').references(() => users.id),
+  reviewedAt: timestamp('reviewed_at'),
+  approvedAt: timestamp('approved_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const storageUploadReservations = pgTable('storage_upload_reservations', {
+  id: serial('id').primaryKey(),
+  organizationName: text('organization_name').notNull(),
+  requestedByUserId: integer('requested_by_user_id').notNull().references(() => users.id),
+  fileName: text('file_name').notNull(),
+  contentType: text('content_type'),
+  objectKey: text('object_key').notNull().unique(),
+  sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+export const storageFiles = pgTable('storage_files', {
+  id: serial('id').primaryKey(),
+  organizationName: text('organization_name').notNull(),
+  uploadedByUserId: integer('uploaded_by_user_id').notNull().references(() => users.id),
+  fileName: text('file_name').notNull(),
+  contentType: text('content_type'),
+  objectKey: text('object_key').notNull().unique(),
+  sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 export const navigationItems = pgTable('navigation_items', {
   id: serial('id').primaryKey(),
   label: text('label').notNull(),
@@ -224,7 +261,7 @@ export const navigationItems = pgTable('navigation_items', {
   href: text('href').notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
-  parentId: integer('parent_id').references((): ReturnType<typeof pgTable> => navigationItems.id),
+  parentId: integer('parent_id').references(() => navigationItems.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

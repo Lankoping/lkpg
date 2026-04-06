@@ -1,4 +1,27 @@
 services:
+  cdn:
+    build:
+      context: .
+      dockerfile: Dockerfile.cdn
+    container_name: lankoping-cdn
+    restart: always
+    env_file:
+      - .env
+    expose:
+      - "9962"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lankoping-cdn.rule=Host(`cdn.lankoping.se`)"
+      - "traefik.http.routers.lankoping-cdn.entrypoints=web,websecure"
+      - "traefik.http.routers.lankoping-cdn.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lankoping-cdn.loadbalancer.server.port=9962"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:9962/healthz').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
   web:
     build:
       context: .

@@ -30,7 +30,7 @@ export function HomeApplicationPage() {
       'Apply for funding to host LANs and community events.',
       'Track your application status from pending to approved.',
       'Request access to perks provided by Lan Foundary staff.',
-      'Free storage (5GB per hosted organization) is currently unavailable for your organization.',
+      'Activate storage to request CDN-backed uploads with a 5GB hard limit per organization.',
       'Designed for multiple organizations, not only one local group.',
     ],
     [],
@@ -147,12 +147,12 @@ export function HomeApplicationPage() {
 
             <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium text-foreground">Free storage</p>
+                <p className="text-sm font-medium text-foreground">Storage perk</p>
                 <span className="rounded-full border border-amber-500/40 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-amber-200">
-                  Not available for this organization
+                  Available on request
                 </span>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">We offer each hosted organization 5GB of free storage.</p>
+              <p className="mt-2 text-sm text-muted-foreground">Request 5GB of hosted storage. Admin approval is required before files can be uploaded.</p>
             </div>
           </div>
         </section>
