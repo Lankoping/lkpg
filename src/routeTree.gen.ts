@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as InviteRegisterRouteImport } from './routes/invite-register'
 import { Route as HostedRouteImport } from './routes/hosted'
 import { Route as FoundaryRouteImport } from './routes/foundary'
+import { Route as ApplyRouteImport } from './routes/apply'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HostedIndexRouteImport } from './routes/hosted/index'
@@ -51,6 +52,11 @@ const HostedRoute = HostedRouteImport.update({
 const FoundaryRoute = FoundaryRouteImport.update({
   id: '/foundary',
   path: '/foundary',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplyRoute = ApplyRouteImport.update({
+  id: '/apply',
+  path: '/apply',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -152,6 +158,7 @@ const HostedPerksCdnRoute = HostedPerksCdnRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/apply': typeof ApplyRoute
   '/foundary': typeof FoundaryRoute
   '/hosted': typeof HostedRouteWithChildren
   '/invite-register': typeof InviteRegisterRoute
@@ -176,6 +183,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/apply': typeof ApplyRoute
   '/foundary': typeof FoundaryRoute
   '/invite-register': typeof InviteRegisterRoute
   '/login': typeof LoginRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/apply': typeof ApplyRoute
   '/foundary': typeof FoundaryRoute
   '/hosted': typeof HostedRouteWithChildren
   '/invite-register': typeof InviteRegisterRoute
@@ -228,6 +237,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/apply'
     | '/foundary'
     | '/hosted'
     | '/invite-register'
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/apply'
     | '/foundary'
     | '/invite-register'
     | '/login'
@@ -276,6 +287,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/apply'
     | '/foundary'
     | '/hosted'
     | '/invite-register'
@@ -302,6 +314,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  ApplyRoute: typeof ApplyRoute
   FoundaryRoute: typeof FoundaryRoute
   HostedRoute: typeof HostedRouteWithChildren
   InviteRegisterRoute: typeof InviteRegisterRoute
@@ -337,6 +350,13 @@ declare module '@tanstack/react-router' {
       path: '/foundary'
       fullPath: '/foundary'
       preLoaderRoute: typeof FoundaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/apply': {
+      id: '/apply'
+      path: '/apply'
+      fullPath: '/apply'
+      preLoaderRoute: typeof ApplyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -537,6 +557,7 @@ const HostedRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  ApplyRoute: ApplyRoute,
   FoundaryRoute: FoundaryRoute,
   HostedRoute: HostedRouteWithChildren,
   InviteRegisterRoute: InviteRegisterRoute,
