@@ -30,6 +30,8 @@ const STORAGE_UPLOAD_RESERVATION_TTL_MS = 15 * 60 * 1000
 const STORAGE_UPSTREAM_TIMEOUT_MS = Number(process.env.STORAGE_UPSTREAM_TIMEOUT_MS || 20000)
 const STORAGE_PAGE_LOAD_TIMEOUT_MS = Number(process.env.STORAGE_PAGE_LOAD_TIMEOUT_MS || 45000)
 const STORAGE_AUTO_SCHEMA_SYNC = (process.env.STORAGE_AUTO_SCHEMA_SYNC ?? '').trim().toLowerCase() === 'true'
+const DEFAULT_BLOCKED_STORAGE_FILE_REGEX =
+  /(?:^\.|\.(?:env|htaccess|htpasswd|pem|key)$)|(?:\.(?:ade|adp|app|apk|bat|bin|cmd|com|cpl|dll|dmg|exe|hta|ins|iso|jar|js|jse|lib|lnk|mde|msc|msi|msp|mst|pif|ps1|reg|scr|sct|sh|sys|vb|vbe|vbs|vxd|wsc|wsf|wsh|php|phar|phtml|cgi|pl|py|rb))$/i
 
 let storageSchemaSyncNoticeShown = false
 
@@ -52,6 +54,28 @@ function sanitizeFileName(value: string) {
   const trimmed = value.trim().replace(/[/\\]+/g, '_').replace(/\s+/g, ' ')
   const safe = trimmed.replace(/[^a-zA-Z0-9._()-]+/g, '_').replace(/^\.+/, '')
   return safe || 'upload'
+}
+
+function getBlockedStorageFileRegex() {
+  const configuredPattern = (process.env.STORAGE_BLOCKED_FILE_REGEX ?? '').trim()
+  if (!configuredPattern) {
+    return DEFAULT_BLOCKED_STORAGE_FILE_REGEX
+  }
+
+  try {
+    return new RegExp(configuredPattern, 'i')
+  } catch (error) {
+    console.warn('[storage] invalid STORAGE_BLOCKED_FILE_REGEX, using default pattern', {
+      configuredPattern,
+      error,
+    })
+    return DEFAULT_BLOCKED_STORAGE_FILE_REGEX
+  }
+}
+
+function isBlockedStorageFileName(fileName: string) {
+  const cleanName = sanitizeFileName(fileName)
+  return getBlockedStorageFileRegex().test(cleanName)
 }
 
 function buildObjectKey(organizationName: string, fileName: string) {
@@ -840,6 +864,10 @@ export const createStorageUploadReservationFn = createServerFn({ method: 'POST' 
     const currentUser = await requireStaffUser()
     const db = await getDb()
     const organizationName = normalizeOrg(data.organizationName)
+
+    if (isBlockedStorageFileName(data.fileName)) {
+      throw new Error('Blocked file type. This file name matches the malicious file protection regex.')
+    }
 
     await requireStorageOrgAccess(currentUser, organizationName)
 

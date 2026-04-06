@@ -8,6 +8,46 @@ import { writeActivityLog } from '../functions/logs'
 
 const UPLOAD_DB_TIMEOUT_MS = Number(process.env.STORAGE_UPLOAD_DB_TIMEOUT_MS || 45000)
 const UPLOAD_S3_TIMEOUT_MS = Number(process.env.STORAGE_UPLOAD_S3_TIMEOUT_MS || 20000)
+const DEFAULT_BLOCKED_STORAGE_FILE_REGEX =
+  /(?:^\.|\.(?:env|htaccess|htpasswd|pem|key)$)|(?:\.(?:ade|adp|app|apk|bat|bin|cmd|com|cpl|dll|dmg|exe|hta|ins|iso|jar|js|jse|lib|lnk|mde|msc|msi|msp|mst|pif|ps1|reg|scr|sct|sh|sys|vb|vbe|vbs|vxd|wsc|wsf|wsh|php|phar|phtml|cgi|pl|py|rb))$/i
+const DEFAULT_BLOCKED_STORAGE_MIME_REGEX =
+  /^(?:application\/(?:x-dosexec|x-msdownload|x-msdos-program|x-executable|x-mach-binary|x-elf)|application\/(?:x-sh|x-csh)|text\/(?:x-shellscript|x-php)|application\/(?:x-php|x-httpd-php|x-httpd-php-source))$/i
+
+function sanitizeFileName(value: string) {
+  const trimmed = value.trim().replace(/[/\\]+/g, '_').replace(/\s+/g, ' ')
+  const safe = trimmed.replace(/[^a-zA-Z0-9._()-]+/g, '_').replace(/^\.+/, '')
+  return safe || 'upload'
+}
+
+function getBlockedStorageFileRegex() {
+  const configuredPattern = (process.env.STORAGE_BLOCKED_FILE_REGEX ?? '').trim()
+  if (!configuredPattern) {
+    return DEFAULT_BLOCKED_STORAGE_FILE_REGEX
+  }
+
+  try {
+    return new RegExp(configuredPattern, 'i')
+  } catch {
+    return DEFAULT_BLOCKED_STORAGE_FILE_REGEX
+  }
+}
+
+function getBlockedStorageMimeRegex() {
+  const configuredPattern = (process.env.STORAGE_BLOCKED_MIME_REGEX ?? '').trim()
+  if (!configuredPattern) {
+    return DEFAULT_BLOCKED_STORAGE_MIME_REGEX
+  }
+
+  try {
+    return new RegExp(configuredPattern, 'i')
+  } catch {
+    return DEFAULT_BLOCKED_STORAGE_MIME_REGEX
+  }
+}
+
+function isBlockedStorageFileName(fileName: string) {
+  return getBlockedStorageFileRegex().test(sanitizeFileName(fileName))
+}
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null
@@ -82,6 +122,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Upload reservation not found' })
   }
 
+  if (isBlockedStorageFileName(reservation[0].fileName)) {
+    await withTimeout(
+      db.delete(storageUploadReservations).where(eq(storageUploadReservations.id, reservation[0].id)),
+      UPLOAD_DB_TIMEOUT_MS,
+      'Blocked upload reservation cleanup',
+    )
+    throw createError({ statusCode: 400, statusMessage: 'Blocked file type' })
+  }
+
   if (reservation[0].expiresAt.getTime() < Date.now()) {
     await withTimeout(
       db.delete(storageUploadReservations).where(eq(storageUploadReservations.id, reservation[0].id)),
@@ -98,6 +147,19 @@ export default defineEventHandler(async (event) => {
   const contentType = getRequestHeader(event, 'content-type')?.trim() || reservation[0].contentType || 'application/octet-stream'
   const contentLengthHeader = getRequestHeader(event, 'content-length')
   const contentLength = contentLengthHeader ? Number(contentLengthHeader) : reservation[0].sizeBytes
+
+  if (reservation[0].contentType && contentType !== reservation[0].contentType) {
+    throw createError({ statusCode: 400, statusMessage: 'Content-Type does not match the reservation' })
+  }
+
+  if (getBlockedStorageMimeRegex().test(contentType)) {
+    await withTimeout(
+      db.delete(storageUploadReservations).where(eq(storageUploadReservations.id, reservation[0].id)),
+      UPLOAD_DB_TIMEOUT_MS,
+      'Blocked MIME reservation cleanup',
+    )
+    throw createError({ statusCode: 400, statusMessage: 'Blocked content type' })
+  }
 
   if (contentLengthHeader && (!Number.isFinite(contentLength) || contentLength <= 0)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid content-length header' })

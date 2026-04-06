@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
-import { HardDrive, Trash2, Upload } from 'lucide-react'
+import { ArrowUpDown, Copy, ExternalLink, HardDrive, Search, Trash2, Upload } from 'lucide-react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
   activateStoragePerkFn,
@@ -27,6 +27,45 @@ function getErrorMessage(error: unknown, fallback: string) {
   }
   return fallback
 }
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const value = bytes / 1024 ** exponent
+  const fixed = value >= 100 || exponent === 0 ? 0 : 1
+  return `${value.toFixed(fixed)} ${units[exponent]}`
+}
+
+function formatDate(value: Date | string | null | undefined) {
+  if (!value) return 'Unknown date'
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown date'
+  return date.toLocaleString()
+}
+
+function detectFileCategory(fileName: string, contentType: string | null | undefined) {
+  const lowerName = fileName.toLowerCase()
+  const extension = lowerName.includes('.') ? lowerName.split('.').pop() || '' : ''
+  const type = (contentType || '').toLowerCase()
+
+  if (type.startsWith('image/')) return 'image'
+  if (type.startsWith('video/')) return 'video'
+  if (type.startsWith('audio/')) return 'audio'
+  if (type.includes('pdf') || type.includes('word') || type.includes('excel') || type.includes('powerpoint')) return 'document'
+
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif'].includes(extension)) return 'image'
+  if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(extension)) return 'video'
+  if (['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(extension)) return 'audio'
+  if (['zip', 'tar', 'gz', 'bz2', '7z', 'rar'].includes(extension)) return 'archive'
+  if (['pdf', 'txt', 'md', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(extension)) return 'document'
+  if (['json', 'yaml', 'yml', 'xml', 'csv', 'ts', 'tsx', 'js', 'jsx', 'css', 'html'].includes(extension)) return 'code'
+
+  return 'other'
+}
+
+type ExplorerSort = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc'
+type ExplorerFilter = 'all' | 'image' | 'video' | 'audio' | 'document' | 'archive' | 'code' | 'other'
 
 export const Route = createFileRoute('/hosted/perks')({
   loader: async () => {
@@ -68,6 +107,10 @@ function HostedPerksPage() {
   const [activationError, setActivationError] = useState('')
   const [activationMessage, setActivationMessage] = useState('')
   const [storageServiceError, setStorageServiceError] = useState('')
+  const [explorerQuery, setExplorerQuery] = useState('')
+  const [explorerSort, setExplorerSort] = useState<ExplorerSort>('newest')
+  const [explorerFilter, setExplorerFilter] = useState<ExplorerFilter>('all')
+  const [copyMessage, setCopyMessage] = useState('')
 
   const storageOutageMessage = 'Our servers are curently experiencing connection issues please dont upload any files.'
 
@@ -91,10 +134,73 @@ function HostedPerksPage() {
     }
   }
 
+  const isLikelyHtml404 = (response: Response) => {
+    if (response.status !== 404) return false
+    const contentType = response.headers.get('content-type') || ''
+    return contentType.toLowerCase().includes('text/html')
+  }
+
+  const buildUploadUrlFallback = (uploadUrl: string) => {
+    if (!uploadUrl.startsWith('/api/')) return null
+    return `/_server${uploadUrl}`
+  }
+
   const progressPercent = useMemo(() => {
     if (!storage.limitBytes) return 0
     return Math.min(100, Math.round((storage.usedBytes / storage.limitBytes) * 100))
   }, [storage.limitBytes, storage.usedBytes])
+
+  const explorerFiles = useMemo(() => {
+    const normalizedQuery = explorerQuery.trim().toLowerCase()
+
+    const filtered = storage.files.filter((file) => {
+      const category = detectFileCategory(file.fileName, file.contentType)
+      if (explorerFilter !== 'all' && category !== explorerFilter) {
+        return false
+      }
+
+      if (!normalizedQuery) {
+        return true
+      }
+
+      return [file.fileName, file.contentType || '', file.uploadedByName || '', file.uploadedByEmail || '']
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedQuery)
+    })
+
+    filtered.sort((a, b) => {
+      switch (explorerSort) {
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        case 'name-asc':
+          return a.fileName.localeCompare(b.fileName)
+        case 'name-desc':
+          return b.fileName.localeCompare(a.fileName)
+        case 'size-asc':
+          return a.sizeBytes - b.sizeBytes
+        case 'size-desc':
+          return b.sizeBytes - a.sizeBytes
+        case 'newest':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      }
+    })
+
+    return filtered
+  }, [explorerFilter, explorerQuery, explorerSort, storage.files])
+
+  const copyToClipboard = async (text: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopyMessage(successMessage)
+      window.setTimeout(() => {
+        setCopyMessage('')
+      }, 1800)
+    } catch {
+      setUploadError('Could not copy to clipboard')
+    }
+  }
 
   const submitRequest = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -131,11 +237,33 @@ function HostedPerksPage() {
         },
       })
 
-      const putResult = await fetch(reservation.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': uploadContentType },
-        body: uploadFile,
-      })
+      const uploadTargets = [reservation.uploadUrl]
+      const fallbackUploadUrl = buildUploadUrlFallback(reservation.uploadUrl)
+      if (fallbackUploadUrl) {
+        uploadTargets.push(fallbackUploadUrl)
+      }
+
+      let putResult: Response | null = null
+      for (let index = 0; index < uploadTargets.length; index += 1) {
+        const target = uploadTargets[index]
+        const candidateResult = await fetch(target, {
+          method: 'PUT',
+          headers: { 'Content-Type': uploadContentType },
+          body: uploadFile,
+        })
+
+        const hasMoreTargets = index < uploadTargets.length - 1
+        if (hasMoreTargets && isLikelyHtml404(candidateResult)) {
+          continue
+        }
+
+        putResult = candidateResult
+        break
+      }
+
+      if (!putResult) {
+        throw new Error('Upload failed before receiving a response')
+      }
 
       if (!putResult.ok) {
         const bodyDetails = await readUploadErrorBody(putResult)
@@ -418,7 +546,7 @@ function HostedPerksPage() {
               {uploadFile && (
                 <div className="mt-3 rounded-xl border border-border bg-card p-3 text-sm text-muted-foreground">
                   <p className="text-foreground">{uploadFile.name}</p>
-                  <p className="mt-1">{uploadFile.size} bytes</p>
+                  <p className="mt-1">{formatBytes(uploadFile.size)}</p>
                 </div>
               )}
 
@@ -440,25 +568,106 @@ function HostedPerksPage() {
               <div className="flex items-center gap-3">
                 <HardDrive className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">File viewer</p>
-                  <p className="text-sm text-muted-foreground">Browse uploaded files and copy their CDN links.</p>
+                  <p className="text-sm font-medium text-foreground">File explorer</p>
+                  <p className="text-sm text-muted-foreground">Search, filter, sort, and manage uploaded files.</p>
                 </div>
               </div>
 
+              <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={explorerQuery}
+                    onChange={(event) => setExplorerQuery(event.target.value)}
+                    placeholder="Search files, MIME types, uploader"
+                    className="w-full rounded-xl border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground outline-none focus:border-primary/60"
+                  />
+                </label>
+
+                <label className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
+                  <ArrowUpDown className="h-4 w-4" />
+                  <select
+                    value={explorerSort}
+                    onChange={(event) => setExplorerSort(event.target.value as ExplorerSort)}
+                    className="bg-transparent text-foreground outline-none"
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="name-asc">Name A-Z</option>
+                    <option value="name-desc">Name Z-A</option>
+                    <option value="size-desc">Largest first</option>
+                    <option value="size-asc">Smallest first</option>
+                  </select>
+                </label>
+
+                <select
+                  value={explorerFilter}
+                  onChange={(event) => setExplorerFilter(event.target.value as ExplorerFilter)}
+                  className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                >
+                  <option value="all">All types</option>
+                  <option value="image">Images</option>
+                  <option value="video">Videos</option>
+                  <option value="audio">Audio</option>
+                  <option value="document">Documents</option>
+                  <option value="archive">Archives</option>
+                  <option value="code">Code/Data</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                <span>
+                  Showing {explorerFiles.length} of {storage.files.length} files
+                </span>
+                {copyMessage && <span className="text-emerald-600">{copyMessage}</span>}
+              </div>
+
               <div className="mt-4 space-y-3">
-                {storage.files.length === 0 ? (
+                {explorerFiles.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-                    No files uploaded yet.
+                    {storage.files.length === 0 ? 'No files uploaded yet.' : 'No files match your current explorer filters.'}
                   </div>
                 ) : (
-                  storage.files.map((file) => (
+                  explorerFiles.map((file) => (
                     <div key={file.id} className="rounded-xl border border-border bg-card p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-medium text-foreground">{file.fileName}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{file.sizeBytes} bytes · {file.contentType || 'unknown type'}</p>
-                          <a href={file.publicUrl} target="_blank" className="mt-1 block text-xs text-primary hover:underline">
-                            Open CDN URL
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatBytes(file.sizeBytes)} · {file.contentType || 'unknown type'}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Uploaded {formatDate(file.createdAt)} by {file.uploadedByName || file.uploadedByEmail || 'unknown user'}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{file.objectKey}</p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(file.publicUrl, 'CDN URL copied')}
+                            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            <Copy className="h-4 w-4" />
+                            Copy URL
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(file.objectKey, 'Object key copied')}
+                            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            <Copy className="h-4 w-4" />
+                            Copy key
+                          </button>
+                          <a
+                            href={file.publicUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs text-primary hover:text-primary/80"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Open
                           </a>
                         </div>
                         <button
