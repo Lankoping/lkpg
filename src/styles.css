@@ -10,22 +10,22 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #F8F7F5;
+  background: #171311;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D0CCC7;
+  background: #3A312D;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #B8B3AC;
+  background: #4C403A;
 }
 
 /* For Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #D0CCC7 #F8F7F5;
+  scrollbar-color: #3A312D #171311;
 }
 
 body {
@@ -46,29 +46,51 @@ code {
 }
 
 :root {
-  --background: #F8F7F5;
-  --foreground: #1A1815;
-  --card: #FFFFFF;
-  --card-foreground: #1A1815;
-  --popover: #FFFFFF;
-  --popover-foreground: #1A1815;
-  --primary: #D64A35;
-  --primary-foreground: #FFFFFF;
-  --secondary: #E8E5E0;
-  --secondary-foreground: #1A1815;
-  --muted: #D0CCC7;
-  --muted-foreground: rgba(26, 24, 21, 0.6);
-  --accent: #D64A35;
-  --accent-foreground: #FFFFFF;
-  --destructive: #A83D2D;
-  --destructive-foreground: #FFFFFF;
-  --border: rgba(26, 24, 21, 0.1);
-  --input: rgba(26, 24, 21, 0.1);
-  --ring: rgba(214, 74, 53, 0.5);
+  --background: #171311;
+  --foreground: #F5F1EC;
+  --card: #201a17;
+  --card-foreground: #F5F1EC;
+  --popover: #201a17;
+  --popover-foreground: #F5F1EC;
+  --primary: #E0644B;
+  --primary-foreground: #FFF8F4;
+  --secondary: #2A221E;
+  --secondary-foreground: #F5F1EC;
+  --muted: #2E2622;
+  --muted-foreground: rgba(245, 241, 236, 0.72);
+  --accent: #E0644B;
+  --accent-foreground: #FFF8F4;
+  --destructive: #E16B5B;
+  --destructive-foreground: #FFF8F4;
+  --border: rgba(245, 241, 236, 0.1);
+  --input: rgba(245, 241, 236, 0.12);
+  --ring: rgba(224, 100, 75, 0.55);
   --radius: 0.25rem;
 }
 
 .dark {
+  --background: #171311;
+  --foreground: #F5F1EC;
+  --card: #201a17;
+  --card-foreground: #F5F1EC;
+  --popover: #201a17;
+  --popover-foreground: #F5F1EC;
+  --primary: #E0644B;
+  --primary-foreground: #FFF8F4;
+  --secondary: #2A221E;
+  --secondary-foreground: #F5F1EC;
+  --muted: #2E2622;
+  --muted-foreground: rgba(245, 241, 236, 0.72);
+  --accent: #E0644B;
+  --accent-foreground: #FFF8F4;
+  --destructive: #E16B5B;
+  --destructive-foreground: #FFF8F4;
+  --border: rgba(245, 241, 236, 0.1);
+  --input: rgba(245, 241, 236, 0.12);
+  --ring: rgba(224, 100, 75, 0.55);
+}
+
+.light {
   --background: #F8F7F5;
   --foreground: #1A1815;
   --card: #FFFFFF;
