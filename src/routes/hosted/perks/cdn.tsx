@@ -22,7 +22,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-export const Route = createFileRoute('/hosted/perks/cdn')({
+export const Route = createFileRoute('/hosted/perks/storage/cdn')({
   loader: async () => {
     const user = await getSessionFn()
     if (!user) {

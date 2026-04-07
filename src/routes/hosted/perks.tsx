@@ -23,7 +23,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-export const Route = createFileRoute('/hosted/perks')({
+export const Route = createFileRoute('/hosted/perks/storage')({
   loader: async () => {
     const user = await getSessionFn()
     if (!user) {
@@ -49,7 +49,10 @@ export const Route = createFileRoute('/hosted/perks')({
 function HostedPerksPage() {
   const router = useRouter()
   const location = useLocation()
-  const { storage, storageLoadError } = Route.useLoaderData()
+  const { storage, storageLoadError } = Route.useLoaderData() as {
+    storage: StorageState
+    storageLoadError: string
+  }
   const [requestOpen, setRequestOpen] = useState(false)
   const [requestReason, setRequestReason] = useState('')
   const [requestMessage, setRequestMessage] = useState('')
@@ -64,7 +67,7 @@ function HostedPerksPage() {
   const isPending = storage.request?.status === 'pending'
   const isRejected = storage.request?.status === 'rejected'
 
-  if (location.pathname !== '/hosted/perks') {
+  if (location.pathname !== '/hosted/perks/storage') {
     return <Outlet />
   }
 

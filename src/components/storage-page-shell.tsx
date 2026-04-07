@@ -32,11 +32,11 @@ export type StorageState = {
 export type StorageTab = 'overview' | 'upload' | 'explorer' | 'cdn' | 'limits'
 
 export const storageTabRoutes: Record<StorageTab, string> = {
-  overview: '/hosted/perks',
-  upload: '/hosted/perks/upload',
-  explorer: '/hosted/perks/explorer',
-  cdn: '/hosted/perks/cdn',
-  limits: '/hosted/perks/limits',
+  overview: '/hosted/perks/storage',
+  upload: '/hosted/perks/storage/upload',
+  explorer: '/hosted/perks/storage/explorer',
+  cdn: '/hosted/perks/storage/cdn',
+  limits: '/hosted/perks/storage/limits',
 }
 
 export const storageTabLabels: Record<StorageTab, string> = {

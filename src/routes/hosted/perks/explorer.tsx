@@ -44,7 +44,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-export const Route = createFileRoute('/hosted/perks/explorer')({
+export const Route = createFileRoute('/hosted/perks/storage/explorer')({
   loader: async () => {
     const user = await getSessionFn()
     if (!user) {
@@ -164,7 +164,7 @@ function StorageExplorerPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[16rem_minmax(0,1fr)_18rem]">
+        <div className="mt-5 grid gap-5 xl:grid-cols-[18rem_minmax(0,1fr)_20rem]">
           <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-primary">Filters</p>
