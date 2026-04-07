@@ -228,6 +228,15 @@ export const hostedSupportTickets = pgTable('hosted_support_tickets', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
+export const hostedSupportTicketMessages = pgTable('hosted_support_ticket_messages', {
+  id: serial('id').primaryKey(),
+  ticketId: integer('ticket_id').notNull().references(() => hostedSupportTickets.id),
+  senderUserId: integer('sender_user_id').notNull().references(() => users.id),
+  senderRole: text('sender_role', { enum: ['organizer', 'volunteer'] }).notNull(),
+  message: text('message').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 export const storagePerkRequests = pgTable('storage_perk_requests', {
   id: serial('id').primaryKey(),
   organizationName: text('organization_name').notNull().unique(),

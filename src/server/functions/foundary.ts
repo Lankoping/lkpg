@@ -8,6 +8,7 @@ import { getDb } from '../db/runtime'
 import {
   foundaryApplicationMessages,
   foundaryApplications,
+  hostedSupportTicketMessages,
   hostedSupportTickets,
   organizationInvitations,
   organizationMembers,
@@ -34,6 +35,7 @@ const isMissingConfidentialityColumnsError = (error: unknown) => {
 
 const normalizeOrg = (value: string) => value.trim()
 const getApplicationThreadId = (applicationId: number) => `<foundary-application-${applicationId}@lankoping.se>`
+const getHostedSupportThreadId = (ticketId: number) => `<hosted-support-${ticketId}@lankoping.se>`
 
 const getHostedBaseUrl = () => {
   const raw =
@@ -137,6 +139,51 @@ async function sendApplicationThreadEmail({
   })
 
   const threadId = getApplicationThreadId(applicationId)
+
+  await transporter.sendMail({
+    from: 'foundary@lankoping.se',
+    to,
+    subject,
+    text,
+    html,
+    headers: {
+      'In-Reply-To': threadId,
+      References: threadId,
+    },
+  })
+}
+
+async function sendHostedSupportThreadEmail({
+  to,
+  subject,
+  text,
+  html,
+  ticketId,
+}: {
+  to: string
+  subject: string
+  text: string
+  html: string
+  ticketId: number
+}) {
+  const host = process.env.SMTP_HOST
+  const port = Number(process.env.SMTP_PORT || 587)
+  const user = process.env.SMTP_USER
+  const pass = process.env.SMTP_PASS
+
+  if (!host || !user || !pass) {
+    throw new Error('SMTP configuration missing: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS')
+  }
+
+  const nodemailer = await import('nodemailer')
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  })
+
+  const threadId = getHostedSupportThreadId(ticketId)
 
   await transporter.sendMail({
     from: 'foundary@lankoping.se',
@@ -1612,6 +1659,13 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
         status: hostedSupportTickets.status,
       })
 
+    await db.insert(hostedSupportTicketMessages).values({
+      ticketId: created[0].id,
+      senderUserId: currentUser.id,
+      senderRole: currentUser.role,
+      message: cleanMessage,
+    })
+
     const organizations = await db
       .select({ organizationName: organizationMembers.organizationName })
       .from(organizationMembers)
@@ -1636,12 +1690,12 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       `<p>${cleanMessage.replace(/\n/g, '<br />')}</p>`,
     ].join('')
 
-    await sendApplicationThreadEmail({
+    await sendHostedSupportThreadEmail({
       to: 'foundary@lankoping.se',
       subject: `Hosted support ticket #${created[0].id} from ${fromName}`,
       text,
       html,
-      applicationId: currentUser.id,
+      ticketId: created[0].id,
     })
 
     await writeActivityLog({
@@ -1660,6 +1714,119 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       success: true,
       ticketId: created[0].id,
     }
+  })
+
+export const getMyHostedSupportTicketMessagesFn = createServerFn({ method: 'GET' }).handler(async () => {
+  const currentUser = await requireStaffUser()
+  if (currentUser.role === 'organizer') {
+    throw new Error('Use admin ticket views')
+  }
+
+  const db = await getDb()
+
+  return await db
+    .select({
+      id: hostedSupportTicketMessages.id,
+      ticketId: hostedSupportTicketMessages.ticketId,
+      senderUserId: hostedSupportTicketMessages.senderUserId,
+      senderRole: hostedSupportTicketMessages.senderRole,
+      senderName: users.name,
+      senderEmail: users.email,
+      message: hostedSupportTicketMessages.message,
+      createdAt: hostedSupportTicketMessages.createdAt,
+    })
+    .from(hostedSupportTicketMessages)
+    .innerJoin(hostedSupportTickets, eq(hostedSupportTicketMessages.ticketId, hostedSupportTickets.id))
+    .innerJoin(users, eq(hostedSupportTicketMessages.senderUserId, users.id))
+    .where(eq(hostedSupportTickets.userId, currentUser.id))
+    .orderBy(desc(hostedSupportTicketMessages.createdAt))
+})
+
+export const postMyHostedSupportTicketMessageFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        ticketId: z.number(),
+        message: z.string().min(1),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireStaffUser()
+    if (currentUser.role === 'organizer') {
+      throw new Error('Use admin ticket actions')
+    }
+
+    const db = await getDb()
+
+    const ticket = await db
+      .select({
+        id: hostedSupportTickets.id,
+        userId: hostedSupportTickets.userId,
+        status: hostedSupportTickets.status,
+      })
+      .from(hostedSupportTickets)
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+      .limit(1)
+
+    if (!ticket[0]) {
+      throw new Error('Ticket not found')
+    }
+
+    if (ticket[0].userId !== currentUser.id) {
+      throw new Error('Forbidden')
+    }
+
+    if (ticket[0].status === 'closed') {
+      throw new Error('This ticket is closed')
+    }
+
+    const cleanMessage = data.message.trim()
+
+    const created = await db
+      .insert(hostedSupportTicketMessages)
+      .values({
+        ticketId: data.ticketId,
+        senderUserId: currentUser.id,
+        senderRole: currentUser.role,
+        message: cleanMessage,
+      })
+      .returning({
+        id: hostedSupportTicketMessages.id,
+      })
+
+    await db
+      .update(hostedSupportTickets)
+      .set({
+        updatedAt: new Date(),
+      })
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+
+    const fromName = currentUser.name?.trim() || currentUser.email
+    const text = `${fromName} replied on hosted support ticket #${data.ticketId}\n\n${cleanMessage}`
+    const html = `<p><strong>${fromName}</strong> replied on hosted support ticket #${data.ticketId}</p><p>${cleanMessage.replace(/\n/g, '<br />')}</p>`
+
+    await sendHostedSupportThreadEmail({
+      to: 'foundary@lankoping.se',
+      subject: `Re: Hosted support ticket #${data.ticketId}`,
+      text,
+      html,
+      ticketId: data.ticketId,
+    })
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.hosted.support_ticket.reply',
+      entityType: 'hosted_support_ticket',
+      entityId: data.ticketId,
+      details: {
+        messageLength: cleanMessage.length,
+        messageId: created[0].id,
+      },
+    })
+
+    return { success: true }
   })
 
 export const getMyHostedSupportTicketsFn = createServerFn({ method: 'GET' }).handler(async () => {
