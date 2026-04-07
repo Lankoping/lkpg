@@ -74,6 +74,15 @@ function HostedTicketsPage() {
   const hasOrganizerThread = selectedMessages.some((msg) => msg.senderRole === 'organizer')
   const hasAnyMessages = selectedMessages.length > 0
 
+  const firstCreatableApplicationId = useMemo(() => {
+    for (const application of applications) {
+      if (application.ticketClosed) continue
+      const threadCount = (messagesByApplication.get(application.id) ?? []).length
+      if (threadCount === 0) return application.id
+    }
+    return null
+  }, [applications, messagesByApplication])
+
   const submitTicketMessage = async (applicationId: number) => {
     const message = replyDrafts[applicationId]?.trim()
     if (!message) return
@@ -174,6 +183,20 @@ function HostedTicketsPage() {
                 </button>
               ))}
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!firstCreatableApplicationId) return
+                setFilter('open')
+                setSelectedApplicationId(firstCreatableApplicationId)
+                setActionError('')
+              }}
+              disabled={!firstCreatableApplicationId}
+              className="mt-3 w-full rounded-xl border border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+            >
+              {firstCreatableApplicationId ? 'Create ticket' : 'No ticket to create'}
+            </button>
           </div>
 
           <div className="max-h-[42rem] overflow-auto p-2">
@@ -286,7 +309,33 @@ function HostedTicketsPage() {
               )}
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="p-5">
+            <h2 className="font-display text-2xl text-foreground">Tickets</h2>
+            <p className="mt-2 text-sm text-muted-foreground">No ticket is selected for this filter.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setFilter('all')}
+                className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Show all
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!firstCreatableApplicationId) return
+                  setFilter('open')
+                  setSelectedApplicationId(firstCreatableApplicationId)
+                }}
+                disabled={!firstCreatableApplicationId}
+                className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+              >
+                {firstCreatableApplicationId ? 'Create ticket' : 'No ticket to create'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   )

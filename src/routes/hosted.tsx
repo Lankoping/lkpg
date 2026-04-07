@@ -177,7 +177,7 @@ function HostedLayout() {
           <nav className="flex-1 py-4 overflow-y-auto">
             {!inStorageSection && (
               <div className="mb-6">
-                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Main</p>
+                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Get help</p>
                 <HostedNavItem
                   href="/hosted/tickets"
                   label="Tickets"
