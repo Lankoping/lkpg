@@ -31,7 +31,7 @@ export const Route = createFileRoute('/hosted/tickets')({
 function HostedTicketsPage() {
   const { applications, messages } = Route.useLoaderData()
   const router = useRouter()
-  const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('all')
+  const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('open')
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(applications[0]?.id ?? null)
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({})
   const [actionError, setActionError] = useState('')
@@ -90,7 +90,8 @@ function HostedTicketsPage() {
     setBusyApplicationId(applicationId)
     try {
       if (!hasAnyMessages) {
-        await createHostedApplicationTicketFn({ data: { applicationId, message } })
+        setActionError('Use Create ticket to open the thread first.')
+        return
       } else if (hasOrganizerThread) {
         await postFoundaryApplicationMessageFn({ data: { applicationId, message } })
       } else {
@@ -102,6 +103,40 @@ function HostedTicketsPage() {
       await router.invalidate()
     } catch (error: any) {
       setActionError(error?.message || 'Could not send ticket message')
+    } finally {
+      setBusyApplicationId(null)
+    }
+  }
+
+  const createTicket = async (applicationId: number) => {
+    const message = replyDrafts[applicationId]?.trim()
+    if (!message) {
+      setActionError('Write a message before creating a ticket.')
+      return
+    }
+
+    const application = applications.find((item) => item.id === applicationId)
+    if (!application) return
+
+    if (application.ticketClosed) {
+      setActionError('This ticket is closed.')
+      return
+    }
+
+    const existingMessages = (messagesByApplication.get(applicationId) ?? []).length > 0
+    if (existingMessages) {
+      setActionError('Ticket already created for this request.')
+      return
+    }
+
+    setActionError('')
+    setBusyApplicationId(applicationId)
+    try {
+      await createHostedApplicationTicketFn({ data: { applicationId, message } })
+      setReplyDrafts((current) => ({ ...current, [applicationId]: '' }))
+      await router.invalidate()
+    } catch (error: any) {
+      setActionError(error?.message || 'Could not create ticket')
     } finally {
       setBusyApplicationId(null)
     }
@@ -217,26 +252,39 @@ function HostedTicketsPage() {
 
             {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
 
-            <button
-              type="button"
-              onClick={() => submitTicketMessage(selectedApplication.id)}
-              disabled={
-                busyApplicationId === selectedApplication.id ||
-                selectedApplication.ticketClosed ||
-                (hasAnyMessages && !hasOrganizerThread)
-              }
-              className="mt-3 rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
-            >
-              {busyApplicationId === selectedApplication.id
-                ? 'Sending...'
-                : selectedApplication.ticketClosed
-                  ? 'Ticket closed'
-                  : !hasAnyMessages
-                    ? 'Create ticket'
-                    : hasOrganizerThread
-                      ? 'Send reply'
-                      : 'Waiting for staff reply'}
-            </button>
+            <div className="mt-3">
+              {!hasAnyMessages ? (
+                <button
+                  type="button"
+                  onClick={() => createTicket(selectedApplication.id)}
+                  disabled={busyApplicationId === selectedApplication.id || selectedApplication.ticketClosed}
+                  className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+                >
+                  {busyApplicationId === selectedApplication.id
+                    ? 'Creating...'
+                    : selectedApplication.ticketClosed
+                      ? 'Ticket closed'
+                      : 'Create ticket'}
+                </button>
+              ) : hasOrganizerThread ? (
+                <button
+                  type="button"
+                  onClick={() => submitTicketMessage(selectedApplication.id)}
+                  disabled={busyApplicationId === selectedApplication.id || selectedApplication.ticketClosed}
+                  className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+                >
+                  {busyApplicationId === selectedApplication.id ? 'Sending...' : 'Send reply'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground opacity-60"
+                >
+                  Waiting for staff reply
+                </button>
+              )}
+            </div>
           </div>
         ) : null}
       </div>

@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { getSessionFn, logoutFn } from '../server/functions/auth'
 import { acceptOrganizationInviteFn } from '../server/functions/foundary'
 import {
-  LayoutDashboard,
   Ticket,
   Sparkles,
   ChevronLeft,
@@ -180,12 +179,6 @@ function HostedLayout() {
               <div className="mb-6">
                 <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Main</p>
                 <HostedNavItem
-                  href="/hosted/applications"
-                  label="Applications"
-                  icon={<LayoutDashboard className="w-5 h-5" />}
-                  isActive={currentPath === '/hosted/applications'}
-                />
-                <HostedNavItem
                   href="/hosted/tickets"
                   label="Tickets"
                   icon={<Ticket className="w-5 h-5" />}
@@ -203,12 +196,14 @@ function HostedLayout() {
                   icon={<ChevronLeft className="w-5 h-5" />}
                 />
               )}
-              <HostedNavItem
-                href="/hosted/perks-hub"
-                label="Perks hub"
-                icon={<Sparkles className="w-5 h-5" />}
-                isActive={currentPath === '/hosted/perks-hub'}
-              />
+              {!inStorageSection && (
+                <HostedNavItem
+                  href="/hosted/perks-hub"
+                  label="Perks hub"
+                  icon={<Sparkles className="w-5 h-5" />}
+                  isActive={currentPath === '/hosted/perks-hub'}
+                />
+              )}
               <HostedNavItem
                 href="/hosted/perks/storage"
                 label="Storage"
