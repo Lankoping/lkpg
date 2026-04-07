@@ -124,7 +124,8 @@ function HostedLayout() {
 
   const currentPath = location.pathname
   const currentHash = location.hash
-  const isStoragePath = currentPath.startsWith('/hosted/perks')
+  const isStoragePath = currentPath === '/hosted/perks' || currentPath.startsWith('/hosted/perks/')
+  const isPerksHubPath = currentPath === '/hosted/perks-hub'
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
       ? 'Request funds'
@@ -140,6 +141,8 @@ function HostedLayout() {
               ? 'CDN and links'
               : currentPath.includes('/hosted/perks/limits')
                 ? 'Limits'
+                      : currentPath.includes('/hosted/perks-hub')
+                        ? 'Perks'
                 : currentPath.includes('/hosted/perks')
                   ? 'Storage'
                   : currentPath.includes('/hosted/applications')
@@ -197,9 +200,9 @@ function HostedLayout() {
           </div>
 
           <nav className="flex-1 py-4 overflow-y-auto">
-            {isStoragePath ? (
+            {isStoragePath || isPerksHubPath ? (
               <div className="mb-6">
-                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Storage</p>
+                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Perks</p>
                 <a
                   href="/hosted/applications"
                   className="mb-2 mx-2 flex items-center gap-2 rounded-2xl border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
@@ -208,8 +211,14 @@ function HostedLayout() {
                   Back to hosted
                 </a>
                 <HostedStorageNavItem
+                  href="/hosted/perks-hub"
+                  label="Perks hub"
+                  icon={<HardDrive className="w-5 h-5" />}
+                  isActive={isStorageActive('/hosted/perks-hub')}
+                />
+                <HostedStorageNavItem
                   href="/hosted/perks"
-                  label="Overview"
+                  label="Storage"
                   icon={<Gauge className="w-5 h-5" />}
                   isActive={isStorageActive('/hosted/perks')}
                 />
@@ -254,10 +263,10 @@ function HostedLayout() {
                 isActive={currentPath === '/hosted/tickets'}
               />
               <HostedNavItem
-                href="/hosted/perks"
+                href="/hosted/perks-hub"
                 label="Perks"
                 icon={<HardDrive className="w-5 h-5" />}
-                isActive={currentPath === '/hosted/perks'}
+                isActive={currentPath === '/hosted/perks-hub' || currentPath.startsWith('/hosted/perks')}
               />
               </div>
             )}

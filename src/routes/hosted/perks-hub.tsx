@@ -4,7 +4,7 @@ import { getSessionFn } from '../../server/functions/auth'
 import { getMyStoragePerkFn } from '../../server/functions/storage'
 import { storageTabRoutes } from '../../components/storage-page-shell'
 
-export const Route = createFileRoute('/hosted/perks')({
+export const Route = createFileRoute('/hosted/perks-hub')({
   loader: async () => {
     const user = await getSessionFn()
     if (!user) {
