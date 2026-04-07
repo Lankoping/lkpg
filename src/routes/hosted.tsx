@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Ticket,
   Sparkles,
+  ChevronLeft,
   Users,
   HandCoins,
   LogOut,
@@ -195,6 +196,13 @@ function HostedLayout() {
 
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Perks</p>
+              {inStorageSection && (
+                <HostedNavItem
+                  href="/hosted/perks-hub"
+                  label="Back to perks"
+                  icon={<ChevronLeft className="w-5 h-5" />}
+                />
+              )}
               <HostedNavItem
                 href="/hosted/perks-hub"
                 label="Perks hub"
