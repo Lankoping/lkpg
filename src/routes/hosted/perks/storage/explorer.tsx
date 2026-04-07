@@ -130,7 +130,7 @@ function StorageExplorerPage() {
   }
 
   if (storageLoadError) {
-    return <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-5 text-sm text-red-200">Storage failed to load: {storageLoadError}</div>
+    return <div className="border border-red-400/30 bg-red-400/10 p-5 text-sm text-red-200">Storage failed to load: {storageLoadError}</div>
   }
 
   return (
@@ -138,7 +138,7 @@ function StorageExplorerPage() {
       <div className="space-y-5 scroll-mt-24">
         <div className="flex flex-col gap-4 border-b border-border/70 pb-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-primary/15 bg-primary/10 text-primary">
               <FolderOpen className="h-6 w-6" />
             </div>
             <div>
@@ -148,25 +148,25 @@ function StorageExplorerPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-left sm:min-w-[20rem]">
-            <div className="rounded-xl border border-border bg-card px-4 py-3">
+          <div className="grid grid-cols-3 gap-2 text-left sm:min-w-[16rem]">
+            <div className="border border-border bg-card px-4 py-3">
               <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Files</p>
               <p className="mt-1 text-lg font-semibold text-foreground">{storage.files.length}</p>
             </div>
-            <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <div className="border border-border bg-card px-4 py-3">
               <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Used</p>
               <p className="mt-1 text-lg font-semibold text-foreground">{formatBytes(storage.usedBytes)}</p>
             </div>
-            <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <div className="border border-border bg-card px-4 py-3">
               <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Free</p>
               <p className="mt-1 text-lg font-semibold text-foreground">{formatBytes(storage.remainingBytes)}</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[18rem_minmax(0,1fr)_20rem]">
+        <div className="mt-5 grid gap-4 xl:grid-cols-[15rem_minmax(0,1fr)_17rem]">
           <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-            <div className="rounded-lg border border-border bg-card p-4">
+            <div className="border border-border bg-card p-4">
               <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-primary">Filters</p>
               <div className="mt-3 space-y-1">
                 {(Object.keys(EXPLORER_TAB_LABELS) as ExplorerFilter[]).map((key) => (
@@ -174,7 +174,7 @@ function StorageExplorerPage() {
                     key={key}
                     type="button"
                     onClick={() => setExplorerFilter(key)}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${explorerFilter === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-background hover:text-foreground'}`}
+                    className={`flex w-full items-center justify-between border border-transparent px-3 py-2 text-left text-sm transition-colors ${explorerFilter === key ? 'border-primary bg-primary text-primary-foreground' : 'text-muted-foreground hover:border-border hover:bg-background hover:text-foreground'}`}
                   >
                     <span>{EXPLORER_TAB_LABELS[key]}</span>
                     <span className="text-[10px] uppercase tracking-[0.18em]">{explorerTabCounts[key]}</span>
@@ -183,26 +183,26 @@ function StorageExplorerPage() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-border bg-card p-4">
+            <div className="border border-border bg-card p-4">
               <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-primary">Sort</p>
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-                <button type="button" onClick={() => setExplorerSort('newest')} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 transition-colors ${explorerSort === 'newest' ? 'bg-background text-foreground' : 'hover:bg-background hover:text-foreground'}`}>
+                <button type="button" onClick={() => setExplorerSort('newest')} className={`flex w-full items-center justify-between border border-transparent px-3 py-2 transition-colors ${explorerSort === 'newest' ? 'border-border bg-background text-foreground' : 'hover:border-border hover:bg-background hover:text-foreground'}`}>
                   <span>Newest first</span>
                   <span className="text-[10px] uppercase tracking-[0.18em]">Default</span>
                 </button>
-                <button type="button" onClick={() => setExplorerSort('oldest')} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 transition-colors ${explorerSort === 'oldest' ? 'bg-background text-foreground' : 'hover:bg-background hover:text-foreground'}`}>
+                <button type="button" onClick={() => setExplorerSort('oldest')} className={`flex w-full items-center justify-between border border-transparent px-3 py-2 transition-colors ${explorerSort === 'oldest' ? 'border-border bg-background text-foreground' : 'hover:border-border hover:bg-background hover:text-foreground'}`}>
                   <span>Oldest first</span>
                 </button>
-                <button type="button" onClick={() => setExplorerSort('name-asc')} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 transition-colors ${explorerSort === 'name-asc' ? 'bg-background text-foreground' : 'hover:bg-background hover:text-foreground'}`}>
+                <button type="button" onClick={() => setExplorerSort('name-asc')} className={`flex w-full items-center justify-between border border-transparent px-3 py-2 transition-colors ${explorerSort === 'name-asc' ? 'border-border bg-background text-foreground' : 'hover:border-border hover:bg-background hover:text-foreground'}`}>
                   <span>Name A-Z</span>
                 </button>
-                <button type="button" onClick={() => setExplorerSort('name-desc')} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 transition-colors ${explorerSort === 'name-desc' ? 'bg-background text-foreground' : 'hover:bg-background hover:text-foreground'}`}>
+                <button type="button" onClick={() => setExplorerSort('name-desc')} className={`flex w-full items-center justify-between border border-transparent px-3 py-2 transition-colors ${explorerSort === 'name-desc' ? 'border-border bg-background text-foreground' : 'hover:border-border hover:bg-background hover:text-foreground'}`}>
                   <span>Name Z-A</span>
                 </button>
-                <button type="button" onClick={() => setExplorerSort('size-desc')} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 transition-colors ${explorerSort === 'size-desc' ? 'bg-background text-foreground' : 'hover:bg-background hover:text-foreground'}`}>
+                <button type="button" onClick={() => setExplorerSort('size-desc')} className={`flex w-full items-center justify-between border border-transparent px-3 py-2 transition-colors ${explorerSort === 'size-desc' ? 'border-border bg-background text-foreground' : 'hover:border-border hover:bg-background hover:text-foreground'}`}>
                   <span>Largest first</span>
                 </button>
-                <button type="button" onClick={() => setExplorerSort('size-asc')} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 transition-colors ${explorerSort === 'size-asc' ? 'bg-background text-foreground' : 'hover:bg-background hover:text-foreground'}`}>
+                <button type="button" onClick={() => setExplorerSort('size-asc')} className={`flex w-full items-center justify-between border border-transparent px-3 py-2 transition-colors ${explorerSort === 'size-asc' ? 'border-border bg-background text-foreground' : 'hover:border-border hover:bg-background hover:text-foreground'}`}>
                   <span>Smallest first</span>
                 </button>
               </div>
@@ -210,13 +210,13 @@ function StorageExplorerPage() {
           </aside>
 
           <div className="space-y-6">
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem]">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_13rem]">
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input value={explorerQuery} onChange={(event) => setExplorerQuery(event.target.value)} placeholder="Search files, MIME types, uploader" className="w-full rounded-xl border border-border bg-card py-3 pl-9 pr-4 text-sm text-foreground outline-none transition-colors focus:border-primary/60 focus:bg-background" />
+                <input value={explorerQuery} onChange={(event) => setExplorerQuery(event.target.value)} placeholder="Search files, MIME types, uploader" className="w-full border border-border bg-card py-3 pl-9 pr-4 text-sm text-foreground outline-none transition-colors focus:border-primary/60 focus:bg-background" />
               </label>
 
-              <label className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+              <label className="inline-flex items-center gap-2 border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
                 <ArrowUpDown className="h-4 w-4" />
                 <select value={explorerSort} onChange={(event) => setExplorerSort(event.target.value as ExplorerSort)} className="w-full bg-transparent text-foreground outline-none">
                   <option value="newest">Newest first</option>
@@ -236,7 +236,7 @@ function StorageExplorerPage() {
 
             {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
 
-            <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <div className="overflow-hidden border border-border bg-card">
               <div className="hidden grid-cols-[minmax(0,2fr)_minmax(9rem,0.7fr)_minmax(8rem,0.7fr)_auto] gap-4 border-b border-border px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground md:grid">
                 <span>File</span>
                 <span>Size</span>
@@ -253,7 +253,7 @@ function StorageExplorerPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="min-w-0 break-words text-sm font-medium text-foreground md:text-base">{file.fileName}</p>
-                        <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{detectFileCategory(file.fileName, file.contentType)}</span>
+                        <span className="border border-border bg-background px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{detectFileCategory(file.fileName, file.contentType)}</span>
                       </div>
                       <p className="mt-1 break-words text-xs text-muted-foreground">{file.uploadedByName || file.uploadedByEmail || 'unknown user'} · {file.objectKey}</p>
                     </div>
@@ -269,9 +269,9 @@ function StorageExplorerPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 md:justify-end md:opacity-0 md:transition-opacity md:duration-200 group-hover:md:opacity-100">
-                      <button type="button" onClick={() => copyToClipboard(file.publicUrl, 'CDN URL copied')} className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"><Copy className="h-4 w-4" />Copy URL</button>
-                      <a href={file.publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-primary transition-colors hover:border-primary/30 hover:text-primary/80"><ExternalLink className="h-4 w-4" />Open</a>
-                      <button type="button" onClick={() => removeFile(file.id)} disabled={deleteBusyId === file.id} className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-700 transition-colors hover:bg-red-400/20 disabled:opacity-50"><Trash2 className="h-4 w-4" />{deleteBusyId === file.id ? 'Deleting...' : 'Delete'}</button>
+                      <button type="button" onClick={() => copyToClipboard(file.publicUrl, 'CDN URL copied')} className="inline-flex items-center gap-2 border border-border bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"><Copy className="h-4 w-4" />Copy URL</button>
+                      <a href={file.publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 border border-border bg-background px-3 py-2 text-sm text-primary transition-colors hover:border-primary/30 hover:text-primary/80"><ExternalLink className="h-4 w-4" />Open</a>
+                      <button type="button" onClick={() => removeFile(file.id)} disabled={deleteBusyId === file.id} className="inline-flex items-center gap-2 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-700 transition-colors hover:bg-red-400/20 disabled:opacity-50"><Trash2 className="h-4 w-4" />{deleteBusyId === file.id ? 'Deleting...' : 'Delete'}</button>
                     </div>
                     </div>
                   ))
@@ -281,35 +281,35 @@ function StorageExplorerPage() {
           </div>
 
           <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-            <div className="rounded-lg border border-border bg-card p-5">
+            <div className="border border-border bg-card p-5">
               <p className="text-sm font-semibold text-foreground">Workspace summary</p>
               <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
+                <div className="flex items-center justify-between border border-border bg-background px-4 py-3">
                   <span className="text-muted-foreground">All files</span>
                   <span className="font-medium text-foreground">{explorerTabCounts.all}</span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
+                <div className="flex items-center justify-between border border-border bg-background px-4 py-3">
                   <span className="text-muted-foreground">Images</span>
                   <span className="font-medium text-foreground">{explorerTabCounts.image}</span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
+                <div className="flex items-center justify-between border border-border bg-background px-4 py-3">
                   <span className="text-muted-foreground">Documents</span>
                   <span className="font-medium text-foreground">{explorerTabCounts.document}</span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
+                <div className="flex items-center justify-between border border-border bg-background px-4 py-3">
                   <span className="text-muted-foreground">Archives</span>
                   <span className="font-medium text-foreground">{explorerTabCounts.archive}</span>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-lg border border-border bg-card p-5">
+            <div className="border border-border bg-card p-5">
               <p className="text-sm font-semibold text-foreground">Quick actions</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">Use the wider layout to move between upload, explorer, CDN links, and limits without leaving storage.</p>
               <div className="mt-4 flex flex-col gap-2">
-                <a href={storageTabRoutes.upload} className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">Upload file</a>
-                <a href={storageTabRoutes.cdn} className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-primary/30">CDN and links</a>
-                <a href={storageTabRoutes.limits} className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-primary/30">View limits</a>
+                <a href={storageTabRoutes.upload} className="inline-flex items-center justify-center border border-primary bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">Upload file</a>
+                <a href={storageTabRoutes.cdn} className="inline-flex items-center justify-center border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-primary/30">CDN and links</a>
+                <a href={storageTabRoutes.limits} className="inline-flex items-center justify-center border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-primary/30">View limits</a>
               </div>
             </div>
           </aside>

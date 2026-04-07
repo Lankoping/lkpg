@@ -5,7 +5,6 @@ import { acceptOrganizationInviteFn } from '../server/functions/foundary'
 import {
   LayoutDashboard,
   Ticket,
-  HardDrive,
   Sparkles,
   Users,
   HandCoins,
@@ -14,11 +13,6 @@ import {
   X,
   ChevronDown,
   ExternalLink,
-  ChevronLeft,
-  Upload,
-  FolderOpen,
-  MonitorSmartphone,
-  Link2,
   Gauge,
 } from 'lucide-react'
 
@@ -58,26 +52,6 @@ function HostedNavItem({ href, label, icon, isActive }: HostedNavItemProps) {
       <span className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>{icon}</span>
       <span className="flex-1">{label}</span>
     </a>
-  )
-}
-
-interface HostedStorageNavItemProps extends HostedNavItemProps {
-  badge?: string
-}
-
-function HostedStorageNavItem({ href, label, icon, isActive, badge }: HostedStorageNavItemProps) {
-  return (
-    <HostedNavItem
-      href={href}
-      label={
-        <span className="flex w-full items-center justify-between gap-2">
-          <span>{label}</span>
-          {badge ? <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{badge}</span> : null}
-        </span>
-      }
-      icon={icon}
-      isActive={isActive}
-    />
   )
 }
 
@@ -124,33 +98,28 @@ function HostedLayout() {
   }, [inviteToken, router, user])
 
   const currentPath = location.pathname
-  const currentHash = location.hash
-  const isStoragePath = currentPath === '/hosted/perks/storage' || currentPath.startsWith('/hosted/perks/storage/')
-  const isPerksHubPath = currentPath === '/hosted/perks-hub'
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
       ? 'Request funds'
       : currentPath.includes('/hosted/tickets')
         ? 'Tickets'
-      : currentPath.includes('/hosted/team')
-        ? 'Team'
-        : currentPath.includes('/hosted/perks/storage/upload')
-          ? 'Upload file'
-        : currentPath.includes('/hosted/perks/storage/explorer')
-            ? 'File explorer'
-            : currentPath.includes('/hosted/perks/storage/cdn')
-              ? 'CDN and links'
-              : currentPath.includes('/hosted/perks/storage/limits')
-                ? 'Limits'
-                      : currentPath.includes('/hosted/perks-hub')
-                        ? 'Perks'
-                : currentPath.includes('/hosted/perks/storage')
-                  ? 'Storage'
-                  : currentPath.includes('/hosted/applications')
-                    ? 'Applications'
-                    : 'Sign in'
-
-  const isStorageActive = (path: string) => currentPath === path
+        : currentPath.includes('/hosted/team')
+          ? 'Team'
+          : currentPath.includes('/hosted/perks/storage/upload')
+            ? 'Upload file'
+            : currentPath.includes('/hosted/perks/storage/explorer')
+              ? 'File explorer'
+              : currentPath.includes('/hosted/perks/storage/cdn')
+                ? 'CDN and links'
+                : currentPath.includes('/hosted/perks/storage/limits')
+                  ? 'Limits'
+                  : currentPath.includes('/hosted/perks-hub')
+                    ? 'Perks'
+                    : currentPath.includes('/hosted/perks/storage')
+                      ? 'Storage'
+                      : currentPath.includes('/hosted/applications')
+                        ? 'Applications'
+                        : 'Sign in'
 
   if (!user) {
     return (
@@ -179,10 +148,10 @@ function HostedLayout() {
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-300 ease-in-out ${
           mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 lg:static lg:inset-auto`}
+        } lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:inset-auto`}
       >
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between h-16 px-5 border-b border-border">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between h-16 px-5 border-b border-border shrink-0">
             <a href="/" className="flex items-center gap-3">
               <div className="w-8 h-8 bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-display text-lg">L</span>
@@ -201,55 +170,7 @@ function HostedLayout() {
           </div>
 
           <nav className="flex-1 py-4 overflow-y-auto">
-            {isStoragePath || isPerksHubPath ? (
-              <div className="mb-6">
-                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Perks</p>
-                <a
-                  href="/hosted/applications"
-                  className="mb-2 mx-2 flex items-center gap-2 rounded-2xl border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Back to hosted
-                </a>
-                <HostedStorageNavItem
-                  href="/hosted/perks-hub"
-                  label="Perks hub"
-                  icon={<Sparkles className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks-hub')}
-                />
-                <HostedStorageNavItem
-                  href="/hosted/perks/storage"
-                  label="Storage"
-                  icon={<Gauge className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/storage')}
-                />
-                <HostedStorageNavItem
-                  href="/hosted/perks/storage/upload"
-                  label="Upload file"
-                  icon={<Upload className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/storage/upload')}
-                />
-                <HostedStorageNavItem
-                  href="/hosted/perks/storage/explorer"
-                  label="File explorer"
-                  icon={<FolderOpen className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/storage/explorer')}
-                />
-                <HostedStorageNavItem
-                  href="/hosted/perks/storage/cdn"
-                  label="CDN and links"
-                  icon={<Link2 className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/storage/cdn')}
-                />
-                <HostedStorageNavItem
-                  href="/hosted/perks/storage/limits"
-                  label="Limits"
-                  icon={<MonitorSmartphone className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/storage/limits')}
-                />
-              </div>
-            ) : (
-              <div className="mb-6">
+            <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Main</p>
               <HostedNavItem
                 href="/hosted/applications"
@@ -263,14 +184,23 @@ function HostedLayout() {
                 icon={<Ticket className="w-5 h-5" />}
                 isActive={currentPath === '/hosted/tickets'}
               />
+            </div>
+
+            <div className="mb-6">
+              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Perks</p>
               <HostedNavItem
                 href="/hosted/perks-hub"
-                label="Manage perks"
+                label="Perks hub"
                 icon={<Sparkles className="w-5 h-5" />}
-                isActive={currentPath === '/hosted/perks-hub' || currentPath.startsWith('/hosted/perks/storage')}
+                isActive={currentPath === '/hosted/perks-hub'}
               />
-              </div>
-            )}
+              <HostedNavItem
+                href="/hosted/perks/storage"
+                label="Storage"
+                icon={<Gauge className="w-5 h-5" />}
+                isActive={currentPath === '/hosted/perks/storage' || currentPath.startsWith('/hosted/perks/storage/')}
+              />
+            </div>
 
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Management</p>
@@ -289,8 +219,8 @@ function HostedLayout() {
             </div>
           </nav>
 
-          <div className="p-4 border-t border-border">
-            <div className="p-4 bg-secondary/50 rounded">
+          <div className="p-4 border-t border-border shrink-0 bg-card">
+            <div className="border border-border bg-secondary/50 p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-primary flex items-center justify-center">
                   <span className="text-primary-foreground font-display text-lg">
@@ -305,7 +235,7 @@ function HostedLayout() {
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
+                className="mt-3 w-full flex items-center justify-center gap-2 border border-border px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
               >
                 <LogOut className="w-4 h-4" />
                 {loggingOut ? 'Signing out...' : 'Sign out'}
@@ -354,7 +284,7 @@ function HostedLayout() {
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center gap-2 p-1.5 hover:bg-secondary/50 rounded transition-colors"
+                className="flex items-center gap-2 border border-transparent p-1.5 hover:border-border hover:bg-secondary/50 transition-colors"
               >
                 <div className="w-8 h-8 bg-primary flex items-center justify-center">
                   <span className="text-primary-foreground font-display text-sm">
@@ -367,7 +297,7 @@ function HostedLayout() {
               {userMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded shadow-lg py-2 z-50">
+                  <div className="absolute right-0 mt-2 w-64 bg-card border border-border py-2 z-50">
                     <div className="px-4 py-3 border-b border-border">
                       <p className="text-sm font-medium text-foreground">{user.name || 'Unnamed'}</p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>
@@ -378,7 +308,7 @@ function HostedLayout() {
                       <button
                         onClick={handleLogout}
                         disabled={loggingOut}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
+                        className="w-full flex items-center gap-2 border border-transparent px-3 py-2 text-sm text-destructive hover:border-border hover:bg-destructive/10 transition-colors disabled:opacity-50"
                       >
                         <LogOut className="w-4 h-4" />
                         {loggingOut ? 'Signing out...' : 'Sign out'}
@@ -394,7 +324,7 @@ function HostedLayout() {
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           <div className={`w-full space-y-4 ${currentPath.includes('/hosted/perks/storage/explorer') ? 'max-w-none' : 'mx-auto max-w-5xl'}`}>
             {inviteAcceptMessage && (
-              <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+              <div className="border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
                 {inviteAcceptMessage}
               </div>
             )}
