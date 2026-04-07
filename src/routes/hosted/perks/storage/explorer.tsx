@@ -164,8 +164,8 @@ function StorageExplorerPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 xl:grid-cols-[15rem_minmax(0,1fr)_17rem]">
-          <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+        <div className="mt-5 grid gap-4 xl:grid-cols-[14rem_minmax(0,1fr)] 2xl:grid-cols-[14rem_minmax(0,1fr)_16rem]">
+          <aside className="hidden space-y-4 2xl:sticky 2xl:top-24 2xl:block 2xl:self-start">
             <div className="border border-border bg-card p-4">
               <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-primary">Filters</p>
               <div className="mt-3 space-y-1">
@@ -280,7 +280,7 @@ function StorageExplorerPage() {
             </div>
           </div>
 
-          <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+          <aside className="hidden space-y-4 2xl:sticky 2xl:top-24 2xl:block 2xl:self-start">
             <div className="border border-border bg-card p-5">
               <p className="text-sm font-semibold text-foreground">Workspace summary</p>
               <div className="mt-4 space-y-3 text-sm">

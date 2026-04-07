@@ -14,6 +14,10 @@ import {
   ChevronDown,
   ExternalLink,
   Gauge,
+  Upload,
+  FolderOpen,
+  Link2,
+  MonitorSmartphone,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/hosted')({
@@ -98,6 +102,7 @@ function HostedLayout() {
   }, [inviteToken, router, user])
 
   const currentPath = location.pathname
+  const inStorageSection = currentPath.startsWith('/hosted/perks/storage')
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
       ? 'Request funds'
@@ -200,6 +205,34 @@ function HostedLayout() {
                 icon={<Gauge className="w-5 h-5" />}
                 isActive={currentPath === '/hosted/perks/storage' || currentPath.startsWith('/hosted/perks/storage/')}
               />
+              {inStorageSection && (
+                <>
+                  <HostedNavItem
+                    href="/hosted/perks/storage/upload"
+                    label="Upload file"
+                    icon={<Upload className="w-5 h-5" />}
+                    isActive={currentPath === '/hosted/perks/storage/upload'}
+                  />
+                  <HostedNavItem
+                    href="/hosted/perks/storage/explorer"
+                    label="File explorer"
+                    icon={<FolderOpen className="w-5 h-5" />}
+                    isActive={currentPath === '/hosted/perks/storage/explorer'}
+                  />
+                  <HostedNavItem
+                    href="/hosted/perks/storage/cdn"
+                    label="CDN and links"
+                    icon={<Link2 className="w-5 h-5" />}
+                    isActive={currentPath === '/hosted/perks/storage/cdn'}
+                  />
+                  <HostedNavItem
+                    href="/hosted/perks/storage/limits"
+                    label="Limits"
+                    icon={<MonitorSmartphone className="w-5 h-5" />}
+                    isActive={currentPath === '/hosted/perks/storage/limits'}
+                  />
+                </>
+              )}
             </div>
 
             <div className="mb-6">
