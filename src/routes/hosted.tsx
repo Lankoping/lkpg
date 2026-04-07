@@ -382,7 +382,7 @@ function HostedLayout() {
         </header>
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-          <div className={`mx-auto w-full space-y-4 ${currentPath.includes('/hosted/perks/explorer') ? 'max-w-7xl' : 'max-w-5xl'}`}>
+          <div className={`mx-auto w-full space-y-4 ${currentPath.includes('/hosted/perks/explorer') ? 'max-w-screen-2xl' : 'max-w-5xl'}`}>
             {inviteAcceptMessage && (
               <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
                 {inviteAcceptMessage}
