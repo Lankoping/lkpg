@@ -1567,6 +1567,71 @@ export const createHostedApplicationTicketFn = createServerFn({ method: 'POST' }
     return created[0]
   })
 
+export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        message: z.string().min(1),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireStaffUser()
+    if (currentUser.role === 'organizer') {
+      throw new Error('Organizers should use admin ticket actions')
+    }
+
+    const db = await getDb()
+    const cleanMessage = data.message.trim()
+
+    const organizations = await db
+      .select({ organizationName: organizationMembers.organizationName })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.userId, currentUser.id))
+
+    const organizationNames = Array.from(new Set(organizations.map((org) => normalizeOrg(org.organizationName)).filter(Boolean)))
+
+    const fromName = currentUser.name?.trim() || currentUser.email
+    const organizationLine =
+      organizationNames.length > 0 ? `Organization(s): ${organizationNames.join(', ')}` : 'Organization(s): None linked yet'
+
+    const text = [
+      `${fromName} opened a hosted support ticket.`,
+      organizationLine,
+      '',
+      cleanMessage,
+    ].join('\n')
+
+    const html = [
+      `<p><strong>${fromName}</strong> opened a hosted support ticket.</p>`,
+      `<p>${organizationLine}</p>`,
+      `<p>${cleanMessage.replace(/\n/g, '<br />')}</p>`,
+    ].join('')
+
+    await sendApplicationThreadEmail({
+      to: 'foundary@lankoping.se',
+      subject: `Hosted support ticket from ${fromName}`,
+      text,
+      html,
+      applicationId: currentUser.id,
+    })
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.hosted.support_ticket.create',
+      entityType: 'hosted_support_ticket',
+      details: {
+        messageLength: cleanMessage.length,
+        organizationCount: organizationNames.length,
+      },
+    })
+
+    return {
+      success: true,
+    }
+  })
+
 export const closeHostedApplicationTicketFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
     z

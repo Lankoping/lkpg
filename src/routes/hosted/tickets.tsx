@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
   createHostedApplicationTicketFn,
+  createHostedSupportTicketFn,
   getMyFoundaryApplicationMessagesFn,
   getMyFoundaryApplicationsFn,
   postFoundaryApplicationMessageFn,
@@ -34,8 +35,11 @@ function HostedTicketsPage() {
   const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('open')
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(applications[0]?.id ?? null)
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({})
+  const [supportDraft, setSupportDraft] = useState('')
   const [actionError, setActionError] = useState('')
+  const [supportSuccessMessage, setSupportSuccessMessage] = useState('')
   const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
+  const [creatingSupportTicket, setCreatingSupportTicket] = useState(false)
 
   const messagesByApplication = useMemo(() => {
     const grouped = new Map<number, typeof messages>()
@@ -82,6 +86,14 @@ function HostedTicketsPage() {
     }
     return null
   }, [applications, messagesByApplication])
+
+  const createTicketButtonLabel = useMemo(() => {
+    if (applications.length === 0) return 'No applications'
+    const openApplications = applications.filter((application) => !application.ticketClosed)
+    if (openApplications.length === 0) return 'No open applications'
+    if (!firstCreatableApplicationId) return 'Ticket already exists'
+    return 'Create ticket'
+  }, [applications, firstCreatableApplicationId])
 
   const submitTicketMessage = async (applicationId: number) => {
     const message = replyDrafts[applicationId]?.trim()
@@ -151,11 +163,54 @@ function HostedTicketsPage() {
     }
   }
 
+  const createSupportTicket = async () => {
+    const message = supportDraft.trim()
+    if (!message) {
+      setActionError('Write a message before creating a ticket.')
+      return
+    }
+
+    setActionError('')
+    setSupportSuccessMessage('')
+    setCreatingSupportTicket(true)
+    try {
+      await createHostedSupportTicketFn({ data: { message } })
+      setSupportDraft('')
+      setSupportSuccessMessage('Ticket created. Staff will follow up in this inbox.')
+    } catch (error: any) {
+      setActionError(error?.message || 'Could not create ticket')
+    } finally {
+      setCreatingSupportTicket(false)
+    }
+  }
+
   if (applications.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center text-muted-foreground">
-        No applications found for this account yet.
-      </div>
+      <section className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="font-display text-2xl text-foreground">Create support ticket</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Tickets for applications are created automatically. Use this form for general hosted support.
+        </p>
+
+        <textarea
+          value={supportDraft}
+          onChange={(event) => setSupportDraft(event.target.value)}
+          placeholder="Describe what you need help with..."
+          className="mt-4 min-h-32 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+        />
+
+        {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
+        {supportSuccessMessage && <p className="mt-3 text-sm text-emerald-400">{supportSuccessMessage}</p>}
+
+        <button
+          type="button"
+          onClick={createSupportTicket}
+          disabled={creatingSupportTicket}
+          className="mt-4 rounded-xl border border-border px-4 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+        >
+          {creatingSupportTicket ? 'Creating...' : 'Create ticket'}
+        </button>
+      </section>
     )
   }
 
@@ -195,7 +250,7 @@ function HostedTicketsPage() {
               disabled={!firstCreatableApplicationId}
               className="mt-3 w-full rounded-xl border border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
             >
-              {firstCreatableApplicationId ? 'Create ticket' : 'No ticket to create'}
+              {createTicketButtonLabel}
             </button>
           </div>
 
@@ -331,7 +386,7 @@ function HostedTicketsPage() {
                 disabled={!firstCreatableApplicationId}
                 className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
               >
-                {firstCreatableApplicationId ? 'Create ticket' : 'No ticket to create'}
+                {createTicketButtonLabel}
               </button>
             </div>
           </div>

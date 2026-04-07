@@ -94,22 +94,6 @@ export function StoragePageShell({
   if (activeTab === 'explorer') {
     return (
       <section data-active-tab={activeTab} className="space-y-4">
-        <div className="sticky top-4 z-20 border-b border-border bg-background/95 px-1 py-4 backdrop-blur scroll-mt-24 md:px-0">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-primary">Storage</p>
-              <h2 className="mt-1 font-display text-3xl text-foreground md:text-4xl">{storage.organizationName}</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-                Use the left sidebar to move between overview, upload, explorer, CDN links, and limits.
-              </p>
-            </div>
-            <div className="rounded-md border border-border bg-card px-4 py-3 text-right">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Account</p>
-              <p className="mt-1 text-sm font-medium text-foreground">{storage.organizationName}</p>
-            </div>
-          </div>
-        </div>
-
         {children}
 
         <div className="border-t border-border pt-4">
@@ -124,22 +108,6 @@ export function StoragePageShell({
 
   return (
     <section data-active-tab={activeTab} className="space-y-6 rounded-3xl border border-border bg-card p-6 md:p-8">
-      <div className="sticky top-4 z-20 rounded-3xl border border-border bg-background/95 p-6 shadow-sm backdrop-blur scroll-mt-24 md:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-primary">Storage</p>
-            <h2 className="mt-2 font-display text-3xl text-foreground md:text-4xl">{storage.organizationName}</h2>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-              Use the left sidebar to move between overview, upload, explorer, CDN links, and limits.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card px-4 py-3 text-right">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Account</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{storage.organizationName}</p>
-          </div>
-        </div>
-      </div>
-
       {children}
 
       <div className="rounded-3xl border border-border bg-background p-6 md:p-7">

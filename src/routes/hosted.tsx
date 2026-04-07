@@ -175,18 +175,6 @@ function HostedLayout() {
           </div>
 
           <nav className="flex-1 py-4 overflow-y-auto">
-            {!inStorageSection && (
-              <div className="mb-6">
-                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Get help</p>
-                <HostedNavItem
-                  href="/hosted/tickets"
-                  label="Tickets"
-                  icon={<Ticket className="w-5 h-5" />}
-                  isActive={currentPath === '/hosted/tickets'}
-                />
-              </div>
-            )}
-
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Perks</p>
               {inStorageSection && (
@@ -254,6 +242,18 @@ function HostedLayout() {
                   label="Request funds"
                   icon={<HandCoins className="w-5 h-5" />}
                   isActive={currentPath === '/hosted/request-funds'}
+                />
+              </div>
+            )}
+
+            {!inStorageSection && (
+              <div className="mt-8">
+                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Get help</p>
+                <HostedNavItem
+                  href="/hosted/tickets"
+                  label="Tickets"
+                  icon={<Ticket className="w-5 h-5" />}
+                  isActive={currentPath === '/hosted/tickets'}
                 />
               </div>
             )}
