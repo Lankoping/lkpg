@@ -2,8 +2,10 @@ import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
+  closeMyHostedSupportTicketFn,
   createHostedApplicationTicketFn,
   createHostedSupportTicketFn,
+  getMyHostedSupportTicketsFn,
   getMyFoundaryApplicationMessagesFn,
   getMyFoundaryApplicationsFn,
   postFoundaryApplicationMessageFn,
@@ -19,18 +21,19 @@ export const Route = createFileRoute('/hosted/tickets')({
       throw redirect({ to: '/admin' })
     }
 
-    const [applications, messages] = await Promise.all([
+    const [applications, messages, supportTickets] = await Promise.all([
       getMyFoundaryApplicationsFn(),
       getMyFoundaryApplicationMessagesFn(),
+      getMyHostedSupportTicketsFn(),
     ])
 
-    return { applications, messages }
+    return { applications, messages, supportTickets }
   },
   component: HostedTicketsPage,
 })
 
 function HostedTicketsPage() {
-  const { applications, messages } = Route.useLoaderData()
+  const { applications, messages, supportTickets } = Route.useLoaderData()
   const router = useRouter()
   const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('open')
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(applications[0]?.id ?? null)
@@ -40,6 +43,13 @@ function HostedTicketsPage() {
   const [supportSuccessMessage, setSupportSuccessMessage] = useState('')
   const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
   const [creatingSupportTicket, setCreatingSupportTicket] = useState(false)
+  const [closingSupportTicketId, setClosingSupportTicketId] = useState<number | null>(null)
+
+  const openSupportTickets = useMemo(
+    () => supportTickets.filter((ticket) => ticket.status === 'open'),
+    [supportTickets],
+  )
+  const canCreateSupportTicket = openSupportTickets.length < 3
 
   const messagesByApplication = useMemo(() => {
     const grouped = new Map<number, typeof messages>()
@@ -174,9 +184,14 @@ function HostedTicketsPage() {
     setSupportSuccessMessage('')
     setCreatingSupportTicket(true)
     try {
+      if (!canCreateSupportTicket) {
+        setActionError('You already have 3 open tickets. Close one to create a new ticket.')
+        return
+      }
       await createHostedSupportTicketFn({ data: { message } })
       setSupportDraft('')
       setSupportSuccessMessage('Ticket created. Staff will follow up in this inbox.')
+      await router.invalidate()
     } catch (error: any) {
       setActionError(error?.message || 'Could not create ticket')
     } finally {
@@ -184,39 +199,91 @@ function HostedTicketsPage() {
     }
   }
 
+  const closeSupportTicket = async (ticketId: number) => {
+    setActionError('')
+    setSupportSuccessMessage('')
+    setClosingSupportTicketId(ticketId)
+    try {
+      await closeMyHostedSupportTicketFn({ data: { ticketId } })
+      setSupportSuccessMessage('Ticket closed.')
+      await router.invalidate()
+    } catch (error: any) {
+      setActionError(error?.message || 'Could not close ticket')
+    } finally {
+      setClosingSupportTicketId(null)
+    }
+  }
+
+  const supportPanel = (
+    <section className="rounded-2xl border border-border bg-card p-4">
+      <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-primary">Support tickets</h2>
+      <p className="mt-2 text-xs text-muted-foreground">Open tickets: {openSupportTickets.length}/3</p>
+
+      <textarea
+        value={supportDraft}
+        onChange={(event) => setSupportDraft(event.target.value)}
+        placeholder="Describe what you need help with..."
+        className="mt-3 min-h-24 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+      />
+
+      {actionError && <p className="mt-2 text-sm text-red-400">{actionError}</p>}
+      {supportSuccessMessage && <p className="mt-2 text-sm text-emerald-400">{supportSuccessMessage}</p>}
+
+      <button
+        type="button"
+        onClick={createSupportTicket}
+        disabled={creatingSupportTicket || !canCreateSupportTicket}
+        className="mt-3 rounded-xl border border-border px-4 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+      >
+        {creatingSupportTicket
+          ? 'Creating...'
+          : canCreateSupportTicket
+            ? 'Create ticket'
+            : 'Max 3 open tickets'}
+      </button>
+
+      <div className="mt-4 space-y-2">
+        {supportTickets.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No support tickets yet.</p>
+        ) : (
+          supportTickets.map((ticket) => (
+            <div key={ticket.id} className="rounded-xl border border-border bg-background p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-foreground">Support #{ticket.id}</p>
+                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  {ticket.status}
+                </span>
+              </div>
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{ticket.message}</p>
+              {ticket.status === 'open' && (
+                <button
+                  type="button"
+                  onClick={() => closeSupportTicket(ticket.id)}
+                  disabled={closingSupportTicketId === ticket.id}
+                  className="mt-2 rounded-lg border border-border px-2 py-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground hover:text-foreground disabled:opacity-60"
+                >
+                  {closingSupportTicketId === ticket.id ? 'Closing...' : 'Close ticket'}
+                </button>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  )
+
   if (applications.length === 0) {
     return (
-      <section className="rounded-2xl border border-border bg-card p-6">
-        <h2 className="font-display text-2xl text-foreground">Create support ticket</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Tickets for applications are created automatically. Use this form for general hosted support.
-        </p>
-
-        <textarea
-          value={supportDraft}
-          onChange={(event) => setSupportDraft(event.target.value)}
-          placeholder="Describe what you need help with..."
-          className="mt-4 min-h-32 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
-        />
-
-        {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
-        {supportSuccessMessage && <p className="mt-3 text-sm text-emerald-400">{supportSuccessMessage}</p>}
-
-        <button
-          type="button"
-          onClick={createSupportTicket}
-          disabled={creatingSupportTicket}
-          className="mt-4 rounded-xl border border-border px-4 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
-        >
-          {creatingSupportTicket ? 'Creating...' : 'Create ticket'}
-        </button>
-      </section>
+      supportPanel
     )
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-card">
-      <div className="grid gap-0 md:grid-cols-[320px_1fr]">
+    <section className="space-y-4">
+      {supportPanel}
+
+      <section className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="grid gap-0 md:grid-cols-[320px_1fr]">
         <aside className="border-b border-border bg-background/50 md:border-b-0 md:border-r">
           <div className="border-b border-border px-4 py-3">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Tickets</p>
@@ -239,19 +306,19 @@ function HostedTicketsPage() {
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (!firstCreatableApplicationId) return
-                setFilter('open')
-                setSelectedApplicationId(firstCreatableApplicationId)
-                setActionError('')
-              }}
-              disabled={!firstCreatableApplicationId}
-              className="mt-3 w-full rounded-xl border border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
-            >
-              {createTicketButtonLabel}
-            </button>
+            {firstCreatableApplicationId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilter('open')
+                  setSelectedApplicationId(firstCreatableApplicationId)
+                  setActionError('')
+                }}
+                className="mt-3 w-full rounded-xl border border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {createTicketButtonLabel}
+              </button>
+            )}
           </div>
 
           <div className="max-h-[42rem] overflow-auto p-2">
@@ -391,7 +458,8 @@ function HostedTicketsPage() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </section>
     </section>
   )
 }

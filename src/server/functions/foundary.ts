@@ -5,7 +5,14 @@ import { z } from 'zod'
 import { setCookie } from '@tanstack/react-start/server'
 import { createHash, randomUUID } from 'node:crypto'
 import { getDb } from '../db/runtime'
-import { foundaryApplicationMessages, foundaryApplications, organizationInvitations, organizationMembers, users } from '../db/schema'
+import {
+  foundaryApplicationMessages,
+  foundaryApplications,
+  hostedSupportTickets,
+  organizationInvitations,
+  organizationMembers,
+  users,
+} from '../db/schema'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
 import { hashPassword, verifyPassword } from '../lib/password'
 import { writeActivityLog } from './logs'
@@ -1584,6 +1591,27 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
     const db = await getDb()
     const cleanMessage = data.message.trim()
 
+    const openTickets = await db
+      .select({ id: hostedSupportTickets.id })
+      .from(hostedSupportTickets)
+      .where(and(eq(hostedSupportTickets.userId, currentUser.id), eq(hostedSupportTickets.status, 'open')))
+
+    if (openTickets.length >= 3) {
+      throw new Error('You can have at most 3 open tickets at a time')
+    }
+
+    const created = await db
+      .insert(hostedSupportTickets)
+      .values({
+        userId: currentUser.id,
+        message: cleanMessage,
+        status: 'open',
+      })
+      .returning({
+        id: hostedSupportTickets.id,
+        status: hostedSupportTickets.status,
+      })
+
     const organizations = await db
       .select({ organizationName: organizationMembers.organizationName })
       .from(organizationMembers)
@@ -1610,7 +1638,7 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
 
     await sendApplicationThreadEmail({
       to: 'foundary@lankoping.se',
-      subject: `Hosted support ticket from ${fromName}`,
+      subject: `Hosted support ticket #${created[0].id} from ${fromName}`,
       text,
       html,
       applicationId: currentUser.id,
@@ -1621,6 +1649,7 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       actorRole: currentUser.role,
       action: 'foundary.hosted.support_ticket.create',
       entityType: 'hosted_support_ticket',
+      entityId: created[0].id,
       details: {
         messageLength: cleanMessage.length,
         organizationCount: organizationNames.length,
@@ -1629,7 +1658,90 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
 
     return {
       success: true,
+      ticketId: created[0].id,
     }
+  })
+
+export const getMyHostedSupportTicketsFn = createServerFn({ method: 'GET' }).handler(async () => {
+  const currentUser = await requireStaffUser()
+  if (currentUser.role === 'organizer') {
+    throw new Error('Use admin ticket views')
+  }
+
+  const db = await getDb()
+  return await db
+    .select({
+      id: hostedSupportTickets.id,
+      userId: hostedSupportTickets.userId,
+      message: hostedSupportTickets.message,
+      status: hostedSupportTickets.status,
+      closedAt: hostedSupportTickets.closedAt,
+      closedByUserId: hostedSupportTickets.closedByUserId,
+      createdAt: hostedSupportTickets.createdAt,
+      updatedAt: hostedSupportTickets.updatedAt,
+    })
+    .from(hostedSupportTickets)
+    .where(eq(hostedSupportTickets.userId, currentUser.id))
+    .orderBy(desc(hostedSupportTickets.createdAt))
+})
+
+export const closeMyHostedSupportTicketFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        ticketId: z.number(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireStaffUser()
+    if (currentUser.role === 'organizer') {
+      throw new Error('Use admin ticket actions')
+    }
+
+    const db = await getDb()
+
+    const ticket = await db
+      .select({
+        id: hostedSupportTickets.id,
+        userId: hostedSupportTickets.userId,
+        status: hostedSupportTickets.status,
+      })
+      .from(hostedSupportTickets)
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+      .limit(1)
+
+    if (!ticket[0]) {
+      throw new Error('Ticket not found')
+    }
+
+    if (ticket[0].userId !== currentUser.id) {
+      throw new Error('Forbidden')
+    }
+
+    if (ticket[0].status === 'closed') {
+      return { success: true }
+    }
+
+    await db
+      .update(hostedSupportTickets)
+      .set({
+        status: 'closed',
+        closedAt: new Date(),
+        closedByUserId: currentUser.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.hosted.support_ticket.close',
+      entityType: 'hosted_support_ticket',
+      entityId: data.ticketId,
+    })
+
+    return { success: true }
   })
 
 export const closeHostedApplicationTicketFn = createServerFn({ method: 'POST' })

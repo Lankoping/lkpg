@@ -217,6 +217,17 @@ export const foundaryApplicationMessages = pgTable('foundary_application_message
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+export const hostedSupportTickets = pgTable('hosted_support_tickets', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id),
+  message: text('message').notNull(),
+  status: text('status', { enum: ['open', 'closed'] }).default('open').notNull(),
+  closedAt: timestamp('closed_at'),
+  closedByUserId: integer('closed_by_user_id').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 export const storagePerkRequests = pgTable('storage_perk_requests', {
   id: serial('id').primaryKey(),
   organizationName: text('organization_name').notNull().unique(),
