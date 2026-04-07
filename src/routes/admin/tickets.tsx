@@ -37,6 +37,13 @@ function AdminTicketsPage() {
   const [decidingApplicationId, setDecidingApplicationId] = useState<number | null>(null)
   const [closedApplicationIds, setClosedApplicationIds] = useState<Record<number, boolean>>({})
 
+  const replyTemplates = [
+    'Thanks for the update. Please share any missing details so we can continue reviewing this request.',
+    'We need a little more information before making a decision. Please reply with the missing details.',
+    'Your request is under review. We will respond here once we have an update.',
+    'This looks good. We are closing the ticket after this update.',
+  ]
+
   const rejectionReasons = [
     'The request is missing key budget details.',
     'The event scope is not clear enough to approve funding.',
@@ -240,6 +247,27 @@ function AdminTicketsPage() {
               placeholder="Write a general ticket message..."
               className="mt-4 min-h-24 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
             />
+
+            <div className="mt-3 rounded-xl border border-border bg-background p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Quick admin responses</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {replyTemplates.map((template) => (
+                  <button
+                    key={template}
+                    type="button"
+                    onClick={() =>
+                      setMessageDrafts((current) => ({
+                        ...current,
+                        [selectedApplication.id]: template,
+                      }))
+                    }
+                    className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                  >
+                    {template}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <textarea
               value={decisionDrafts[selectedApplication.id] ?? ''}

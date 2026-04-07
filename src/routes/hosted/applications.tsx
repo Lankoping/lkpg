@@ -31,6 +31,12 @@ function HostedApplicationsPage() {
   const { applications, messages } = Route.useLoaderData()
   const router = useRouter()
   const [applicationReplies, setApplicationReplies] = useState<Record<number, string>>({})
+  const [ticketTemplates] = useState([
+    'I need help with my application status.',
+    'Please clarify the next steps for this request.',
+    'I have an update to share about the event details.',
+    'I need to correct information in my application.',
+  ])
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(applications[0]?.id ?? null)
   const [applicationTab, setApplicationTab] = useState<'overview' | 'thread'>('overview')
 
@@ -204,6 +210,31 @@ function HostedApplicationsPage() {
                     No feedback thread yet. A thread will appear if staff requests more information.
                   </p>
                 )}
+
+                <div className="mt-3 rounded-xl border border-border bg-card p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Start a ticket</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Use one of these quick starters if you need help before staff opens a thread.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {ticketTemplates.map((template) => (
+                      <button
+                        key={template}
+                        type="button"
+                        onClick={() => {
+                          setApplicationReplies((current) => ({
+                            ...current,
+                            [selectedApplication.id]: template,
+                          }))
+                          setApplicationTab('thread')
+                        }}
+                        className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                      >
+                        {template}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="mt-4 space-y-3 rounded-2xl border border-border bg-background p-4">

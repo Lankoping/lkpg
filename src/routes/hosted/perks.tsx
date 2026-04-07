@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, useLocation, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Gauge, LockKeyhole, PlusCircle, FolderOpen, Link2, MonitorSmartphone } from 'lucide-react'
+import { Gauge, LockKeyhole, PlusCircle, FolderOpen, Link2, MonitorSmartphone, Search, Users, ChevronRight } from 'lucide-react'
 import { getSessionFn } from '../../server/functions/auth'
 import { activateStoragePerkFn, getMyStoragePerkFn, requestStoragePerkFn } from '../../server/functions/storage'
 import { StoragePageShell, formatBytes, storageTabRoutes, type StorageState } from '../../components/storage-page-shell'
@@ -118,58 +118,75 @@ function HostedPerksPage() {
 
   return (
     <StoragePageShell storage={storage} activeTab="overview">
-      <div className="space-y-5 rounded-3xl border border-border bg-background p-6 md:p-7">
+      <div className="space-y-4 rounded-3xl border border-border bg-background p-4 md:p-6">
+        <div className="rounded-2xl border border-border bg-card p-4 md:p-5">
+          <p className="text-base font-medium text-foreground md:text-lg">Organization drive</p>
+          <div className="mt-3 rounded-full border border-border bg-background/90 px-4 py-3">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Search className="h-4 w-4" />
+              <span>Search in shared storage</span>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">Shared across your organization. Avoid personal or sensitive uploads.</p>
+        </div>
+
         <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Files</p>
+          <div className="rounded-2xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Files</p>
             <p className="mt-2 text-2xl font-semibold text-foreground">{storage.fileCount}</p>
-            <p className="mt-1 text-sm text-muted-foreground">Uploaded files</p>
+            <p className="mt-1 text-sm text-muted-foreground">Items in shared storage</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Used</p>
+          <div className="rounded-2xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Used</p>
             <p className="mt-2 text-2xl font-semibold text-foreground">{formatBytes(storage.usedBytes)}</p>
-            <p className="mt-1 text-sm text-muted-foreground">Stored data</p>
+            <p className="mt-1 text-sm text-muted-foreground">Total used by organization</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Remaining</p>
+          <div className="rounded-2xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Remaining</p>
             <p className="mt-2 text-2xl font-semibold text-foreground">{formatBytes(storage.remainingBytes)}</p>
-            <p className="mt-1 text-sm text-muted-foreground">Before the 5GB limit</p>
+            <p className="mt-1 text-sm text-muted-foreground">Space left before 5GB</p>
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <a href={storageTabRoutes.upload} className="rounded-3xl border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-primary/5">
-            <div className="flex items-center gap-3">
-              <PlusCircle className="h-5 w-5 text-primary" />
-              <p className="text-sm font-medium text-foreground">Upload file</p>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Open the upload page for S3 transfer and malicious-file blocking.</p>
-          </a>
-          <a href={storageTabRoutes.explorer} className="rounded-3xl border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-primary/5">
-            <div className="flex items-center gap-3">
-              <FolderOpen className="h-5 w-5 text-primary" />
-              <p className="text-sm font-medium text-foreground">File explorer</p>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Search, filter, sort, and delete uploaded files on a dedicated page.</p>
-          </a>
-          <a href={storageTabRoutes.cdn} className="rounded-3xl border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-primary/5">
-            <div className="flex items-center gap-3">
-              <Link2 className="h-5 w-5 text-primary" />
-              <p className="text-sm font-medium text-foreground">CDN and links</p>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">See CDN URLs and copy direct links for delivery.</p>
-          </a>
-          <a href={storageTabRoutes.limits} className="rounded-3xl border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-primary/5">
-            <div className="flex items-center gap-3">
-              <MonitorSmartphone className="h-5 w-5 text-primary" />
-              <p className="text-sm font-medium text-foreground">Limits</p>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Read the storage quota, usage, and rules in one place.</p>
-          </a>
+        <div className="rounded-2xl border border-border bg-card p-4 md:p-5">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" />
+            <p className="text-sm font-medium text-foreground">Quick access</p>
+          </div>
+          <div className="mt-3 divide-y divide-border">
+            <a href={storageTabRoutes.upload} className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-foreground text-muted-foreground">
+              <span className="inline-flex items-center gap-2 text-sm">
+                <PlusCircle className="h-4 w-4 text-primary" />
+                Upload file
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </a>
+            <a href={storageTabRoutes.explorer} className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-foreground text-muted-foreground">
+              <span className="inline-flex items-center gap-2 text-sm">
+                <FolderOpen className="h-4 w-4 text-primary" />
+                File explorer
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </a>
+            <a href={storageTabRoutes.cdn} className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-foreground text-muted-foreground">
+              <span className="inline-flex items-center gap-2 text-sm">
+                <Link2 className="h-4 w-4 text-primary" />
+                CDN and links
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </a>
+            <a href={storageTabRoutes.limits} className="flex items-center justify-between gap-3 pt-3 transition-colors hover:text-foreground text-muted-foreground">
+              <span className="inline-flex items-center gap-2 text-sm">
+                <MonitorSmartphone className="h-4 w-4 text-primary" />
+                Limits
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </a>
+          </div>
         </div>
 
         {!isApproved ? (
-          <div className="rounded-3xl border border-border bg-card p-5">
+          <div className="rounded-2xl border border-border bg-card p-5">
             <div className="flex items-center gap-3">
               <LockKeyhole className="h-5 w-5 text-primary" />
               <p className="text-sm font-medium text-foreground">Request storage</p>
@@ -197,14 +214,14 @@ function HostedPerksPage() {
             {isRejected && storage.request && <p className="mt-4 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-foreground">Request rejected: {storage.request.reviewNotes || 'No review note was provided.'}</p>}
           </div>
         ) : !isActivated ? (
-          <div className="rounded-3xl border border-emerald-400/30 bg-emerald-400/10 p-5">
+          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">
             <p className="text-sm font-medium text-foreground">Storage approved</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">Activate storage to unlock the upload and explorer pages.</p>
             <form onSubmit={activateStorage} className="mt-4 space-y-3">
               <div className="max-h-56 overflow-auto rounded-2xl border border-border bg-card p-4 text-sm leading-6 text-muted-foreground">
-                <p>1. Storage is limited to 5GB per organization.</p>
+                <p>1. Storage is shared across your organization and limited to 5GB total.</p>
                 <p className="mt-3">2. You are responsible for all uploaded content and must have rights to distribute it.</p>
-                <p className="mt-3">3. Do not upload illegal content, malware, or private data you are not authorized to store.</p>
+                <p className="mt-3">3. Do not upload illegal content, malware, or personal/sensitive data.</p>
                 <p className="mt-3">4. Lan Foundary may suspend or remove files that violate policy or applicable law.</p>
               </div>
 
@@ -222,12 +239,12 @@ function HostedPerksPage() {
             </form>
           </div>
         ) : (
-          <div className="rounded-3xl border border-border bg-card p-5">
+          <div className="rounded-2xl border border-border bg-card p-5">
             <div className="flex items-center gap-3">
               <Gauge className="h-5 w-5 text-primary" />
               <p className="text-sm font-medium text-foreground">Storage live</p>
             </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Use the dedicated pages above instead of the single-page layout.</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Use the dedicated pages above to browse and manage your shared organization files.</p>
           </div>
         )}
       </div>
