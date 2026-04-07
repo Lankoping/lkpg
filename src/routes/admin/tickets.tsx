@@ -1,12 +1,14 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
-  decideFoundaryApplicationFundingFromTicketFn,
   closeFoundaryApplicationTicketFn,
+  closeHostedSupportTicketFromAdminFn,
   createFoundaryApplicationTicketFn,
+  decideFoundaryApplicationFundingFromTicketFn,
   getFoundaryApplicationMessagesFn,
   getFoundaryApplicationsFn,
+  getHostedSupportTicketsForAdminFn,
   postFoundaryApplicationMessageFn,
 } from '../../server/functions/foundary'
 
@@ -18,24 +20,39 @@ export const Route = createFileRoute('/admin/tickets')({
     }
   },
   loader: async () => {
-    const [applications, messages] = await Promise.all([getFoundaryApplicationsFn(), getFoundaryApplicationMessagesFn()])
-    return { applications, messages }
+    const [applications, messages, supportTickets] = await Promise.all([
+      getFoundaryApplicationsFn(),
+      getFoundaryApplicationMessagesFn(),
+      getHostedSupportTicketsForAdminFn(),
+    ])
+    return { applications, messages, supportTickets }
   },
   component: AdminTicketsPage,
 })
 
 function AdminTicketsPage() {
-  const { applications, messages } = Route.useLoaderData()
+  const { applications, messages, supportTickets } = Route.useLoaderData()
   const router = useRouter()
 
+  const [queueType, setQueueType] = useState<'applications' | 'support'>('applications')
+  const [applicationFilter, setApplicationFilter] = useState<'all' | 'open' | 'closed' | 'waiting-hosted' | 'waiting-staff'>('open')
+  const [supportFilter, setSupportFilter] = useState<'all' | 'open' | 'closed'>('open')
+  const [applicationQuery, setApplicationQuery] = useState('')
+  const [supportQuery, setSupportQuery] = useState('')
+
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(applications[0]?.id ?? null)
+  const [selectedSupportTicketId, setSelectedSupportTicketId] = useState<number | null>(supportTickets[0]?.id ?? null)
+
   const [messageDrafts, setMessageDrafts] = useState<Record<number, string>>({})
   const [decisionDrafts, setDecisionDrafts] = useState<Record<number, string>>({})
-  const [actionError, setActionError] = useState('')
+  const [applicationActionError, setApplicationActionError] = useState('')
+  const [supportActionError, setSupportActionError] = useState('')
+
   const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
   const [closingApplicationId, setClosingApplicationId] = useState<number | null>(null)
   const [decidingApplicationId, setDecidingApplicationId] = useState<number | null>(null)
   const [closedApplicationIds, setClosedApplicationIds] = useState<Record<number, boolean>>({})
+  const [closingSupportTicketId, setClosingSupportTicketId] = useState<number | null>(null)
 
   const replyTemplates = [
     'Thanks for the update. Please share any missing details so we can continue reviewing this request.',
@@ -58,6 +75,17 @@ function AdminTicketsPage() {
     'Approved and ticket closed.',
   ]
 
+  const formatDateTime = (value: string | Date | null | undefined) => {
+    if (!value) return 'Unknown date'
+    return new Intl.DateTimeFormat('sv-SE', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value))
+  }
+
   const messagesByApplication = useMemo(() => {
     const grouped = new Map<number, typeof messages>()
     for (const message of messages) {
@@ -68,20 +96,110 @@ function AdminTicketsPage() {
     return grouped
   }, [messages])
 
+  const isTicketClosed = (applicationId: number) =>
+    Boolean(closedApplicationIds[applicationId] || applications.find((app) => app.id === applicationId)?.ticketClosed)
+
+  const getApplicationQueueState = (applicationId: number): 'new' | 'waiting-hosted' | 'waiting-staff' | 'closed' => {
+    if (isTicketClosed(applicationId)) return 'closed'
+    const thread = messagesByApplication.get(applicationId) ?? []
+    if (thread.length === 0) return 'new'
+    const latest = thread[0]
+    return latest.senderRole === 'organizer' ? 'waiting-hosted' : 'waiting-staff'
+  }
+
+  const filteredApplications = useMemo(() => {
+    let scoped = applications
+    if (applicationFilter === 'open') {
+      scoped = applications.filter((application) => !isTicketClosed(application.id))
+    } else if (applicationFilter === 'closed') {
+      scoped = applications.filter((application) => isTicketClosed(application.id))
+    } else if (applicationFilter === 'waiting-hosted') {
+      scoped = applications.filter((application) => getApplicationQueueState(application.id) === 'waiting-hosted')
+    } else if (applicationFilter === 'waiting-staff') {
+      scoped = applications.filter((application) => getApplicationQueueState(application.id) === 'waiting-staff')
+    }
+
+    const q = applicationQuery.trim().toLowerCase()
+    if (!q) return scoped
+
+    return scoped.filter((application) => {
+      const haystack = `${application.id} ${application.eventName} ${application.organizationName} ${application.applicantName}`.toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [applicationFilter, applicationQuery, applications, closedApplicationIds, messagesByApplication])
+
+  const filteredSupportTickets = useMemo(() => {
+    let scoped = supportTickets
+    if (supportFilter === 'open') {
+      scoped = supportTickets.filter((ticket) => ticket.status === 'open')
+    } else if (supportFilter === 'closed') {
+      scoped = supportTickets.filter((ticket) => ticket.status === 'closed')
+    }
+
+    const q = supportQuery.trim().toLowerCase()
+    if (!q) return scoped
+
+    return scoped.filter((ticket) => {
+      const haystack = `${ticket.id} ${ticket.reporterName || ''} ${ticket.reporterEmail || ''} ${ticket.message}`.toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [supportFilter, supportQuery, supportTickets])
+
+  useEffect(() => {
+    if (filteredApplications.length === 0) {
+      setSelectedApplicationId(null)
+      return
+    }
+    if (!selectedApplicationId || !filteredApplications.some((application) => application.id === selectedApplicationId)) {
+      setSelectedApplicationId(filteredApplications[0].id)
+    }
+  }, [filteredApplications, selectedApplicationId])
+
+  useEffect(() => {
+    if (filteredSupportTickets.length === 0) {
+      setSelectedSupportTicketId(null)
+      return
+    }
+    if (!selectedSupportTicketId || !filteredSupportTickets.some((ticket) => ticket.id === selectedSupportTicketId)) {
+      setSelectedSupportTicketId(filteredSupportTickets[0].id)
+    }
+  }, [filteredSupportTickets, selectedSupportTicketId])
+
   const selectedApplication = useMemo(() => {
-    if (!applications.length) return null
-    if (!selectedApplicationId) return applications[0]
-    return applications.find((application) => application.id === selectedApplicationId) ?? applications[0]
+    if (!selectedApplicationId) return null
+    return applications.find((application) => application.id === selectedApplicationId) ?? null
   }, [applications, selectedApplicationId])
+
+  const selectedSupportTicket = useMemo(() => {
+    if (!selectedSupportTicketId) return null
+    return supportTickets.find((ticket) => ticket.id === selectedSupportTicketId) ?? null
+  }, [supportTickets, selectedSupportTicketId])
 
   const selectedMessages = selectedApplication ? (messagesByApplication.get(selectedApplication.id) ?? []) : []
   const hasOrganizerThread = selectedMessages.some((msg) => msg.senderRole === 'organizer')
-  const isTicketClosed = (applicationId: number) => Boolean(closedApplicationIds[applicationId] || applications.find((app) => app.id === applicationId)?.ticketClosed)
+
+  const applicationStats = useMemo(() => {
+    return {
+      total: applications.length,
+      open: applications.filter((application) => !isTicketClosed(application.id)).length,
+      waitingHosted: applications.filter((application) => getApplicationQueueState(application.id) === 'waiting-hosted').length,
+      waitingStaff: applications.filter((application) => getApplicationQueueState(application.id) === 'waiting-staff').length,
+      closed: applications.filter((application) => isTicketClosed(application.id)).length,
+    }
+  }, [applications, closedApplicationIds, messagesByApplication])
+
+  const supportStats = useMemo(() => {
+    return {
+      total: supportTickets.length,
+      open: supportTickets.filter((ticket) => ticket.status === 'open').length,
+      closed: supportTickets.filter((ticket) => ticket.status === 'closed').length,
+    }
+  }, [supportTickets])
 
   const submitTicketMessage = async (applicationId: number) => {
     const message = messageDrafts[applicationId]?.trim()
     if (!message) {
-      setActionError('Write a message before sending.')
+      setApplicationActionError('Write a message before sending.')
       return
     }
 
@@ -89,13 +207,13 @@ function AdminTicketsPage() {
     if (!application) return
 
     if (application.ticketClosed) {
-      setActionError('This ticket is closed.')
+      setApplicationActionError('This ticket is closed.')
       return
     }
 
     const hasAnyMessages = (messagesByApplication.get(applicationId)?.length ?? 0) > 0
 
-    setActionError('')
+    setApplicationActionError('')
     setBusyApplicationId(applicationId)
     try {
       if (!hasAnyMessages) {
@@ -107,14 +225,14 @@ function AdminTicketsPage() {
       setMessageDrafts((current) => ({ ...current, [applicationId]: '' }))
       await router.invalidate()
     } catch (error: any) {
-      setActionError(error?.message || 'Could not send ticket message')
+      setApplicationActionError(error?.message || 'Could not send ticket message')
     } finally {
       setBusyApplicationId(null)
     }
   }
 
-  const closeTicket = async (applicationId: number) => {
-    setActionError('')
+  const closeApplicationTicket = async (applicationId: number) => {
+    setApplicationActionError('')
     setClosingApplicationId(applicationId)
     setClosedApplicationIds((current) => ({ ...current, [applicationId]: true }))
     try {
@@ -126,7 +244,7 @@ function AdminTicketsPage() {
         delete next[applicationId]
         return next
       })
-      setActionError(error?.message || 'Could not close ticket')
+      setApplicationActionError(error?.message || 'Could not close ticket')
     } finally {
       setClosingApplicationId(null)
     }
@@ -134,13 +252,12 @@ function AdminTicketsPage() {
 
   const decideFunding = async (applicationId: number, decision: 'approved' | 'rejected') => {
     const reason = decisionDrafts[applicationId]?.trim()
-
     if (decision === 'rejected' && !reason) {
-      setActionError('Please provide a rejection reason before rejecting.')
+      setApplicationActionError('Please provide a rejection reason before rejecting.')
       return
     }
 
-    setActionError('')
+    setApplicationActionError('')
     setDecidingApplicationId(applicationId)
     try {
       await decideFoundaryApplicationFundingFromTicketFn({
@@ -153,231 +270,448 @@ function AdminTicketsPage() {
       setDecisionDrafts((current) => ({ ...current, [applicationId]: '' }))
       await router.invalidate()
     } catch (error: any) {
-      setActionError(error?.message || 'Could not apply decision')
+      setApplicationActionError(error?.message || 'Could not apply decision')
     } finally {
       setDecidingApplicationId(null)
     }
   }
 
-  if (applications.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center text-muted-foreground">
-        No applications found.
-      </div>
-    )
+  const closeSupportTicketFromAdmin = async (ticketId: number) => {
+    setSupportActionError('')
+    setClosingSupportTicketId(ticketId)
+    try {
+      await closeHostedSupportTicketFromAdminFn({ data: { ticketId } })
+      await router.invalidate()
+    } catch (error: any) {
+      setSupportActionError(error?.message || 'Could not close support ticket')
+    } finally {
+      setClosingSupportTicketId(null)
+    }
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-card">
-      <div className="grid gap-0 md:grid-cols-[340px_1fr]">
-        <aside className="border-b border-border bg-background/50 md:border-b-0 md:border-r">
-          <div className="border-b border-border px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Tickets</p>
-            <p className="mt-1 text-sm text-muted-foreground">General ticket thread by application</p>
+    <section className="space-y-4">
+      <section className="rounded-2xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-primary">Internal support console</p>
+            <h2 className="mt-1 font-display text-2xl text-foreground">Ticket operations</h2>
           </div>
-          <div className="max-h-[42rem] overflow-auto p-2">
-            {applications.map((application) => {
-              const thread = messagesByApplication.get(application.id) ?? []
-              const selected = selectedApplication?.id === application.id
-              const lastMessage = thread[0]
-
-              return (
-                <button
-                  key={application.id}
-                  type="button"
-                  onClick={() => setSelectedApplicationId(application.id)}
-                  className={`mb-2 w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                    selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:border-primary/40 hover:bg-background'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground">#{application.id} {application.eventName}</p>
-                    <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                      {isTicketClosed(application.id) ? 'Closed' : 'Open'}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{application.organizationName}</p>
-                  {lastMessage && (
-                    <p className="mt-1 truncate text-[11px] text-muted-foreground">Latest: {lastMessage.message}</p>
-                  )}
-                </button>
-              )
-            })}
+          <div className="inline-flex rounded-xl border border-border bg-background p-1">
+            <button
+              type="button"
+              onClick={() => setQueueType('applications')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium uppercase tracking-[0.14em] ${
+                queueType === 'applications' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Applications
+            </button>
+            <button
+              type="button"
+              onClick={() => setQueueType('support')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium uppercase tracking-[0.14em] ${
+                queueType === 'support' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Hosted support
+            </button>
           </div>
-        </aside>
+        </div>
+      </section>
 
-        {selectedApplication ? (
-          <div className="p-5">
-            <h2 className="font-display text-2xl text-foreground">Ticket #{selectedApplication.id}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {selectedApplication.organizationName} · {selectedApplication.eventName}
-            </p>
-            <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Funding status: {selectedApplication.status}
-            </p>
-            {isTicketClosed(selectedApplication.id) && (
-              <p className="mt-2 rounded-lg border border-border bg-background px-3 py-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                This ticket is closed.
-              </p>
-            )}
+      {queueType === 'applications' ? (
+        <section className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="grid gap-3 border-b border-border bg-background/40 px-4 py-3 md:grid-cols-5">
+            <StatTile label="Total" value={applicationStats.total} />
+            <StatTile label="Open" value={applicationStats.open} />
+            <StatTile label="Waiting hosted" value={applicationStats.waitingHosted} />
+            <StatTile label="Waiting staff" value={applicationStats.waitingStaff} />
+            <StatTile label="Closed" value={applicationStats.closed} />
+          </div>
 
-            <div className="mt-4 space-y-2 rounded-xl border border-border bg-background p-4">
-              {selectedMessages.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No messages yet. Send a message to create a ticket thread.</p>
-              ) : (
-                selectedMessages.map((msg) => (
-                  <div key={msg.id} className="rounded-xl border border-border bg-card p-3 text-sm">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                      {msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {msg.senderName || msg.senderEmail}
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap text-foreground/90">{msg.message}</p>
+          <div className="grid gap-0 md:grid-cols-[340px_1fr]">
+            <aside className="border-b border-border bg-background/50 md:border-b-0 md:border-r">
+              <div className="border-b border-border px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Application queue</p>
+                <p className="mt-1 text-sm text-muted-foreground">GitHub-style triage by latest responder</p>
+              </div>
+
+              <div className="px-4 py-3">
+                <input
+                  value={applicationQuery}
+                  onChange={(event) => setApplicationQuery(event.target.value)}
+                  placeholder="Search ticket, event, org, applicant..."
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {([
+                    ['all', 'All'],
+                    ['open', 'Open'],
+                    ['closed', 'Closed'],
+                    ['waiting-hosted', 'Waiting hosted'],
+                    ['waiting-staff', 'Waiting staff'],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setApplicationFilter(value)}
+                      className={`rounded-lg border px-2 py-1.5 text-[11px] uppercase tracking-[0.14em] ${
+                        applicationFilter === value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="max-h-[42rem] overflow-auto p-2">
+                {filteredApplications.map((application) => {
+                  const thread = messagesByApplication.get(application.id) ?? []
+                  const selected = selectedApplication?.id === application.id
+                  const latest = thread[0]
+                  const state = getApplicationQueueState(application.id)
+
+                  return (
+                    <button
+                      key={application.id}
+                      type="button"
+                      onClick={() => setSelectedApplicationId(application.id)}
+                      className={`mb-2 w-full rounded-xl border px-3 py-3 text-left transition-colors ${
+                        selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:border-primary/40 hover:bg-background'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium text-foreground">APP-{application.id}</p>
+                        <QueueStateBadge state={state} />
+                      </div>
+                      <p className="mt-1 text-xs text-foreground">{application.eventName}</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">{application.organizationName}</p>
+                      {latest && (
+                        <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                          {latest.senderRole === 'organizer' ? 'Staff' : 'Hosted'}: {latest.message}
+                        </p>
+                      )}
+                    </button>
+                  )
+                })}
+
+                {filteredApplications.length === 0 && (
+                  <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
+                    No tickets found for this filter.
+                  </p>
+                )}
+              </div>
+            </aside>
+
+            <div className="p-5">
+              {selectedApplication ? (
+                <>
+                  <h3 className="font-display text-2xl text-foreground">APP-{selectedApplication.id}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedApplication.organizationName} · {selectedApplication.eventName}
+                  </p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                    Funding status: {selectedApplication.status}
+                  </p>
+
+                  <div className="mt-4 space-y-2 rounded-xl border border-border bg-background p-4">
+                    {selectedMessages.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No messages yet. Send a message to open a thread.</p>
+                    ) : (
+                      [...selectedMessages]
+                        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                        .map((msg) => (
+                          <div key={msg.id} className="rounded-xl border border-border bg-card p-3 text-sm">
+                            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                              {msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {msg.senderName || msg.senderEmail} · {formatDateTime(msg.createdAt)}
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap text-foreground/90">{msg.message}</p>
+                          </div>
+                        ))
+                    )}
                   </div>
-                ))
-              )}
-            </div>
 
-            <textarea
-              value={messageDrafts[selectedApplication.id] ?? ''}
-              onChange={(event) =>
-                setMessageDrafts((current) => ({
-                  ...current,
-                  [selectedApplication.id]: event.target.value,
-                }))
-              }
-              placeholder="Write a general ticket message..."
-              className="mt-4 min-h-24 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
-            />
-
-            <div className="mt-3 rounded-xl border border-border bg-background p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Quick admin responses</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {replyTemplates.map((template) => (
-                  <button
-                    key={template}
-                    type="button"
-                    onClick={() =>
+                  <textarea
+                    value={messageDrafts[selectedApplication.id] ?? ''}
+                    onChange={(event) =>
                       setMessageDrafts((current) => ({
                         ...current,
-                        [selectedApplication.id]: template,
+                        [selectedApplication.id]: event.target.value,
                       }))
                     }
-                    className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-                  >
-                    {template}
-                  </button>
-                ))}
-              </div>
-            </div>
+                    placeholder="Write response..."
+                    className="mt-4 min-h-24 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                  />
 
-            <textarea
-              value={decisionDrafts[selectedApplication.id] ?? ''}
-              onChange={(event) =>
-                setDecisionDrafts((current) => ({
-                  ...current,
-                  [selectedApplication.id]: event.target.value,
-                }))
-              }
-              placeholder="Decision note (required for rejection, optional for approval)"
-              className="mt-3 min-h-20 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
-            />
+                  <div className="mt-3 rounded-xl border border-border bg-background p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Quick replies</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {replyTemplates.map((template) => (
+                        <button
+                          key={template}
+                          type="button"
+                          onClick={() =>
+                            setMessageDrafts((current) => ({
+                              ...current,
+                              [selectedApplication.id]: template,
+                            }))
+                          }
+                          className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                        >
+                          {template}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-            <div className="mt-3 space-y-3 rounded-xl border border-border bg-background p-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Premade reject reasons</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {rejectionReasons.map((reason) => (
+                  <textarea
+                    value={decisionDrafts[selectedApplication.id] ?? ''}
+                    onChange={(event) =>
+                      setDecisionDrafts((current) => ({
+                        ...current,
+                        [selectedApplication.id]: event.target.value,
+                      }))
+                    }
+                    placeholder="Decision note (required for reject)"
+                    className="mt-3 min-h-20 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                  />
+
+                  <div className="mt-3 space-y-3 rounded-xl border border-border bg-background p-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Reject reasons</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {rejectionReasons.map((reason) => (
+                          <button
+                            key={reason}
+                            type="button"
+                            onClick={() =>
+                              setDecisionDrafts((current) => ({
+                                ...current,
+                                [selectedApplication.id]: reason,
+                              }))
+                            }
+                            className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-red-400/40 hover:text-red-700"
+                          >
+                            {reason}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Approval notes</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {approvalNotes.map((note) => (
+                          <button
+                            key={note}
+                            type="button"
+                            onClick={() =>
+                              setDecisionDrafts((current) => ({
+                                ...current,
+                                [selectedApplication.id]: note,
+                              }))
+                            }
+                            className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-emerald-400/40 hover:text-emerald-700"
+                          >
+                            {note}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {applicationActionError && <p className="mt-3 text-sm text-red-400">{applicationActionError}</p>}
+
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <button
-                      key={reason}
                       type="button"
-                      onClick={() =>
-                        setDecisionDrafts((current) => ({
-                          ...current,
-                          [selectedApplication.id]: reason,
-                        }))
-                      }
-                      className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-red-400/40 hover:text-red-700"
+                      onClick={() => submitTicketMessage(selectedApplication.id)}
+                      disabled={busyApplicationId === selectedApplication.id || isTicketClosed(selectedApplication.id)}
+                      className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
                     >
-                      {reason}
+                      {busyApplicationId === selectedApplication.id
+                        ? 'Sending...'
+                        : selectedMessages.length === 0
+                          ? 'Create ticket'
+                          : 'Send reply'}
                     </button>
-                  ))}
-                </div>
-              </div>
 
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Premade approval notes</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {approvalNotes.map((note) => (
                     <button
-                      key={note}
                       type="button"
-                      onClick={() =>
-                        setDecisionDrafts((current) => ({
-                          ...current,
-                          [selectedApplication.id]: note,
-                        }))
-                      }
-                      className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-emerald-400/40 hover:text-emerald-700"
+                      onClick={() => closeApplicationTicket(selectedApplication.id)}
+                      disabled={closingApplicationId === selectedApplication.id || isTicketClosed(selectedApplication.id)}
+                      className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
                     >
-                      {note}
+                      {closingApplicationId === selectedApplication.id
+                        ? 'Closing...'
+                        : isTicketClosed(selectedApplication.id)
+                          ? 'Ticket closed'
+                          : 'Close ticket'}
                     </button>
-                  ))}
-                </div>
-              </div>
+                  </div>
+
+                  {selectedApplication.status === 'pending' && hasOrganizerThread && !isTicketClosed(selectedApplication.id) && (
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => decideFunding(selectedApplication.id, 'approved')}
+                        disabled={decidingApplicationId === selectedApplication.id}
+                        className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-400/20 disabled:opacity-60"
+                      >
+                        {decidingApplicationId === selectedApplication.id ? 'Applying...' : 'Approve funding'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => decideFunding(selectedApplication.id, 'rejected')}
+                        disabled={decidingApplicationId === selectedApplication.id}
+                        className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
+                      >
+                        {decidingApplicationId === selectedApplication.id ? 'Applying...' : 'Reject & close'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No application ticket selected.</p>
+              )}
             </div>
-
-            {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
-
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => submitTicketMessage(selectedApplication.id)}
-                disabled={busyApplicationId === selectedApplication.id || isTicketClosed(selectedApplication.id)}
-                className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
-              >
-                {busyApplicationId === selectedApplication.id
-                  ? 'Sending...'
-                  : selectedMessages.length === 0
-                    ? 'Create ticket'
-                    : 'Send reply'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => closeTicket(selectedApplication.id)}
-                disabled={closingApplicationId === selectedApplication.id || isTicketClosed(selectedApplication.id)}
-                className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
-              >
-                {closingApplicationId === selectedApplication.id
-                  ? 'Closing...'
-                  : isTicketClosed(selectedApplication.id)
-                    ? 'Ticket closed'
-                    : 'Close ticket'}
-              </button>
-            </div>
-
-            {selectedApplication.status === 'pending' && hasOrganizerThread && !isTicketClosed(selectedApplication.id) && (
-              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => decideFunding(selectedApplication.id, 'approved')}
-                  disabled={decidingApplicationId === selectedApplication.id}
-                  className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-400/20 disabled:opacity-60"
-                >
-                  {decidingApplicationId === selectedApplication.id ? 'Applying...' : 'Approve funding'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => decideFunding(selectedApplication.id, 'rejected')}
-                  disabled={decidingApplicationId === selectedApplication.id}
-                  className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
-                >
-                  {decidingApplicationId === selectedApplication.id ? 'Applying...' : 'Reject fund request & close ticket'}
-                </button>
-              </div>
-            )}
           </div>
-        ) : null}
-      </div>
+        </section>
+      ) : (
+        <section className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="grid gap-3 border-b border-border bg-background/40 px-4 py-3 md:grid-cols-3">
+            <StatTile label="Total" value={supportStats.total} />
+            <StatTile label="Open" value={supportStats.open} />
+            <StatTile label="Closed" value={supportStats.closed} />
+          </div>
+
+          <div className="grid gap-0 md:grid-cols-[340px_1fr]">
+            <aside className="border-b border-border bg-background/50 md:border-b-0 md:border-r">
+              <div className="border-b border-border px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Hosted support queue</p>
+                <p className="mt-1 text-sm text-muted-foreground">General support tickets from hosted users</p>
+              </div>
+
+              <div className="px-4 py-3">
+                <input
+                  value={supportQuery}
+                  onChange={(event) => setSupportQuery(event.target.value)}
+                  placeholder="Search by id, reporter, email..."
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                />
+                <div className="mt-3 inline-grid grid-cols-3 gap-2 rounded-xl border border-border bg-background p-1">
+                  {(['all', 'open', 'closed'] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setSupportFilter(value)}
+                      className={`rounded-lg px-2 py-1.5 text-[11px] font-medium uppercase tracking-[0.14em] ${
+                        supportFilter === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="max-h-[42rem] overflow-auto p-2">
+                {filteredSupportTickets.map((ticket) => {
+                  const selected = selectedSupportTicket?.id === ticket.id
+                  return (
+                    <button
+                      key={ticket.id}
+                      type="button"
+                      onClick={() => setSelectedSupportTicketId(ticket.id)}
+                      className={`mb-2 w-full rounded-xl border px-3 py-3 text-left transition-colors ${
+                        selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:border-primary/40 hover:bg-background'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium text-foreground">SUP-{ticket.id}</p>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${
+                            ticket.status === 'open' ? 'border-emerald-500/30 text-emerald-300' : 'border-border text-muted-foreground'
+                          }`}
+                        >
+                          {ticket.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">{ticket.reporterName || ticket.reporterEmail}</p>
+                      <p className="mt-1 truncate text-[11px] text-muted-foreground">{ticket.message}</p>
+                    </button>
+                  )
+                })}
+
+                {filteredSupportTickets.length === 0 && (
+                  <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
+                    No support tickets found.
+                  </p>
+                )}
+              </div>
+            </aside>
+
+            <div className="p-5">
+              {selectedSupportTicket ? (
+                <>
+                  <h3 className="font-display text-2xl text-foreground">SUP-{selectedSupportTicket.id}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Reporter: {selectedSupportTicket.reporterName || 'Unknown'} ({selectedSupportTicket.reporterEmail || 'No email'})
+                  </p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                    Created: {formatDateTime(selectedSupportTicket.createdAt)}
+                  </p>
+
+                  <div className="mt-4 rounded-xl border border-border bg-background p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Ticket message</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-foreground/90">{selectedSupportTicket.message}</p>
+                  </div>
+
+                  {supportActionError && <p className="mt-3 text-sm text-red-400">{supportActionError}</p>}
+
+                  {selectedSupportTicket.status === 'open' && (
+                    <button
+                      type="button"
+                      onClick={() => closeSupportTicketFromAdmin(selectedSupportTicket.id)}
+                      disabled={closingSupportTicketId === selectedSupportTicket.id}
+                      className="mt-3 rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
+                    >
+                      {closingSupportTicketId === selectedSupportTicket.id ? 'Closing...' : 'Close ticket'}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No support ticket selected.</p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
     </section>
   )
+}
+
+function StatTile({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className="mt-1 text-lg text-foreground">{value}</p>
+    </div>
+  )
+}
+
+function QueueStateBadge({ state }: { state: 'new' | 'waiting-hosted' | 'waiting-staff' | 'closed' }) {
+  if (state === 'closed') {
+    return <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">closed</span>
+  }
+  if (state === 'new') {
+    return <span className="rounded-full border border-blue-500/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-blue-300">new</span>
+  }
+  if (state === 'waiting-hosted') {
+    return <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-amber-300">waiting hosted</span>
+  }
+  return <span className="rounded-full border border-emerald-500/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-emerald-300">waiting staff</span>
 }

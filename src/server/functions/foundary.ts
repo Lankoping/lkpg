@@ -1685,6 +1685,28 @@ export const getMyHostedSupportTicketsFn = createServerFn({ method: 'GET' }).han
     .orderBy(desc(hostedSupportTickets.createdAt))
 })
 
+export const getHostedSupportTicketsForAdminFn = createServerFn({ method: 'GET' }).handler(async () => {
+  await requireOrganizerUser()
+  const db = await getDb()
+
+  return await db
+    .select({
+      id: hostedSupportTickets.id,
+      userId: hostedSupportTickets.userId,
+      reporterName: users.name,
+      reporterEmail: users.email,
+      message: hostedSupportTickets.message,
+      status: hostedSupportTickets.status,
+      closedAt: hostedSupportTickets.closedAt,
+      closedByUserId: hostedSupportTickets.closedByUserId,
+      createdAt: hostedSupportTickets.createdAt,
+      updatedAt: hostedSupportTickets.updatedAt,
+    })
+    .from(hostedSupportTickets)
+    .innerJoin(users, eq(hostedSupportTickets.userId, users.id))
+    .orderBy(desc(hostedSupportTickets.createdAt))
+})
+
 export const closeMyHostedSupportTicketFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
     z
@@ -1737,6 +1759,56 @@ export const closeMyHostedSupportTicketFn = createServerFn({ method: 'POST' })
       actorUserId: currentUser.id,
       actorRole: currentUser.role,
       action: 'foundary.hosted.support_ticket.close',
+      entityType: 'hosted_support_ticket',
+      entityId: data.ticketId,
+    })
+
+    return { success: true }
+  })
+
+export const closeHostedSupportTicketFromAdminFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        ticketId: z.number(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+
+    const ticket = await db
+      .select({
+        id: hostedSupportTickets.id,
+        status: hostedSupportTickets.status,
+      })
+      .from(hostedSupportTickets)
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+      .limit(1)
+
+    if (!ticket[0]) {
+      throw new Error('Ticket not found')
+    }
+
+    if (ticket[0].status === 'closed') {
+      return { success: true }
+    }
+
+    await db
+      .update(hostedSupportTickets)
+      .set({
+        status: 'closed',
+        closedAt: new Date(),
+        closedByUserId: currentUser.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.hosted.support_ticket.close_from_admin',
       entityType: 'hosted_support_ticket',
       entityId: data.ticketId,
     })
