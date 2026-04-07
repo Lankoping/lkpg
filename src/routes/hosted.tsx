@@ -124,7 +124,7 @@ function HostedLayout() {
 
   const currentPath = location.pathname
   const currentHash = location.hash
-  const isStoragePath = currentPath.startsWith('/hosted/perks/storage')
+  const isStoragePath = currentPath.startsWith('/hosted/perks')
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
       ? 'Request funds'
@@ -132,18 +132,16 @@ function HostedLayout() {
         ? 'Tickets'
       : currentPath.includes('/hosted/team')
         ? 'Team'
-        : currentPath.includes('/hosted/perks/storage/upload')
+        : currentPath.includes('/hosted/perks/upload')
           ? 'Upload file'
-        : currentPath.includes('/hosted/perks/storage/explorer')
+        : currentPath.includes('/hosted/perks/explorer')
             ? 'File explorer'
-            : currentPath.includes('/hosted/perks/storage/cdn')
+            : currentPath.includes('/hosted/perks/cdn')
               ? 'CDN and links'
-              : currentPath.includes('/hosted/perks/storage/limits')
+              : currentPath.includes('/hosted/perks/limits')
                 ? 'Limits'
-                : currentPath.includes('/hosted/perks/storage')
+                : currentPath.includes('/hosted/perks')
                   ? 'Storage'
-                  : currentPath.includes('/hosted/perks')
-                    ? 'Perks'
                   : currentPath.includes('/hosted/applications')
                     ? 'Applications'
                     : 'Sign in'
@@ -210,34 +208,34 @@ function HostedLayout() {
                   Back to hosted
                 </a>
                 <HostedStorageNavItem
-                  href="/hosted/perks/storage"
+                  href="/hosted/perks"
                   label="Overview"
                   icon={<Gauge className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/storage')}
+                  isActive={isStorageActive('/hosted/perks')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks/storage/upload"
+                  href="/hosted/perks/upload"
                   label="Upload file"
                   icon={<Upload className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/storage/upload')}
+                  isActive={isStorageActive('/hosted/perks/upload')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks/storage/explorer"
+                  href="/hosted/perks/explorer"
                   label="File explorer"
                   icon={<FolderOpen className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/storage/explorer')}
+                  isActive={isStorageActive('/hosted/perks/explorer')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks/storage/cdn"
+                  href="/hosted/perks/cdn"
                   label="CDN and links"
                   icon={<Link2 className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/storage/cdn')}
+                  isActive={isStorageActive('/hosted/perks/cdn')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks/storage/limits"
+                  href="/hosted/perks/limits"
                   label="Limits"
                   icon={<MonitorSmartphone className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/storage/limits')}
+                  isActive={isStorageActive('/hosted/perks/limits')}
                 />
               </div>
             ) : (
@@ -384,7 +382,7 @@ function HostedLayout() {
         </header>
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-          <div className={`w-full space-y-4 ${currentPath.includes('/hosted/perks/storage/explorer') ? 'max-w-none' : 'mx-auto max-w-5xl'}`}>
+          <div className={`w-full space-y-4 ${currentPath.includes('/hosted/perks/explorer') ? 'max-w-none' : 'mx-auto max-w-5xl'}`}>
             {inviteAcceptMessage && (
               <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
                 {inviteAcceptMessage}
