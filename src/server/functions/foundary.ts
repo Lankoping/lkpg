@@ -1874,6 +1874,26 @@ export const getHostedSupportTicketsForAdminFn = createServerFn({ method: 'GET' 
     .orderBy(desc(hostedSupportTickets.createdAt))
 })
 
+export const getHostedSupportTicketMessagesForAdminFn = createServerFn({ method: 'GET' }).handler(async () => {
+  await requireOrganizerUser()
+  const db = await getDb()
+
+  return await db
+    .select({
+      id: hostedSupportTicketMessages.id,
+      ticketId: hostedSupportTicketMessages.ticketId,
+      senderUserId: hostedSupportTicketMessages.senderUserId,
+      senderRole: hostedSupportTicketMessages.senderRole,
+      senderName: users.name,
+      senderEmail: users.email,
+      message: hostedSupportTicketMessages.message,
+      createdAt: hostedSupportTicketMessages.createdAt,
+    })
+    .from(hostedSupportTicketMessages)
+    .innerJoin(users, eq(hostedSupportTicketMessages.senderUserId, users.id))
+    .orderBy(desc(hostedSupportTicketMessages.createdAt))
+})
+
 export const closeMyHostedSupportTicketFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
     z
@@ -1933,6 +1953,80 @@ export const closeMyHostedSupportTicketFn = createServerFn({ method: 'POST' })
     return { success: true }
   })
 
+export const postHostedSupportTicketMessageFromAdminFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        ticketId: z.number(),
+        message: z.string().min(1),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+
+    const ticket = await db
+      .select({
+        id: hostedSupportTickets.id,
+        status: hostedSupportTickets.status,
+        reporterEmail: users.email,
+      })
+      .from(hostedSupportTickets)
+      .innerJoin(users, eq(hostedSupportTickets.userId, users.id))
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+      .limit(1)
+
+    if (!ticket[0]) {
+      throw new Error('Ticket not found')
+    }
+
+    if (ticket[0].status === 'closed') {
+      throw new Error('This ticket is closed')
+    }
+
+    const cleanMessage = data.message.trim()
+
+    await db.insert(hostedSupportTicketMessages).values({
+      ticketId: data.ticketId,
+      senderUserId: currentUser.id,
+      senderRole: currentUser.role,
+      message: cleanMessage,
+    })
+
+    await db
+      .update(hostedSupportTickets)
+      .set({
+        updatedAt: new Date(),
+      })
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+
+    const senderName = currentUser.name?.trim() || currentUser.email
+    const text = `${senderName} replied on hosted support ticket #${data.ticketId}\n\n${cleanMessage}`
+    const html = `<p><strong>${senderName}</strong> replied on hosted support ticket #${data.ticketId}</p><p>${cleanMessage.replace(/\n/g, '<br />')}</p>`
+
+    await sendHostedSupportThreadEmail({
+      to: ticket[0].reporterEmail,
+      subject: `Re: Hosted support ticket #${data.ticketId}`,
+      text,
+      html,
+      ticketId: data.ticketId,
+    })
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.hosted.support_ticket.reply_from_admin',
+      entityType: 'hosted_support_ticket',
+      entityId: data.ticketId,
+      details: {
+        messageLength: cleanMessage.length,
+      },
+    })
+
+    return { success: true }
+  })
+
 export const closeHostedSupportTicketFromAdminFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
     z
@@ -1976,6 +2070,42 @@ export const closeHostedSupportTicketFromAdminFn = createServerFn({ method: 'POS
       actorUserId: currentUser.id,
       actorRole: currentUser.role,
       action: 'foundary.hosted.support_ticket.close_from_admin',
+      entityType: 'hosted_support_ticket',
+      entityId: data.ticketId,
+    })
+
+    return { success: true }
+  })
+
+export const deleteHostedSupportTicketFromAdminFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        ticketId: z.number(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+
+    const ticket = await db
+      .select({ id: hostedSupportTickets.id })
+      .from(hostedSupportTickets)
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+      .limit(1)
+
+    if (!ticket[0]) {
+      throw new Error('Ticket not found')
+    }
+
+    await db.delete(hostedSupportTicketMessages).where(eq(hostedSupportTicketMessages.ticketId, data.ticketId))
+    await db.delete(hostedSupportTickets).where(eq(hostedSupportTickets.id, data.ticketId))
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.hosted.support_ticket.delete_from_admin',
       entityType: 'hosted_support_ticket',
       entityId: data.ticketId,
     })

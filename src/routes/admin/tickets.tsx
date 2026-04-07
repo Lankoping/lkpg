@@ -5,10 +5,13 @@ import {
   closeFoundaryApplicationTicketFn,
   closeHostedSupportTicketFromAdminFn,
   createFoundaryApplicationTicketFn,
+  deleteHostedSupportTicketFromAdminFn,
   decideFoundaryApplicationFundingFromTicketFn,
   getFoundaryApplicationMessagesFn,
   getFoundaryApplicationsFn,
+  getHostedSupportTicketMessagesForAdminFn,
   getHostedSupportTicketsForAdminFn,
+  postHostedSupportTicketMessageFromAdminFn,
   postFoundaryApplicationMessageFn,
 } from '../../server/functions/foundary'
 
@@ -20,18 +23,19 @@ export const Route = createFileRoute('/admin/tickets')({
     }
   },
   loader: async () => {
-    const [applications, messages, supportTickets] = await Promise.all([
+    const [applications, messages, supportTickets, supportMessages] = await Promise.all([
       getFoundaryApplicationsFn(),
       getFoundaryApplicationMessagesFn(),
       getHostedSupportTicketsForAdminFn(),
+      getHostedSupportTicketMessagesForAdminFn(),
     ])
-    return { applications, messages, supportTickets }
+    return { applications, messages, supportTickets, supportMessages }
   },
   component: AdminTicketsPage,
 })
 
 function AdminTicketsPage() {
-  const { applications, messages, supportTickets } = Route.useLoaderData()
+  const { applications, messages, supportTickets, supportMessages } = Route.useLoaderData()
   const router = useRouter()
 
   const [queueType, setQueueType] = useState<'applications' | 'support'>('applications')
@@ -44,6 +48,7 @@ function AdminTicketsPage() {
   const [selectedSupportTicketId, setSelectedSupportTicketId] = useState<number | null>(supportTickets[0]?.id ?? null)
 
   const [messageDrafts, setMessageDrafts] = useState<Record<number, string>>({})
+  const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<number, string>>({})
   const [decisionDrafts, setDecisionDrafts] = useState<Record<number, string>>({})
   const [applicationActionError, setApplicationActionError] = useState('')
   const [supportActionError, setSupportActionError] = useState('')
@@ -53,6 +58,8 @@ function AdminTicketsPage() {
   const [decidingApplicationId, setDecidingApplicationId] = useState<number | null>(null)
   const [closedApplicationIds, setClosedApplicationIds] = useState<Record<number, boolean>>({})
   const [closingSupportTicketId, setClosingSupportTicketId] = useState<number | null>(null)
+  const [replyingSupportTicketId, setReplyingSupportTicketId] = useState<number | null>(null)
+  const [deletingSupportTicketId, setDeletingSupportTicketId] = useState<number | null>(null)
 
   const replyTemplates = [
     'Thanks for the update. Please share any missing details so we can continue reviewing this request.',
@@ -75,6 +82,13 @@ function AdminTicketsPage() {
     'Approved and ticket closed.',
   ]
 
+  const supportReplyTemplates = [
+    'Thanks for reaching out. We have received your ticket and started reviewing it.',
+    'Could you share more details, screenshots, and exact steps to reproduce?',
+    'We have identified the issue and are working on a fix. We will update you shortly.',
+    'This is now resolved. Please confirm everything works on your side.',
+  ]
+
   const formatDateTime = (value: string | Date | null | undefined) => {
     if (!value) return 'Unknown date'
     return new Intl.DateTimeFormat('sv-SE', {
@@ -95,6 +109,16 @@ function AdminTicketsPage() {
     }
     return grouped
   }, [messages])
+
+  const messagesBySupportTicket = useMemo(() => {
+    const grouped = new Map<number, typeof supportMessages>()
+    for (const message of supportMessages) {
+      const current = grouped.get(message.ticketId) ?? []
+      current.push(message)
+      grouped.set(message.ticketId, current)
+    }
+    return grouped
+  }, [supportMessages])
 
   const isTicketClosed = (applicationId: number) =>
     Boolean(closedApplicationIds[applicationId] || applications.find((app) => app.id === applicationId)?.ticketClosed)
@@ -140,10 +164,12 @@ function AdminTicketsPage() {
     if (!q) return scoped
 
     return scoped.filter((ticket) => {
-      const haystack = `${ticket.id} ${ticket.reporterName || ''} ${ticket.reporterEmail || ''} ${ticket.message}`.toLowerCase()
+      const thread = messagesBySupportTicket.get(ticket.id) ?? []
+      const latest = thread[0]
+      const haystack = `${ticket.id} ${ticket.reporterName || ''} ${ticket.reporterEmail || ''} ${latest?.message || ticket.message}`.toLowerCase()
       return haystack.includes(q)
     })
-  }, [supportFilter, supportQuery, supportTickets])
+  }, [supportFilter, supportQuery, supportTickets, messagesBySupportTicket])
 
   useEffect(() => {
     if (filteredApplications.length === 0) {
@@ -174,6 +200,10 @@ function AdminTicketsPage() {
     if (!selectedSupportTicketId) return null
     return supportTickets.find((ticket) => ticket.id === selectedSupportTicketId) ?? null
   }, [supportTickets, selectedSupportTicketId])
+
+  const selectedSupportMessages = selectedSupportTicket
+    ? (messagesBySupportTicket.get(selectedSupportTicket.id) ?? [])
+    : []
 
   const selectedMessages = selectedApplication ? (messagesByApplication.get(selectedApplication.id) ?? []) : []
   const hasOrganizerThread = selectedMessages.some((msg) => msg.senderRole === 'organizer')
@@ -286,6 +316,39 @@ function AdminTicketsPage() {
       setSupportActionError(error?.message || 'Could not close support ticket')
     } finally {
       setClosingSupportTicketId(null)
+    }
+  }
+
+  const replyToSupportTicketFromAdmin = async (ticketId: number) => {
+    const message = supportReplyDrafts[ticketId]?.trim()
+    if (!message) {
+      setSupportActionError('Write a message before sending reply.')
+      return
+    }
+
+    setSupportActionError('')
+    setReplyingSupportTicketId(ticketId)
+    try {
+      await postHostedSupportTicketMessageFromAdminFn({ data: { ticketId, message } })
+      setSupportReplyDrafts((current) => ({ ...current, [ticketId]: '' }))
+      await router.invalidate()
+    } catch (error: any) {
+      setSupportActionError(error?.message || 'Could not send support reply')
+    } finally {
+      setReplyingSupportTicketId(null)
+    }
+  }
+
+  const deleteSupportTicketFromAdmin = async (ticketId: number) => {
+    setSupportActionError('')
+    setDeletingSupportTicketId(ticketId)
+    try {
+      await deleteHostedSupportTicketFromAdminFn({ data: { ticketId } })
+      await router.invalidate()
+    } catch (error: any) {
+      setSupportActionError(error?.message || 'Could not delete support ticket')
+    } finally {
+      setDeletingSupportTicketId(null)
     }
   }
 
@@ -621,6 +684,8 @@ function AdminTicketsPage() {
               <div className="max-h-[42rem] overflow-auto p-2">
                 {filteredSupportTickets.map((ticket) => {
                   const selected = selectedSupportTicket?.id === ticket.id
+                  const thread = messagesBySupportTicket.get(ticket.id) ?? []
+                  const latest = thread[0]
                   return (
                     <button
                       key={ticket.id}
@@ -641,7 +706,7 @@ function AdminTicketsPage() {
                         </span>
                       </div>
                       <p className="mt-1 text-[11px] text-muted-foreground">{ticket.reporterName || ticket.reporterEmail}</p>
-                      <p className="mt-1 truncate text-[11px] text-muted-foreground">{ticket.message}</p>
+                      <p className="mt-1 truncate text-[11px] text-muted-foreground">{latest?.message || ticket.message}</p>
                     </button>
                   )
                 })}
@@ -666,22 +731,99 @@ function AdminTicketsPage() {
                   </p>
 
                   <div className="mt-4 rounded-xl border border-border bg-background p-4">
-                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Ticket message</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-foreground/90">{selectedSupportTicket.message}</p>
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Conversation</p>
+                    {selectedSupportMessages.length === 0 ? (
+                      <p className="mt-2 text-sm text-muted-foreground">No messages yet.</p>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {[...selectedSupportMessages]
+                          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                          .map((msg) => (
+                            <div key={msg.id} className="rounded-xl border border-border bg-card p-3 text-sm">
+                              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                                {msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {msg.senderName || msg.senderEmail} · {formatDateTime(msg.createdAt)}
+                              </p>
+                              <p className="mt-1 whitespace-pre-wrap text-foreground/90">{msg.message}</p>
+                            </div>
+                          ))}
+                      </div>
+                    )}
                   </div>
+
+                  {selectedSupportTicket.status === 'open' && (
+                    <>
+                      <div className="mt-3 rounded-xl border border-border bg-background p-4">
+                        <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Quick support template</label>
+                        <select
+                          defaultValue=""
+                          onChange={(event) => {
+                            const selectedTemplate = event.target.value
+                            if (!selectedTemplate) return
+                            setSupportReplyDrafts((current) => ({
+                              ...current,
+                              [selectedSupportTicket.id]: selectedTemplate,
+                            }))
+                            event.currentTarget.value = ''
+                          }}
+                          className="mt-2 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                        >
+                          <option value="">Select a template...</option>
+                          {supportReplyTemplates.map((template) => (
+                            <option key={template} value={template}>
+                              {template}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <textarea
+                        value={supportReplyDrafts[selectedSupportTicket.id] ?? ''}
+                        onChange={(event) =>
+                          setSupportReplyDrafts((current) => ({
+                            ...current,
+                            [selectedSupportTicket.id]: event.target.value,
+                          }))
+                        }
+                        placeholder="Write a reply to the hosted user..."
+                        className="mt-3 min-h-24 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                      />
+                    </>
+                  )}
 
                   {supportActionError && <p className="mt-3 text-sm text-red-400">{supportActionError}</p>}
 
-                  {selectedSupportTicket.status === 'open' && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedSupportTicket.status === 'open' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => replyToSupportTicketFromAdmin(selectedSupportTicket.id)}
+                          disabled={replyingSupportTicketId === selectedSupportTicket.id}
+                          className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+                        >
+                          {replyingSupportTicketId === selectedSupportTicket.id ? 'Sending...' : 'Send reply'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => closeSupportTicketFromAdmin(selectedSupportTicket.id)}
+                          disabled={closingSupportTicketId === selectedSupportTicket.id}
+                          className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
+                        >
+                          {closingSupportTicketId === selectedSupportTicket.id ? 'Closing...' : 'Close ticket'}
+                        </button>
+                      </>
+                    )}
+
                     <button
                       type="button"
-                      onClick={() => closeSupportTicketFromAdmin(selectedSupportTicket.id)}
-                      disabled={closingSupportTicketId === selectedSupportTicket.id}
-                      className="mt-3 rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
+                      onClick={() => deleteSupportTicketFromAdmin(selectedSupportTicket.id)}
+                      disabled={deletingSupportTicketId === selectedSupportTicket.id}
+                      className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 hover:bg-red-500/20 disabled:opacity-60"
                     >
-                      {closingSupportTicketId === selectedSupportTicket.id ? 'Closing...' : 'Close ticket'}
+                      {deletingSupportTicketId === selectedSupportTicket.id ? 'Deleting...' : 'Delete ticket'}
                     </button>
-                  )}
+                  </div>
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">No support ticket selected.</p>
