@@ -22,17 +22,18 @@ import { Route as VerifyCodeRouteImport } from './routes/verify/$code'
 import { Route as HostedTicketsRouteImport } from './routes/hosted/tickets'
 import { Route as HostedTeamRouteImport } from './routes/hosted/team'
 import { Route as HostedRequestFundsRouteImport } from './routes/hosted/request-funds'
-import { Route as HostedPerksRouteImport } from './routes/hosted/perks'
+import { Route as HostedPerksHubRouteImport } from './routes/hosted/perks-hub'
 import { Route as HostedApplicationsRouteImport } from './routes/hosted/applications'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminTicketsRouteImport } from './routes/admin/tickets'
 import { Route as AdminStoragePerksRouteImport } from './routes/admin/storage-perks'
 import { Route as AdminLogsRouteImport } from './routes/admin/logs'
 import { Route as AdminApplicationsRouteImport } from './routes/admin/applications'
-import { Route as HostedPerksUploadRouteImport } from './routes/hosted/perks/upload'
-import { Route as HostedPerksLimitsRouteImport } from './routes/hosted/perks/limits'
-import { Route as HostedPerksExplorerRouteImport } from './routes/hosted/perks/explorer'
-import { Route as HostedPerksCdnRouteImport } from './routes/hosted/perks/cdn'
+import { Route as HostedPerksStorageRouteImport } from './routes/hosted/perks/storage'
+import { Route as HostedPerksStorageUploadRouteImport } from './routes/hosted/perks/storage/upload'
+import { Route as HostedPerksStorageLimitsRouteImport } from './routes/hosted/perks/storage/limits'
+import { Route as HostedPerksStorageExplorerRouteImport } from './routes/hosted/perks/storage/explorer'
+import { Route as HostedPerksStorageCdnRouteImport } from './routes/hosted/perks/storage/cdn'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -99,9 +100,9 @@ const HostedRequestFundsRoute = HostedRequestFundsRouteImport.update({
   path: '/request-funds',
   getParentRoute: () => HostedRoute,
 } as any)
-const HostedPerksRoute = HostedPerksRouteImport.update({
-  id: '/perks',
-  path: '/perks',
+const HostedPerksHubRoute = HostedPerksHubRouteImport.update({
+  id: '/perks-hub',
+  path: '/perks-hub',
   getParentRoute: () => HostedRoute,
 } as any)
 const HostedApplicationsRoute = HostedApplicationsRouteImport.update({
@@ -134,25 +135,33 @@ const AdminApplicationsRoute = AdminApplicationsRouteImport.update({
   path: '/applications',
   getParentRoute: () => AdminRoute,
 } as any)
-const HostedPerksUploadRoute = HostedPerksUploadRouteImport.update({
-  id: '/upload',
-  path: '/upload',
-  getParentRoute: () => HostedPerksRoute,
+const HostedPerksStorageRoute = HostedPerksStorageRouteImport.update({
+  id: '/perks/storage',
+  path: '/perks/storage',
+  getParentRoute: () => HostedRoute,
 } as any)
-const HostedPerksLimitsRoute = HostedPerksLimitsRouteImport.update({
-  id: '/limits',
-  path: '/limits',
-  getParentRoute: () => HostedPerksRoute,
-} as any)
-const HostedPerksExplorerRoute = HostedPerksExplorerRouteImport.update({
-  id: '/explorer',
-  path: '/explorer',
-  getParentRoute: () => HostedPerksRoute,
-} as any)
-const HostedPerksCdnRoute = HostedPerksCdnRouteImport.update({
+const HostedPerksStorageUploadRoute =
+  HostedPerksStorageUploadRouteImport.update({
+    id: '/upload',
+    path: '/upload',
+    getParentRoute: () => HostedPerksStorageRoute,
+  } as any)
+const HostedPerksStorageLimitsRoute =
+  HostedPerksStorageLimitsRouteImport.update({
+    id: '/limits',
+    path: '/limits',
+    getParentRoute: () => HostedPerksStorageRoute,
+  } as any)
+const HostedPerksStorageExplorerRoute =
+  HostedPerksStorageExplorerRouteImport.update({
+    id: '/explorer',
+    path: '/explorer',
+    getParentRoute: () => HostedPerksStorageRoute,
+  } as any)
+const HostedPerksStorageCdnRoute = HostedPerksStorageCdnRouteImport.update({
   id: '/cdn',
   path: '/cdn',
-  getParentRoute: () => HostedPerksRoute,
+  getParentRoute: () => HostedPerksStorageRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -169,17 +178,18 @@ export interface FileRoutesByFullPath {
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
-  '/hosted/perks': typeof HostedPerksRouteWithChildren
+  '/hosted/perks-hub': typeof HostedPerksHubRoute
   '/hosted/request-funds': typeof HostedRequestFundsRoute
   '/hosted/team': typeof HostedTeamRoute
   '/hosted/tickets': typeof HostedTicketsRoute
   '/verify/$code': typeof VerifyCodeRoute
   '/admin/': typeof AdminIndexRoute
   '/hosted/': typeof HostedIndexRoute
-  '/hosted/perks/cdn': typeof HostedPerksCdnRoute
-  '/hosted/perks/explorer': typeof HostedPerksExplorerRoute
-  '/hosted/perks/limits': typeof HostedPerksLimitsRoute
-  '/hosted/perks/upload': typeof HostedPerksUploadRoute
+  '/hosted/perks/storage': typeof HostedPerksStorageRouteWithChildren
+  '/hosted/perks/storage/cdn': typeof HostedPerksStorageCdnRoute
+  '/hosted/perks/storage/explorer': typeof HostedPerksStorageExplorerRoute
+  '/hosted/perks/storage/limits': typeof HostedPerksStorageLimitsRoute
+  '/hosted/perks/storage/upload': typeof HostedPerksStorageUploadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -193,17 +203,18 @@ export interface FileRoutesByTo {
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
-  '/hosted/perks': typeof HostedPerksRouteWithChildren
+  '/hosted/perks-hub': typeof HostedPerksHubRoute
   '/hosted/request-funds': typeof HostedRequestFundsRoute
   '/hosted/team': typeof HostedTeamRoute
   '/hosted/tickets': typeof HostedTicketsRoute
   '/verify/$code': typeof VerifyCodeRoute
   '/admin': typeof AdminIndexRoute
   '/hosted': typeof HostedIndexRoute
-  '/hosted/perks/cdn': typeof HostedPerksCdnRoute
-  '/hosted/perks/explorer': typeof HostedPerksExplorerRoute
-  '/hosted/perks/limits': typeof HostedPerksLimitsRoute
-  '/hosted/perks/upload': typeof HostedPerksUploadRoute
+  '/hosted/perks/storage': typeof HostedPerksStorageRouteWithChildren
+  '/hosted/perks/storage/cdn': typeof HostedPerksStorageCdnRoute
+  '/hosted/perks/storage/explorer': typeof HostedPerksStorageExplorerRoute
+  '/hosted/perks/storage/limits': typeof HostedPerksStorageLimitsRoute
+  '/hosted/perks/storage/upload': typeof HostedPerksStorageUploadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -220,17 +231,18 @@ export interface FileRoutesById {
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
-  '/hosted/perks': typeof HostedPerksRouteWithChildren
+  '/hosted/perks-hub': typeof HostedPerksHubRoute
   '/hosted/request-funds': typeof HostedRequestFundsRoute
   '/hosted/team': typeof HostedTeamRoute
   '/hosted/tickets': typeof HostedTicketsRoute
   '/verify/$code': typeof VerifyCodeRoute
   '/admin/': typeof AdminIndexRoute
   '/hosted/': typeof HostedIndexRoute
-  '/hosted/perks/cdn': typeof HostedPerksCdnRoute
-  '/hosted/perks/explorer': typeof HostedPerksExplorerRoute
-  '/hosted/perks/limits': typeof HostedPerksLimitsRoute
-  '/hosted/perks/upload': typeof HostedPerksUploadRoute
+  '/hosted/perks/storage': typeof HostedPerksStorageRouteWithChildren
+  '/hosted/perks/storage/cdn': typeof HostedPerksStorageCdnRoute
+  '/hosted/perks/storage/explorer': typeof HostedPerksStorageExplorerRoute
+  '/hosted/perks/storage/limits': typeof HostedPerksStorageLimitsRoute
+  '/hosted/perks/storage/upload': typeof HostedPerksStorageUploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -248,17 +260,18 @@ export interface FileRouteTypes {
     | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
-    | '/hosted/perks'
+    | '/hosted/perks-hub'
     | '/hosted/request-funds'
     | '/hosted/team'
     | '/hosted/tickets'
     | '/verify/$code'
     | '/admin/'
     | '/hosted/'
-    | '/hosted/perks/cdn'
-    | '/hosted/perks/explorer'
-    | '/hosted/perks/limits'
-    | '/hosted/perks/upload'
+    | '/hosted/perks/storage'
+    | '/hosted/perks/storage/cdn'
+    | '/hosted/perks/storage/explorer'
+    | '/hosted/perks/storage/limits'
+    | '/hosted/perks/storage/upload'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -272,17 +285,18 @@ export interface FileRouteTypes {
     | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
-    | '/hosted/perks'
+    | '/hosted/perks-hub'
     | '/hosted/request-funds'
     | '/hosted/team'
     | '/hosted/tickets'
     | '/verify/$code'
     | '/admin'
     | '/hosted'
-    | '/hosted/perks/cdn'
-    | '/hosted/perks/explorer'
-    | '/hosted/perks/limits'
-    | '/hosted/perks/upload'
+    | '/hosted/perks/storage'
+    | '/hosted/perks/storage/cdn'
+    | '/hosted/perks/storage/explorer'
+    | '/hosted/perks/storage/limits'
+    | '/hosted/perks/storage/upload'
   id:
     | '__root__'
     | '/'
@@ -298,17 +312,18 @@ export interface FileRouteTypes {
     | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
-    | '/hosted/perks'
+    | '/hosted/perks-hub'
     | '/hosted/request-funds'
     | '/hosted/team'
     | '/hosted/tickets'
     | '/verify/$code'
     | '/admin/'
     | '/hosted/'
-    | '/hosted/perks/cdn'
-    | '/hosted/perks/explorer'
-    | '/hosted/perks/limits'
-    | '/hosted/perks/upload'
+    | '/hosted/perks/storage'
+    | '/hosted/perks/storage/cdn'
+    | '/hosted/perks/storage/explorer'
+    | '/hosted/perks/storage/limits'
+    | '/hosted/perks/storage/upload'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -415,11 +430,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HostedRequestFundsRouteImport
       parentRoute: typeof HostedRoute
     }
-    '/hosted/perks': {
-      id: '/hosted/perks'
-      path: '/perks'
-      fullPath: '/hosted/perks'
-      preLoaderRoute: typeof HostedPerksRouteImport
+    '/hosted/perks-hub': {
+      id: '/hosted/perks-hub'
+      path: '/perks-hub'
+      fullPath: '/hosted/perks-hub'
+      preLoaderRoute: typeof HostedPerksHubRouteImport
       parentRoute: typeof HostedRoute
     }
     '/hosted/applications': {
@@ -464,33 +479,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminApplicationsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/hosted/perks/upload': {
-      id: '/hosted/perks/upload'
+    '/hosted/perks/storage': {
+      id: '/hosted/perks/storage'
+      path: '/perks/storage'
+      fullPath: '/hosted/perks/storage'
+      preLoaderRoute: typeof HostedPerksStorageRouteImport
+      parentRoute: typeof HostedRoute
+    }
+    '/hosted/perks/storage/upload': {
+      id: '/hosted/perks/storage/upload'
       path: '/upload'
-      fullPath: '/hosted/perks/upload'
-      preLoaderRoute: typeof HostedPerksUploadRouteImport
-      parentRoute: typeof HostedPerksRoute
+      fullPath: '/hosted/perks/storage/upload'
+      preLoaderRoute: typeof HostedPerksStorageUploadRouteImport
+      parentRoute: typeof HostedPerksStorageRoute
     }
-    '/hosted/perks/limits': {
-      id: '/hosted/perks/limits'
+    '/hosted/perks/storage/limits': {
+      id: '/hosted/perks/storage/limits'
       path: '/limits'
-      fullPath: '/hosted/perks/limits'
-      preLoaderRoute: typeof HostedPerksLimitsRouteImport
-      parentRoute: typeof HostedPerksRoute
+      fullPath: '/hosted/perks/storage/limits'
+      preLoaderRoute: typeof HostedPerksStorageLimitsRouteImport
+      parentRoute: typeof HostedPerksStorageRoute
     }
-    '/hosted/perks/explorer': {
-      id: '/hosted/perks/explorer'
+    '/hosted/perks/storage/explorer': {
+      id: '/hosted/perks/storage/explorer'
       path: '/explorer'
-      fullPath: '/hosted/perks/explorer'
-      preLoaderRoute: typeof HostedPerksExplorerRouteImport
-      parentRoute: typeof HostedPerksRoute
+      fullPath: '/hosted/perks/storage/explorer'
+      preLoaderRoute: typeof HostedPerksStorageExplorerRouteImport
+      parentRoute: typeof HostedPerksStorageRoute
     }
-    '/hosted/perks/cdn': {
-      id: '/hosted/perks/cdn'
+    '/hosted/perks/storage/cdn': {
+      id: '/hosted/perks/storage/cdn'
       path: '/cdn'
-      fullPath: '/hosted/perks/cdn'
-      preLoaderRoute: typeof HostedPerksCdnRouteImport
-      parentRoute: typeof HostedPerksRoute
+      fullPath: '/hosted/perks/storage/cdn'
+      preLoaderRoute: typeof HostedPerksStorageCdnRouteImport
+      parentRoute: typeof HostedPerksStorageRoute
     }
   }
 }
@@ -515,40 +537,41 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
-interface HostedPerksRouteChildren {
-  HostedPerksCdnRoute: typeof HostedPerksCdnRoute
-  HostedPerksExplorerRoute: typeof HostedPerksExplorerRoute
-  HostedPerksLimitsRoute: typeof HostedPerksLimitsRoute
-  HostedPerksUploadRoute: typeof HostedPerksUploadRoute
+interface HostedPerksStorageRouteChildren {
+  HostedPerksStorageCdnRoute: typeof HostedPerksStorageCdnRoute
+  HostedPerksStorageExplorerRoute: typeof HostedPerksStorageExplorerRoute
+  HostedPerksStorageLimitsRoute: typeof HostedPerksStorageLimitsRoute
+  HostedPerksStorageUploadRoute: typeof HostedPerksStorageUploadRoute
 }
 
-const HostedPerksRouteChildren: HostedPerksRouteChildren = {
-  HostedPerksCdnRoute: HostedPerksCdnRoute,
-  HostedPerksExplorerRoute: HostedPerksExplorerRoute,
-  HostedPerksLimitsRoute: HostedPerksLimitsRoute,
-  HostedPerksUploadRoute: HostedPerksUploadRoute,
+const HostedPerksStorageRouteChildren: HostedPerksStorageRouteChildren = {
+  HostedPerksStorageCdnRoute: HostedPerksStorageCdnRoute,
+  HostedPerksStorageExplorerRoute: HostedPerksStorageExplorerRoute,
+  HostedPerksStorageLimitsRoute: HostedPerksStorageLimitsRoute,
+  HostedPerksStorageUploadRoute: HostedPerksStorageUploadRoute,
 }
 
-const HostedPerksRouteWithChildren = HostedPerksRoute._addFileChildren(
-  HostedPerksRouteChildren,
-)
+const HostedPerksStorageRouteWithChildren =
+  HostedPerksStorageRoute._addFileChildren(HostedPerksStorageRouteChildren)
 
 interface HostedRouteChildren {
   HostedApplicationsRoute: typeof HostedApplicationsRoute
-  HostedPerksRoute: typeof HostedPerksRouteWithChildren
+  HostedPerksHubRoute: typeof HostedPerksHubRoute
   HostedRequestFundsRoute: typeof HostedRequestFundsRoute
   HostedTeamRoute: typeof HostedTeamRoute
   HostedTicketsRoute: typeof HostedTicketsRoute
   HostedIndexRoute: typeof HostedIndexRoute
+  HostedPerksStorageRoute: typeof HostedPerksStorageRouteWithChildren
 }
 
 const HostedRouteChildren: HostedRouteChildren = {
   HostedApplicationsRoute: HostedApplicationsRoute,
-  HostedPerksRoute: HostedPerksRouteWithChildren,
+  HostedPerksHubRoute: HostedPerksHubRoute,
   HostedRequestFundsRoute: HostedRequestFundsRoute,
   HostedTeamRoute: HostedTeamRoute,
   HostedTicketsRoute: HostedTicketsRoute,
   HostedIndexRoute: HostedIndexRoute,
+  HostedPerksStorageRoute: HostedPerksStorageRouteWithChildren,
 }
 
 const HostedRouteWithChildren =
@@ -567,12 +590,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

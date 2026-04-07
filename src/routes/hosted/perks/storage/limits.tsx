@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Gauge, ShieldAlert } from 'lucide-react'
-import { getSessionFn } from '../../../server/functions/auth'
-import { getMyStoragePerkFn } from '../../../server/functions/storage'
-import { StoragePageShell, formatBytes, type StorageState } from '../../../components/storage-page-shell'
+import { getSessionFn } from '../../../../server/functions/auth'
+import { getMyStoragePerkFn } from '../../../../server/functions/storage'
+import { StoragePageShell, formatBytes, type StorageState } from '../../../../components/storage-page-shell'
 
 const EMPTY_STORAGE_STATE: StorageState = {
   organizationName: null,
@@ -22,7 +22,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-export const Route = createFileRoute('/hosted/perks/limits')({
+export const Route = createFileRoute('/hosted/perks/storage/limits')({
   loader: async () => {
     const user = await getSessionFn()
     if (!user) {

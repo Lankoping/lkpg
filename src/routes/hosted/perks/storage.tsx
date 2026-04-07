@@ -1,9 +1,9 @@
 import { createFileRoute, Outlet, redirect, useLocation, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Gauge, LockKeyhole, PlusCircle, FolderOpen, Link2, Settings, Search, CheckCircle2, Clock, XCircle } from 'lucide-react'
-import { getSessionFn } from '../../server/functions/auth'
-import { activateStoragePerkFn, getMyStoragePerkFn, requestStoragePerkFn } from '../../server/functions/storage'
-import { StoragePageShell, formatBytes, storageTabRoutes, type StorageState } from '../../components/storage-page-shell'
+import { getSessionFn } from '../../../server/functions/auth'
+import { activateStoragePerkFn, getMyStoragePerkFn, requestStoragePerkFn } from '../../../server/functions/storage'
+import { StoragePageShell, formatBytes, storageTabRoutes, type StorageState } from '../../../components/storage-page-shell'
 
 const EMPTY_STORAGE_STATE: StorageState = {
   organizationName: null,
@@ -23,7 +23,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-export const Route = createFileRoute('/hosted/perks')({
+export const Route = createFileRoute('/hosted/perks/storage')({
   loader: async () => {
     const user = await getSessionFn()
     if (!user) {
@@ -67,7 +67,7 @@ function HostedPerksPage() {
   const isPending = storage.request?.status === 'pending'
   const isRejected = storage.request?.status === 'rejected'
 
-  if (location.pathname !== '/hosted/perks') {
+  if (location.pathname !== '/hosted/perks/storage') {
     return <Outlet />
   }
 

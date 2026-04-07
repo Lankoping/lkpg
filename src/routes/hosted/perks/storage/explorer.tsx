@@ -1,8 +1,8 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { ArrowUpDown, Copy, ExternalLink, FolderOpen, Search, Trash2 } from 'lucide-react'
-import { getSessionFn } from '../../../server/functions/auth'
-import { deleteStorageFileFn, getMyStoragePerkFn } from '../../../server/functions/storage'
+import { getSessionFn } from '../../../../server/functions/auth'
+import { deleteStorageFileFn, getMyStoragePerkFn } from '../../../../server/functions/storage'
 import {
   StoragePageShell,
   detectFileCategory,
@@ -10,7 +10,7 @@ import {
   formatDate,
   storageTabRoutes,
   type StorageState,
-} from '../../../components/storage-page-shell'
+} from '../../../../components/storage-page-shell'
 
 const EMPTY_STORAGE_STATE: StorageState = {
   organizationName: null,
@@ -44,7 +44,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-export const Route = createFileRoute('/hosted/perks/explorer')({
+export const Route = createFileRoute('/hosted/perks/storage/explorer')({
   loader: async () => {
     const user = await getSessionFn()
     if (!user) {

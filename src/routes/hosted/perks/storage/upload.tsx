@@ -1,9 +1,9 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Upload } from 'lucide-react'
-import { getSessionFn } from '../../../server/functions/auth'
-import { createStorageUploadReservationFn, getMyStoragePerkFn } from '../../../server/functions/storage'
-import { StoragePageShell, formatBytes, type StorageState } from '../../../components/storage-page-shell'
+import { getSessionFn } from '../../../../server/functions/auth'
+import { createStorageUploadReservationFn, getMyStoragePerkFn } from '../../../../server/functions/storage'
+import { StoragePageShell, formatBytes, type StorageState } from '../../../../components/storage-page-shell'
 
 const EMPTY_STORAGE_STATE: StorageState = {
   organizationName: null,
@@ -23,7 +23,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-export const Route = createFileRoute('/hosted/perks/upload')({
+export const Route = createFileRoute('/hosted/perks/storage/upload')({
   loader: async () => {
     const user = await getSessionFn()
     if (!user) {

@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Ticket,
   HardDrive,
+  Sparkles,
   Users,
   HandCoins,
   LogOut,
@@ -124,7 +125,7 @@ function HostedLayout() {
 
   const currentPath = location.pathname
   const currentHash = location.hash
-  const isStoragePath = currentPath === '/hosted/perks' || currentPath.startsWith('/hosted/perks/')
+  const isStoragePath = currentPath === '/hosted/perks/storage' || currentPath.startsWith('/hosted/perks/storage/')
   const isPerksHubPath = currentPath === '/hosted/perks-hub'
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
@@ -133,17 +134,17 @@ function HostedLayout() {
         ? 'Tickets'
       : currentPath.includes('/hosted/team')
         ? 'Team'
-        : currentPath.includes('/hosted/perks/upload')
+        : currentPath.includes('/hosted/perks/storage/upload')
           ? 'Upload file'
-        : currentPath.includes('/hosted/perks/explorer')
+        : currentPath.includes('/hosted/perks/storage/explorer')
             ? 'File explorer'
-            : currentPath.includes('/hosted/perks/cdn')
+            : currentPath.includes('/hosted/perks/storage/cdn')
               ? 'CDN and links'
-              : currentPath.includes('/hosted/perks/limits')
+              : currentPath.includes('/hosted/perks/storage/limits')
                 ? 'Limits'
                       : currentPath.includes('/hosted/perks-hub')
                         ? 'Perks'
-                : currentPath.includes('/hosted/perks')
+                : currentPath.includes('/hosted/perks/storage')
                   ? 'Storage'
                   : currentPath.includes('/hosted/applications')
                     ? 'Applications'
@@ -213,38 +214,38 @@ function HostedLayout() {
                 <HostedStorageNavItem
                   href="/hosted/perks-hub"
                   label="Perks hub"
-                  icon={<HardDrive className="w-5 h-5" />}
+                  icon={<Sparkles className="w-5 h-5" />}
                   isActive={isStorageActive('/hosted/perks-hub')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks"
+                  href="/hosted/perks/storage"
                   label="Storage"
                   icon={<Gauge className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks')}
+                  isActive={isStorageActive('/hosted/perks/storage')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks/upload"
+                  href="/hosted/perks/storage/upload"
                   label="Upload file"
                   icon={<Upload className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/upload')}
+                  isActive={isStorageActive('/hosted/perks/storage/upload')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks/explorer"
+                  href="/hosted/perks/storage/explorer"
                   label="File explorer"
                   icon={<FolderOpen className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/explorer')}
+                  isActive={isStorageActive('/hosted/perks/storage/explorer')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks/cdn"
+                  href="/hosted/perks/storage/cdn"
                   label="CDN and links"
                   icon={<Link2 className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/cdn')}
+                  isActive={isStorageActive('/hosted/perks/storage/cdn')}
                 />
                 <HostedStorageNavItem
-                  href="/hosted/perks/limits"
+                  href="/hosted/perks/storage/limits"
                   label="Limits"
                   icon={<MonitorSmartphone className="w-5 h-5" />}
-                  isActive={isStorageActive('/hosted/perks/limits')}
+                  isActive={isStorageActive('/hosted/perks/storage/limits')}
                 />
               </div>
             ) : (
@@ -264,9 +265,9 @@ function HostedLayout() {
               />
               <HostedNavItem
                 href="/hosted/perks-hub"
-                label="Perks"
-                icon={<HardDrive className="w-5 h-5" />}
-                isActive={currentPath === '/hosted/perks-hub' || currentPath.startsWith('/hosted/perks')}
+                label="Manage perks"
+                icon={<Sparkles className="w-5 h-5" />}
+                isActive={currentPath === '/hosted/perks-hub' || currentPath.startsWith('/hosted/perks/storage')}
               />
               </div>
             )}
@@ -391,7 +392,7 @@ function HostedLayout() {
         </header>
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-          <div className={`w-full space-y-4 ${currentPath.includes('/hosted/perks/explorer') ? 'max-w-none' : 'mx-auto max-w-5xl'}`}>
+          <div className={`w-full space-y-4 ${currentPath.includes('/hosted/perks/storage/explorer') ? 'max-w-none' : 'mx-auto max-w-5xl'}`}>
             {inviteAcceptMessage && (
               <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
                 {inviteAcceptMessage}
