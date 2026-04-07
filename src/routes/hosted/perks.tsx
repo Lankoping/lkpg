@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, useLocation, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Gauge, LockKeyhole, PlusCircle, FolderOpen, Link2, MonitorSmartphone, Search, Users, ChevronRight } from 'lucide-react'
+import { Gauge, LockKeyhole, PlusCircle, FolderOpen, Link2, Settings, Search, CheckCircle2, Clock, XCircle } from 'lucide-react'
 import { getSessionFn } from '../../server/functions/auth'
 import { activateStoragePerkFn, getMyStoragePerkFn, requestStoragePerkFn } from '../../server/functions/storage'
 import { StoragePageShell, formatBytes, storageTabRoutes, type StorageState } from '../../components/storage-page-shell'
@@ -99,7 +99,7 @@ function HostedPerksPage() {
           acceptTerms: true,
         },
       })
-      setActivationMessage('Storage activated. Use the tabs above to open the dedicated upload and explorer pages.')
+      setActivationMessage('Storage activated successfully!')
       await router.invalidate()
     } catch (error: unknown) {
       setActivationError(getErrorMessage(error, 'Could not activate storage'))
@@ -109,144 +109,316 @@ function HostedPerksPage() {
   }
 
   if (storageLoadError) {
-    return <section className="rounded-2xl border border-red-400/30 bg-red-400/10 p-5 text-sm text-red-200">Storage failed to load: {storageLoadError}</section>
+    return (
+      <StoragePageShell storage={storage} activeTab="overview">
+        <div className="flex items-center justify-center rounded-2xl border border-red-400/30 bg-red-400/10 p-12">
+          <p className="text-sm text-red-400">Storage failed to load: {storageLoadError}</p>
+        </div>
+      </StoragePageShell>
+    )
   }
 
   if (!storage.organizationName) {
-    return <section className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">Join or create a hosted organization before requesting storage.</section>
+    return (
+      <StoragePageShell storage={storage} activeTab="overview">
+        <div className="flex items-center justify-center rounded-2xl border border-border bg-card p-12">
+          <p className="text-sm text-muted-foreground">Join or create a hosted organization before requesting storage.</p>
+        </div>
+      </StoragePageShell>
+    )
   }
 
   return (
     <StoragePageShell storage={storage} activeTab="overview">
-      <div className="space-y-4 rounded-3xl border border-border bg-background p-4 md:p-6">
-        <div className="rounded-2xl border border-border bg-card p-4 md:p-5">
-          <p className="text-base font-medium text-foreground md:text-lg">Organization drive</p>
-          <div className="mt-3 rounded-full border border-border bg-background/90 px-4 py-3">
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Search className="h-4 w-4" />
-              <span>Search in shared storage</span>
+      <div className="flex flex-col gap-4">
+        {/* Top Action Bar */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search in storage..."
+                className="w-full rounded-full border border-border bg-background py-2 pl-10 pr-4 text-sm placeholder-muted-foreground outline-none focus:border-primary"
+              />
             </div>
           </div>
-          <p className="mt-3 text-sm text-muted-foreground">Shared across your organization. Avoid personal or sensitive uploads.</p>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-card px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Files</p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">{storage.fileCount}</p>
-            <p className="mt-1 text-sm text-muted-foreground">Items in shared storage</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Used</p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">{formatBytes(storage.usedBytes)}</p>
-            <p className="mt-1 text-sm text-muted-foreground">Total used by organization</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Remaining</p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">{formatBytes(storage.remainingBytes)}</p>
-            <p className="mt-1 text-sm text-muted-foreground">Space left before 5GB</p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-4 md:p-5">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
-            <p className="text-sm font-medium text-foreground">Quick access</p>
-          </div>
-          <div className="mt-3 divide-y divide-border">
-            <a href={storageTabRoutes.upload} className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-foreground text-muted-foreground">
-              <span className="inline-flex items-center gap-2 text-sm">
-                <PlusCircle className="h-4 w-4 text-primary" />
-                Upload file
-              </span>
-              <ChevronRight className="h-4 w-4" />
-            </a>
-            <a href={storageTabRoutes.explorer} className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-foreground text-muted-foreground">
-              <span className="inline-flex items-center gap-2 text-sm">
-                <FolderOpen className="h-4 w-4 text-primary" />
-                File explorer
-              </span>
-              <ChevronRight className="h-4 w-4" />
-            </a>
-            <a href={storageTabRoutes.cdn} className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-foreground text-muted-foreground">
-              <span className="inline-flex items-center gap-2 text-sm">
-                <Link2 className="h-4 w-4 text-primary" />
-                CDN and links
-              </span>
-              <ChevronRight className="h-4 w-4" />
-            </a>
-            <a href={storageTabRoutes.limits} className="flex items-center justify-between gap-3 pt-3 transition-colors hover:text-foreground text-muted-foreground">
-              <span className="inline-flex items-center gap-2 text-sm">
-                <MonitorSmartphone className="h-4 w-4 text-primary" />
-                Limits
-              </span>
-              <ChevronRight className="h-4 w-4" />
-            </a>
-          </div>
-        </div>
-
-        {!isApproved ? (
-          <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center gap-3">
-              <LockKeyhole className="h-5 w-5 text-primary" />
-              <p className="text-sm font-medium text-foreground">Request storage</p>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Request access before you can upload files or use the explorer.</p>
-            {!requestOpen && (
-              <button type="button" onClick={() => setRequestOpen(true)} className="mt-4 rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">Request storage</button>
+          <div className="flex gap-2">
+            {isActivated && (
+              <>
+                <a
+                  href={storageTabRoutes.upload}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  <span>Upload</span>
+                </a>
+                <a
+                  href={storageTabRoutes.explorer}
+                  className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-background/80"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  <span>Files</span>
+                </a>
+              </>
             )}
-            {requestOpen && (
-              <form onSubmit={submitRequest} className="mt-4 space-y-3">
-                <label className="block text-sm text-muted-foreground">
-                  Reason for storage access
-                  <textarea required minLength={10} value={requestReason} onChange={(event) => setRequestReason(event.target.value)} className="mt-2 min-h-28 w-full rounded-2xl border border-border bg-background px-4 py-3 text-foreground outline-none focus:border-primary/60" />
-                </label>
-                {requestError && <p className="text-sm text-red-400">{requestError}</p>}
-                {requestMessage && <p className="text-sm text-emerald-400">{requestMessage}</p>}
-                <div className="flex flex-wrap gap-2">
-                  <button type="submit" className="rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">Send for review</button>
-                  <button type="button" onClick={() => setRequestOpen(false)} className="rounded-2xl border border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
-                </div>
-              </form>
-            )}
-
-            {isPending && storage.request && <p className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-foreground">Request pending review: {storage.request.reason}</p>}
-            {isRejected && storage.request && <p className="mt-4 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-foreground">Request rejected: {storage.request.reviewNotes || 'No review note was provided.'}</p>}
           </div>
-        ) : !isActivated ? (
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">
-            <p className="text-sm font-medium text-foreground">Storage approved</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Activate storage to unlock the upload and explorer pages.</p>
-            <form onSubmit={activateStorage} className="mt-4 space-y-3">
-              <div className="max-h-56 overflow-auto rounded-2xl border border-border bg-card p-4 text-sm leading-6 text-muted-foreground">
-                <p>1. Storage is shared across your organization and limited to 5GB total.</p>
-                <p className="mt-3">2. You are responsible for all uploaded content and must have rights to distribute it.</p>
-                <p className="mt-3">3. Do not upload illegal content, malware, or personal/sensitive data.</p>
-                <p className="mt-3">4. Lan Foundary may suspend or remove files that violate policy or applicable law.</p>
-              </div>
+        </div>
 
-              <label className="flex items-start gap-3 text-sm text-muted-foreground">
-                <input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} className="mt-1 h-5 w-5 accent-primary" />
-                <span className="text-base leading-6">I accept the Storage terms.</span>
-              </label>
-
-              {activationError && <p className="text-sm text-red-400">{activationError}</p>}
-              {activationMessage && <p className="text-sm text-emerald-400">{activationMessage}</p>}
-
-              <button type="submit" disabled={activationBusy || !termsAccepted} className="rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                {activationBusy ? 'Activating...' : 'Activate storage'}
-              </button>
-            </form>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center gap-3">
-              <Gauge className="h-5 w-5 text-primary" />
-              <p className="text-sm font-medium text-foreground">Storage live</p>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Use the dedicated pages above to browse and manage your shared organization files.</p>
+        {/* Status Messages */}
+        {activationMessage && (
+          <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
+            <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-400" />
+            <p className="text-sm text-foreground">{activationMessage}</p>
           </div>
         )}
+
+        {/* Request Pending */}
+        {isPending && storage.request && (
+          <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4">
+            <Clock className="h-5 w-5 flex-shrink-0 text-amber-400" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Request pending review</p>
+              <p className="text-xs text-muted-foreground">{storage.request.reason}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Request Rejected */}
+        {isRejected && storage.request && (
+          <div className="flex items-center gap-3 rounded-2xl border border-red-400/30 bg-red-400/10 p-4">
+            <XCircle className="h-5 w-5 flex-shrink-0 text-red-400" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Request rejected</p>
+              <p className="text-xs text-muted-foreground">{storage.request.reviewNotes || 'No review note was provided.'}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+          {/* Left Content Area */}
+          <div className="space-y-4">
+            {/* Storage Stats */}
+            {isActivated && (
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <p className="text-sm font-semibold text-foreground">Storage usage</p>
+                <div className="mt-4 space-y-3">
+                  {/* Usage Bar */}
+                  <div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{formatBytes(storage.usedBytes)}</span>
+                      <span className="text-muted-foreground">{formatBytes(storage.limitBytes)}</span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-border">
+                      <div
+                        className="h-full bg-primary"
+                        style={{ width: `${(storage.usedBytes / storage.limitBytes) * 100}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatBytes(storage.remainingBytes)} remaining</p>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-3 gap-3 pt-3">
+                    <div className="rounded-lg border border-border bg-background p-3">
+                      <p className="text-xs text-muted-foreground">Files</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">{storage.fileCount}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background p-3">
+                      <p className="text-xs text-muted-foreground">Used</p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">{formatBytes(storage.usedBytes)}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background p-3">
+                      <p className="text-xs text-muted-foreground">Free</p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">{formatBytes(storage.remainingBytes)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Request/Activation Section */}
+            {!isApproved ? (
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <div className="flex items-start gap-3">
+                  <LockKeyhole className="h-5 w-5 flex-shrink-0 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">Request storage access</p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      Your organization needs admin approval to use shared storage. Request access and an admin will review it.
+                    </p>
+                  </div>
+                </div>
+
+                {!requestOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setRequestOpen(true)}
+                    className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    Request storage
+                  </button>
+                )}
+
+                {requestOpen && (
+                  <form onSubmit={submitRequest} className="mt-4 space-y-3">
+                    <label className="block text-sm">
+                      <span className="font-medium text-foreground">Why do you need storage?</span>
+                      <textarea
+                        required
+                        minLength={10}
+                        value={requestReason}
+                        onChange={(event) => setRequestReason(event.target.value)}
+                        placeholder="Describe your use case..."
+                        className="mt-2 min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary"
+                      />
+                    </label>
+                    {requestError && (
+                      <div className="rounded-lg bg-red-400/10 p-3 text-sm text-red-400">{requestError}</div>
+                    )}
+                    {requestMessage && (
+                      <div className="rounded-lg bg-emerald-400/10 p-3 text-sm text-emerald-400">{requestMessage}</div>
+                    )}
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="submit"
+                        className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                      >
+                        Send request
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRequestOpen(false)}
+                        className="rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-background/80"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ) : !isActivated ? (
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-400" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">Storage approved!</p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      Your request has been approved. Review and accept the terms below to activate storage.
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={activateStorage} className="mt-4 space-y-3">
+                  <div className="max-h-48 overflow-auto rounded-lg border border-border bg-background p-3 text-sm leading-6 text-muted-foreground">
+                    <p className="font-medium text-foreground">Storage Terms</p>
+                    <p className="mt-2">1. Storage is shared across your organization and limited to 5GB total.</p>
+                    <p className="mt-2">2. You are responsible for all uploaded content and must have rights to distribute it.</p>
+                    <p className="mt-2">3. Do not upload illegal content, malware, or personal/sensitive data.</p>
+                    <p className="mt-2">4. Lan Foundary may suspend or remove files that violate policy or applicable law.</p>
+                  </div>
+
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(event) => setTermsAccepted(event.target.checked)}
+                      className="mt-1 h-5 w-5 accent-primary"
+                    />
+                    <span className="text-sm text-foreground">I accept the Storage terms</span>
+                  </label>
+
+                  {activationError && (
+                    <div className="rounded-lg bg-red-400/10 p-3 text-sm text-red-400">{activationError}</div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={activationBusy || !termsAccepted}
+                    className="w-full rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {activationBusy ? 'Activating...' : 'Activate storage'}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <div className="flex items-start gap-3">
+                  <Gauge className="h-5 w-5 flex-shrink-0 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">Storage is live</p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      Your organization storage is ready to use. Upload files or browse existing content using the buttons above.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Links */}
+            {isActivated && (
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <p className="font-semibold text-foreground">Quick access</p>
+                <div className="mt-3 grid gap-2">
+                  <a
+                    href={storageTabRoutes.cdn}
+                    className="flex items-center justify-between rounded-lg border border-border bg-background p-3 text-sm transition-colors hover:bg-background/80"
+                  >
+                    <span className="flex items-center gap-2 text-foreground">
+                      <Link2 className="h-4 w-4 text-primary" />
+                      CDN links
+                    </span>
+                    <span className="text-xs text-muted-foreground">Share files</span>
+                  </a>
+                  <a
+                    href={storageTabRoutes.limits}
+                    className="flex items-center justify-between rounded-lg border border-border bg-background p-3 text-sm transition-colors hover:bg-background/80"
+                  >
+                    <span className="flex items-center gap-2 text-foreground">
+                      <Settings className="h-4 w-4 text-primary" />
+                      Storage limits
+                    </span>
+                    <span className="text-xs text-muted-foreground">Settings</span>
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Sidebar */}
+          <div className="space-y-4">
+            {isActivated && (
+              <>
+                {/* Shared Organization Info */}
+                <div className="rounded-2xl border border-border bg-card p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Organization</p>
+                  <p className="mt-2 truncate text-sm font-medium text-foreground">{storage.organizationName}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Shared storage</p>
+                </div>
+
+                {/* Help/Info */}
+                <div className="rounded-2xl border border-border bg-card p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tips</p>
+                  <ul className="mt-3 space-y-2 text-xs text-muted-foreground">
+                    <li className="flex gap-2">
+                      <span className="flex-shrink-0">•</span>
+                      <span>Organize files in folders</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="flex-shrink-0">•</span>
+                      <span>Share via CDN links</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="flex-shrink-0">•</span>
+                      <span>5GB per organization</span>
+                    </li>
+                  </ul>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </StoragePageShell>
   )
