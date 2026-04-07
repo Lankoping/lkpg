@@ -175,21 +175,23 @@ function HostedLayout() {
           </div>
 
           <nav className="flex-1 py-4 overflow-y-auto">
-            <div className="mb-6">
-              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Main</p>
-              <HostedNavItem
-                href="/hosted/applications"
-                label="Applications"
-                icon={<LayoutDashboard className="w-5 h-5" />}
-                isActive={currentPath === '/hosted/applications'}
-              />
-              <HostedNavItem
-                href="/hosted/tickets"
-                label="Tickets"
-                icon={<Ticket className="w-5 h-5" />}
-                isActive={currentPath === '/hosted/tickets'}
-              />
-            </div>
+            {!inStorageSection && (
+              <div className="mb-6">
+                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Main</p>
+                <HostedNavItem
+                  href="/hosted/applications"
+                  label="Applications"
+                  icon={<LayoutDashboard className="w-5 h-5" />}
+                  isActive={currentPath === '/hosted/applications'}
+                />
+                <HostedNavItem
+                  href="/hosted/tickets"
+                  label="Tickets"
+                  icon={<Ticket className="w-5 h-5" />}
+                  isActive={currentPath === '/hosted/tickets'}
+                />
+              </div>
+            )}
 
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Perks</p>
@@ -235,21 +237,23 @@ function HostedLayout() {
               )}
             </div>
 
-            <div className="mb-6">
-              <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Management</p>
-              <HostedNavItem
-                href="/hosted/team"
-                label="Team"
-                icon={<Users className="w-5 h-5" />}
-                isActive={currentPath === '/hosted/team'}
-              />
-              <HostedNavItem
-                href="/hosted/request-funds"
-                label="Request funds"
-                icon={<HandCoins className="w-5 h-5" />}
-                isActive={currentPath === '/hosted/request-funds'}
-              />
-            </div>
+            {!inStorageSection && (
+              <div className="mb-6">
+                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Management</p>
+                <HostedNavItem
+                  href="/hosted/team"
+                  label="Team"
+                  icon={<Users className="w-5 h-5" />}
+                  isActive={currentPath === '/hosted/team'}
+                />
+                <HostedNavItem
+                  href="/hosted/request-funds"
+                  label="Request funds"
+                  icon={<HandCoins className="w-5 h-5" />}
+                  isActive={currentPath === '/hosted/request-funds'}
+                />
+              </div>
+            )}
           </nav>
 
           <div className="p-4 border-t border-border shrink-0 bg-card">
