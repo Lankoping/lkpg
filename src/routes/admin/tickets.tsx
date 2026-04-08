@@ -11,8 +11,11 @@ import {
   getFoundaryApplicationsFn,
   getHostedSupportTicketMessagesForAdminFn,
   getHostedSupportTicketsForAdminFn,
+  getOrganizerUsersFn,
   postHostedSupportTicketMessageFromAdminFn,
   postFoundaryApplicationMessageFn,
+  updateFoundaryApplicationTicketMetadataFn,
+  updateHostedSupportTicketMetadataFn,
 } from '../../server/functions/foundary'
 
 export const Route = createFileRoute('/admin/tickets')({
@@ -23,24 +26,65 @@ export const Route = createFileRoute('/admin/tickets')({
     }
   },
   loader: async () => {
-    const [applications, messages, supportTickets, supportMessages] = await Promise.all([
+    const [applications, messages, supportTickets, supportMessages, organizers] = await Promise.all([
       getFoundaryApplicationsFn(),
       getFoundaryApplicationMessagesFn(),
       getHostedSupportTicketsForAdminFn(),
       getHostedSupportTicketMessagesForAdminFn(),
+      getOrganizerUsersFn(),
     ])
-    return { applications, messages, supportTickets, supportMessages }
+    return { applications, messages, supportTickets, supportMessages, organizers }
   },
   component: AdminTicketsPage,
 })
 
 function AdminTicketsPage() {
-  const { applications, messages, supportTickets, supportMessages } = Route.useLoaderData()
+  const { applications, messages, supportTickets, supportMessages, organizers } = Route.useLoaderData()
   const router = useRouter()
 
+  type TicketPriority = 'low' | 'normal' | 'high' | 'urgent'
+
+  const priorityOptions: Array<{ value: TicketPriority; label: string }> = [
+    { value: 'low', label: 'Low' },
+    { value: 'normal', label: 'Normal' },
+    { value: 'high', label: 'High' },
+    { value: 'urgent', label: 'Urgent' },
+  ]
+
+  const normalizeTicketLabelsInput = (value: string) =>
+    Array.from(
+      new Set(
+        value
+          .split(/[\n,;]/)
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    ).join(', ')
+
+  const splitTicketLabels = (value: string | null | undefined) => {
+    if (!value) return []
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+
+  const priorityRank = (priority: TicketPriority) => {
+    switch (priority) {
+      case 'urgent':
+        return 0
+      case 'high':
+        return 1
+      case 'normal':
+        return 2
+      case 'low':
+        return 3
+    }
+  }
+
   const [queueType, setQueueType] = useState<'applications' | 'support'>('applications')
-  const [applicationFilter, setApplicationFilter] = useState<'all' | 'open' | 'closed' | 'waiting-hosted' | 'waiting-staff'>('open')
-  const [supportFilter, setSupportFilter] = useState<'all' | 'open' | 'closed'>('open')
+  const [applicationFilter, setApplicationFilter] = useState<'all' | 'open' | 'closed' | 'waiting-hosted' | 'waiting-staff' | 'assigned' | 'unassigned'>('open')
+  const [supportFilter, setSupportFilter] = useState<'all' | 'open' | 'closed' | 'assigned' | 'unassigned'>('open')
   const [applicationQuery, setApplicationQuery] = useState('')
   const [supportQuery, setSupportQuery] = useState('')
 
@@ -50,16 +94,31 @@ function AdminTicketsPage() {
   const [messageDrafts, setMessageDrafts] = useState<Record<number, string>>({})
   const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<number, string>>({})
   const [decisionDrafts, setDecisionDrafts] = useState<Record<number, string>>({})
+  const [applicationMetadataDrafts, setApplicationMetadataDrafts] = useState<
+    Record<number, { priority: TicketPriority; labels: string; assignedToUserId: string }>
+  >({})
+  const [supportMetadataDrafts, setSupportMetadataDrafts] = useState<
+    Record<number, { priority: TicketPriority; labels: string; assignedToUserId: string }>
+  >({})
   const [applicationActionError, setApplicationActionError] = useState('')
   const [supportActionError, setSupportActionError] = useState('')
 
   const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
   const [closingApplicationId, setClosingApplicationId] = useState<number | null>(null)
   const [decidingApplicationId, setDecidingApplicationId] = useState<number | null>(null)
+  const [updatingApplicationMetadataId, setUpdatingApplicationMetadataId] = useState<number | null>(null)
   const [closedApplicationIds, setClosedApplicationIds] = useState<Record<number, boolean>>({})
   const [closingSupportTicketId, setClosingSupportTicketId] = useState<number | null>(null)
   const [replyingSupportTicketId, setReplyingSupportTicketId] = useState<number | null>(null)
   const [deletingSupportTicketId, setDeletingSupportTicketId] = useState<number | null>(null)
+  const [updatingSupportMetadataId, setUpdatingSupportMetadataId] = useState<number | null>(null)
+
+  const organizerUsers = useMemo(
+    () => organizers as Array<{ id: number; name: string | null; email: string | null }>,
+    [organizers],
+  )
+
+  const organizerById = useMemo(() => new Map(organizerUsers.map((user) => [user.id, user])), [organizerUsers])
 
   const replyTemplates = [
     'Thanks for the update. Please share any missing details so we can continue reviewing this request.',
@@ -141,15 +200,25 @@ function AdminTicketsPage() {
       scoped = applications.filter((application) => getApplicationQueueState(application.id) === 'waiting-hosted')
     } else if (applicationFilter === 'waiting-staff') {
       scoped = applications.filter((application) => getApplicationQueueState(application.id) === 'waiting-staff')
+    } else if (applicationFilter === 'assigned') {
+      scoped = applications.filter((application) => application.assignedToUserId != null)
+    } else if (applicationFilter === 'unassigned') {
+      scoped = applications.filter((application) => application.assignedToUserId == null)
     }
 
     const q = applicationQuery.trim().toLowerCase()
-    if (!q) return scoped
-
-    return scoped.filter((application) => {
-      const haystack = `${application.id} ${application.eventName} ${application.organizationName} ${application.applicantName}`.toLowerCase()
+    const filtered = !q
+      ? scoped
+      : scoped.filter((application) => {
+      const haystack = `${application.id} ${application.eventName} ${application.organizationName} ${application.applicantName} ${application.ticketPriority || ''} ${application.ticketLabels || ''} ${organizerById.get(application.assignedToUserId ?? -1)?.name || ''}`.toLowerCase()
       return haystack.includes(q)
-    })
+      })
+
+    return [...filtered].sort(
+      (a, b) =>
+        priorityRank(a.ticketPriority ?? 'normal') - priorityRank(b.ticketPriority ?? 'normal') ||
+        new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime(),
+    )
   }, [applicationFilter, applicationQuery, applications, closedApplicationIds, messagesByApplication])
 
   const filteredSupportTickets = useMemo(() => {
@@ -158,17 +227,27 @@ function AdminTicketsPage() {
       scoped = supportTickets.filter((ticket) => ticket.status === 'open')
     } else if (supportFilter === 'closed') {
       scoped = supportTickets.filter((ticket) => ticket.status === 'closed')
+    } else if (supportFilter === 'assigned') {
+      scoped = supportTickets.filter((ticket) => ticket.assignedToUserId != null)
+    } else if (supportFilter === 'unassigned') {
+      scoped = supportTickets.filter((ticket) => ticket.assignedToUserId == null)
     }
 
     const q = supportQuery.trim().toLowerCase()
-    if (!q) return scoped
-
-    return scoped.filter((ticket) => {
+    const filtered = !q
+      ? scoped
+      : scoped.filter((ticket) => {
       const thread = messagesBySupportTicket.get(ticket.id) ?? []
       const latest = thread[0]
-      const haystack = `${ticket.id} ${ticket.reporterName || ''} ${ticket.reporterEmail || ''} ${latest?.message || ticket.message}`.toLowerCase()
+      const haystack = `${ticket.id} ${ticket.reporterName || ''} ${ticket.reporterEmail || ''} ${latest?.message || ticket.message} ${ticket.ticketPriority || ''} ${ticket.ticketLabels || ''} ${organizerById.get(ticket.assignedToUserId ?? -1)?.name || ''}`.toLowerCase()
       return haystack.includes(q)
-    })
+      })
+
+    return [...filtered].sort(
+      (a, b) =>
+        priorityRank(a.ticketPriority ?? 'normal') - priorityRank(b.ticketPriority ?? 'normal') ||
+        new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime(),
+    )
   }, [supportFilter, supportQuery, supportTickets, messagesBySupportTicket])
 
   useEffect(() => {
@@ -196,10 +275,40 @@ function AdminTicketsPage() {
     return applications.find((application) => application.id === selectedApplicationId) ?? null
   }, [applications, selectedApplicationId])
 
+  useEffect(() => {
+    if (!selectedApplication) return
+    setApplicationMetadataDrafts((current) => {
+      if (current[selectedApplication.id]) return current
+      return {
+        ...current,
+        [selectedApplication.id]: {
+          priority: selectedApplication.ticketPriority ?? 'normal',
+          labels: selectedApplication.ticketLabels ?? '',
+          assignedToUserId: selectedApplication.assignedToUserId ? String(selectedApplication.assignedToUserId) : '',
+        },
+      }
+    })
+  }, [selectedApplication])
+
   const selectedSupportTicket = useMemo(() => {
     if (!selectedSupportTicketId) return null
     return supportTickets.find((ticket) => ticket.id === selectedSupportTicketId) ?? null
   }, [supportTickets, selectedSupportTicketId])
+
+  useEffect(() => {
+    if (!selectedSupportTicket) return
+    setSupportMetadataDrafts((current) => {
+      if (current[selectedSupportTicket.id]) return current
+      return {
+        ...current,
+        [selectedSupportTicket.id]: {
+          priority: selectedSupportTicket.ticketPriority ?? 'normal',
+          labels: selectedSupportTicket.ticketLabels ?? '',
+          assignedToUserId: selectedSupportTicket.assignedToUserId ? String(selectedSupportTicket.assignedToUserId) : '',
+        },
+      }
+    })
+  }, [selectedSupportTicket])
 
   const selectedSupportMessages = selectedSupportTicket
     ? (messagesBySupportTicket.get(selectedSupportTicket.id) ?? [])
@@ -339,6 +448,52 @@ function AdminTicketsPage() {
     }
   }
 
+  const updateApplicationMetadata = async (applicationId: number) => {
+    const draft = applicationMetadataDrafts[applicationId]
+    if (!draft) return
+
+    setApplicationActionError('')
+    setUpdatingApplicationMetadataId(applicationId)
+    try {
+      await updateFoundaryApplicationTicketMetadataFn({
+        data: {
+          applicationId,
+          priority: draft.priority,
+          labels: normalizeTicketLabelsInput(draft.labels),
+          assignedToUserId: draft.assignedToUserId ? Number(draft.assignedToUserId) : null,
+        },
+      })
+      await router.invalidate()
+    } catch (error: any) {
+      setApplicationActionError(error?.message || 'Could not update application metadata')
+    } finally {
+      setUpdatingApplicationMetadataId(null)
+    }
+  }
+
+  const updateSupportMetadata = async (ticketId: number) => {
+    const draft = supportMetadataDrafts[ticketId]
+    if (!draft) return
+
+    setSupportActionError('')
+    setUpdatingSupportMetadataId(ticketId)
+    try {
+      await updateHostedSupportTicketMetadataFn({
+        data: {
+          ticketId,
+          priority: draft.priority,
+          labels: normalizeTicketLabelsInput(draft.labels),
+          assignedToUserId: draft.assignedToUserId ? Number(draft.assignedToUserId) : null,
+        },
+      })
+      await router.invalidate()
+    } catch (error: any) {
+      setSupportActionError(error?.message || 'Could not update support metadata')
+    } finally {
+      setUpdatingSupportMetadataId(null)
+    }
+  }
+
   const deleteSupportTicketFromAdmin = async (ticketId: number) => {
     setSupportActionError('')
     setDeletingSupportTicketId(ticketId)
@@ -414,6 +569,8 @@ function AdminTicketsPage() {
                     ['closed', 'Closed'],
                     ['waiting-hosted', 'Waiting hosted'],
                     ['waiting-staff', 'Waiting staff'],
+                    ['assigned', 'Assigned'],
+                    ['unassigned', 'Unassigned'],
                   ] as const).map(([value, label]) => (
                     <button
                       key={value}
@@ -449,10 +606,30 @@ function AdminTicketsPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium text-foreground">APP-{application.id}</p>
-                        <QueueStateBadge state={state} />
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          <QueueStateBadge state={state} />
+                          <PriorityBadge priority={application.ticketPriority ?? 'normal'} />
+                          {application.assignedToUserId != null && (
+                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                              {organizerById.get(application.assignedToUserId)?.name?.trim() || 'Assigned'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="mt-1 text-xs text-foreground">{application.eventName}</p>
                       <p className="mt-1 text-[11px] text-muted-foreground">{application.organizationName}</p>
+                      {splitTicketLabels(application.ticketLabels).length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {splitTicketLabels(application.ticketLabels).map((label) => (
+                            <span
+                              key={label}
+                              className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {latest && (
                         <p className="mt-1 truncate text-[11px] text-muted-foreground">
                           {latest.senderRole === 'organizer' ? 'Staff' : 'Hosted'}: {latest.message}
@@ -480,6 +657,99 @@ function AdminTicketsPage() {
                   <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     Funding status: {selectedApplication.status}
                   </p>
+
+                  <div className="mt-4 rounded-xl border border-border bg-background p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Ticket metadata</p>
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      <label className="space-y-1 text-sm">
+                        <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Priority</span>
+                        <select
+                          value={applicationMetadataDrafts[selectedApplication.id]?.priority ?? 'normal'}
+                          onChange={(event) =>
+                            setApplicationMetadataDrafts((current) => ({
+                              ...current,
+                              [selectedApplication.id]: {
+                                ...(current[selectedApplication.id] ?? {
+                                  priority: selectedApplication.ticketPriority ?? 'normal',
+                                  labels: selectedApplication.ticketLabels ?? '',
+                                  assignedToUserId: selectedApplication.assignedToUserId ? String(selectedApplication.assignedToUserId) : '',
+                                }),
+                                priority: event.target.value as TicketPriority,
+                              },
+                            }))
+                          }
+                          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                        >
+                          {priorityOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="space-y-1 text-sm md:col-span-2">
+                        <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Labels</span>
+                        <input
+                          value={applicationMetadataDrafts[selectedApplication.id]?.labels ?? ''}
+                          onChange={(event) =>
+                            setApplicationMetadataDrafts((current) => ({
+                              ...current,
+                              [selectedApplication.id]: {
+                                ...(current[selectedApplication.id] ?? {
+                                  priority: selectedApplication.ticketPriority ?? 'normal',
+                                  labels: selectedApplication.ticketLabels ?? '',
+                                  assignedToUserId: selectedApplication.assignedToUserId ? String(selectedApplication.assignedToUserId) : '',
+                                }),
+                                labels: event.target.value,
+                              },
+                            }))
+                          }
+                          placeholder="bug, billing, follow-up"
+                          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                        />
+                      </label>
+
+                      <label className="space-y-1 text-sm md:col-span-2">
+                        <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Assigned to</span>
+                        <select
+                          value={applicationMetadataDrafts[selectedApplication.id]?.assignedToUserId ?? ''}
+                          onChange={(event) =>
+                            setApplicationMetadataDrafts((current) => ({
+                              ...current,
+                              [selectedApplication.id]: {
+                                ...(current[selectedApplication.id] ?? {
+                                  priority: selectedApplication.ticketPriority ?? 'normal',
+                                  labels: selectedApplication.ticketLabels ?? '',
+                                  assignedToUserId: selectedApplication.assignedToUserId ? String(selectedApplication.assignedToUserId) : '',
+                                }),
+                                assignedToUserId: event.target.value,
+                              },
+                            }))
+                          }
+                          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                        >
+                          <option value="">Unassigned</option>
+                          {organizerUsers.map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {user.name?.trim() || user.email || `User ${user.id}`}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          onClick={() => updateApplicationMetadata(selectedApplication.id)}
+                          disabled={updatingApplicationMetadataId === selectedApplication.id}
+                          className="w-full rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+                        >
+                          {updatingApplicationMetadataId === selectedApplication.id ? 'Saving...' : 'Save metadata'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
 
                   <div className="mt-4 space-y-2 rounded-xl border border-border bg-background p-4">
                     {selectedMessages.length === 0 ? (
@@ -666,7 +936,7 @@ function AdminTicketsPage() {
                   className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
                 />
                 <div className="mt-3 inline-grid grid-cols-3 gap-2 rounded-xl border border-border bg-background p-1">
-                  {(['all', 'open', 'closed'] as const).map((value) => (
+                  {(['all', 'open', 'closed', 'assigned', 'unassigned'] as const).map((value) => (
                     <button
                       key={value}
                       type="button"
@@ -697,15 +967,35 @@ function AdminTicketsPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium text-foreground">SUP-{ticket.id}</p>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${
-                            ticket.status === 'open' ? 'border-emerald-500/30 text-emerald-300' : 'border-border text-muted-foreground'
-                          }`}
-                        >
-                          {ticket.status}
-                        </span>
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${
+                              ticket.status === 'open' ? 'border-emerald-500/30 text-emerald-300' : 'border-border text-muted-foreground'
+                            }`}
+                          >
+                            {ticket.status}
+                          </span>
+                          <PriorityBadge priority={ticket.ticketPriority ?? 'normal'} />
+                          {ticket.assignedToUserId != null && (
+                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                              {organizerById.get(ticket.assignedToUserId)?.name?.trim() || 'Assigned'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="mt-1 text-[11px] text-muted-foreground">{ticket.reporterName || ticket.reporterEmail}</p>
+                      {splitTicketLabels(ticket.ticketLabels).length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {splitTicketLabels(ticket.ticketLabels).map((label) => (
+                            <span
+                              key={label}
+                              className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <p className="mt-1 truncate text-[11px] text-muted-foreground">{latest?.message || ticket.message}</p>
                     </button>
                   )
@@ -729,6 +1019,99 @@ function AdminTicketsPage() {
                   <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     Created: {formatDateTime(selectedSupportTicket.createdAt)}
                   </p>
+
+                  <div className="mt-4 rounded-xl border border-border bg-background p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Ticket metadata</p>
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      <label className="space-y-1 text-sm">
+                        <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Priority</span>
+                        <select
+                          value={supportMetadataDrafts[selectedSupportTicket.id]?.priority ?? 'normal'}
+                          onChange={(event) =>
+                            setSupportMetadataDrafts((current) => ({
+                              ...current,
+                              [selectedSupportTicket.id]: {
+                                ...(current[selectedSupportTicket.id] ?? {
+                                  priority: selectedSupportTicket.ticketPriority ?? 'normal',
+                                  labels: selectedSupportTicket.ticketLabels ?? '',
+                                  assignedToUserId: selectedSupportTicket.assignedToUserId ? String(selectedSupportTicket.assignedToUserId) : '',
+                                }),
+                                priority: event.target.value as TicketPriority,
+                              },
+                            }))
+                          }
+                          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                        >
+                          {priorityOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="space-y-1 text-sm md:col-span-2">
+                        <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Labels</span>
+                        <input
+                          value={supportMetadataDrafts[selectedSupportTicket.id]?.labels ?? ''}
+                          onChange={(event) =>
+                            setSupportMetadataDrafts((current) => ({
+                              ...current,
+                              [selectedSupportTicket.id]: {
+                                ...(current[selectedSupportTicket.id] ?? {
+                                  priority: selectedSupportTicket.ticketPriority ?? 'normal',
+                                  labels: selectedSupportTicket.ticketLabels ?? '',
+                                  assignedToUserId: selectedSupportTicket.assignedToUserId ? String(selectedSupportTicket.assignedToUserId) : '',
+                                }),
+                                labels: event.target.value,
+                              },
+                            }))
+                          }
+                          placeholder="urgent, account, bug"
+                          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                        />
+                      </label>
+
+                      <label className="space-y-1 text-sm md:col-span-2">
+                        <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Assigned to</span>
+                        <select
+                          value={supportMetadataDrafts[selectedSupportTicket.id]?.assignedToUserId ?? ''}
+                          onChange={(event) =>
+                            setSupportMetadataDrafts((current) => ({
+                              ...current,
+                              [selectedSupportTicket.id]: {
+                                ...(current[selectedSupportTicket.id] ?? {
+                                  priority: selectedSupportTicket.ticketPriority ?? 'normal',
+                                  labels: selectedSupportTicket.ticketLabels ?? '',
+                                  assignedToUserId: selectedSupportTicket.assignedToUserId ? String(selectedSupportTicket.assignedToUserId) : '',
+                                }),
+                                assignedToUserId: event.target.value,
+                              },
+                            }))
+                          }
+                          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                        >
+                          <option value="">Unassigned</option>
+                          {organizerUsers.map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {user.name?.trim() || user.email || `User ${user.id}`}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          onClick={() => updateSupportMetadata(selectedSupportTicket.id)}
+                          disabled={updatingSupportMetadataId === selectedSupportTicket.id}
+                          className="w-full rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+                        >
+                          {updatingSupportMetadataId === selectedSupportTicket.id ? 'Saving...' : 'Save metadata'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
 
                   <div className="mt-4 rounded-xl border border-border bg-background p-4">
                     <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Conversation</p>
@@ -842,6 +1225,23 @@ function StatTile({ label, value }: { label: string; value: number }) {
       <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
       <p className="mt-1 text-lg text-foreground">{value}</p>
     </div>
+  )
+}
+
+function PriorityBadge({ priority }: { priority: 'low' | 'normal' | 'high' | 'urgent' }) {
+  const className =
+    priority === 'urgent'
+      ? 'border-red-500/30 text-red-300'
+      : priority === 'high'
+        ? 'border-orange-500/30 text-orange-300'
+        : priority === 'normal'
+          ? 'border-border text-muted-foreground'
+          : 'border-sky-500/30 text-sky-300'
+
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${className}`}>
+      {priority}
+    </span>
   )
 }
 

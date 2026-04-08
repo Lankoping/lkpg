@@ -29,13 +29,46 @@ const isMissingConfidentialityColumnsError = (error: unknown) => {
     msg.includes('created_by_user_id') ||
     msg.includes('ticket_closed') ||
     msg.includes('ticket_closed_at') ||
-    msg.includes('ticket_closed_by_user_id')
+    msg.includes('ticket_closed_by_user_id') ||
+    msg.includes('ticket_priority') ||
+    msg.includes('ticket_labels') ||
+    msg.includes('assigned_to_user_id')
   )
 }
 
 const normalizeOrg = (value: string) => value.trim()
 const getApplicationThreadId = (applicationId: number) => `<foundary-application-${applicationId}@lankoping.se>`
 const getHostedSupportThreadId = (ticketId: number) => `<hosted-support-${ticketId}@lankoping.se>`
+const ticketPrioritySchema = z.enum(['low', 'normal', 'high', 'urgent'])
+
+function normalizeTicketLabels(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,;]/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ).join(', ')
+}
+
+async function assertOrganizerAssignee(db: Awaited<ReturnType<typeof getDb>>, assignedToUserId: number | null | undefined) {
+  if (assignedToUserId == null) {
+    return null
+  }
+
+  const assignee = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.id, assignedToUserId), eq(users.role, 'organizer')))
+    .limit(1)
+
+  if (!assignee[0]) {
+    throw new Error('Assigned user must be an organizer')
+  }
+
+  return assignee[0].id
+}
 
 const getHostedBaseUrl = () => {
   const raw =
@@ -197,6 +230,21 @@ async function sendHostedSupportThreadEmail({
     },
   })
 }
+
+export const getOrganizerUsersFn = createServerFn({ method: 'GET' }).handler(async () => {
+  await requireOrganizerUser()
+  const db = await getDb()
+
+  return await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+    })
+    .from(users)
+    .where(eq(users.role, 'organizer'))
+    .orderBy(desc(users.createdAt))
+})
 
 const applicationSchema = z.object({
   applicantName: z.string().min(1),
@@ -1054,6 +1102,9 @@ export const getFoundaryApplicationsFn = createServerFn({ method: 'GET' }).handl
         fundingRequestAmount: foundaryApplications.fundingRequestAmount,
         briefEventDescription: foundaryApplications.briefEventDescription,
         budgetJustification: foundaryApplications.budgetJustification,
+        ticketPriority: foundaryApplications.ticketPriority,
+        ticketLabels: foundaryApplications.ticketLabels,
+        assignedToUserId: foundaryApplications.assignedToUserId,
         status: foundaryApplications.status,
         createdByUserId: foundaryApplications.createdByUserId,
         isConfidential: foundaryApplications.isConfidential,
@@ -1064,6 +1115,7 @@ export const getFoundaryApplicationsFn = createServerFn({ method: 'GET' }).handl
         reviewedAt: foundaryApplications.reviewedAt,
         reviewerName: users.name,
         createdAt: foundaryApplications.createdAt,
+        updatedAt: foundaryApplications.updatedAt,
       })
       .from(foundaryApplications)
       .leftJoin(users, eq(foundaryApplications.reviewedBy, users.id))
@@ -1094,6 +1146,7 @@ export const getFoundaryApplicationsFn = createServerFn({ method: 'GET' }).handl
         reviewedAt: foundaryApplications.reviewedAt,
         reviewerName: users.name,
         createdAt: foundaryApplications.createdAt,
+        updatedAt: foundaryApplications.updatedAt,
       })
       .from(foundaryApplications)
       .leftJoin(users, eq(foundaryApplications.reviewedBy, users.id))
@@ -1103,12 +1156,74 @@ export const getFoundaryApplicationsFn = createServerFn({ method: 'GET' }).handl
       ...row,
       createdByUserId: null as number | null,
       isConfidential: true,
+      ticketPriority: 'normal' as const,
+      ticketLabels: '',
+      assignedToUserId: null as number | null,
       ticketClosed: false,
       ticketClosedAt: null,
       ticketClosedByUserId: null,
     }))
   }
 })
+
+export const updateFoundaryApplicationTicketMetadataFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        applicationId: z.number(),
+        priority: ticketPrioritySchema.optional(),
+        labels: z.string().optional(),
+        assignedToUserId: z.number().nullable().optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+
+    const application = await db
+      .select({ id: foundaryApplications.id })
+      .from(foundaryApplications)
+      .where(eq(foundaryApplications.id, data.applicationId))
+      .limit(1)
+
+    if (!application[0]) {
+      throw new Error('Application not found')
+    }
+
+    const updates: Partial<typeof foundaryApplications.$inferInsert> = {
+      updatedAt: new Date(),
+    }
+
+    if (data.priority) {
+      updates.ticketPriority = data.priority
+    }
+
+    if (data.labels !== undefined) {
+      updates.ticketLabels = normalizeTicketLabels(data.labels)
+    }
+
+    if (data.assignedToUserId !== undefined) {
+      updates.assignedToUserId = await assertOrganizerAssignee(db, data.assignedToUserId)
+    }
+
+    await db.update(foundaryApplications).set(updates).where(eq(foundaryApplications.id, data.applicationId))
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.application.ticket.update_metadata',
+      entityType: 'foundary_application',
+      entityId: data.applicationId,
+      details: {
+        priority: data.priority ?? null,
+        labels: data.labels !== undefined ? normalizeTicketLabels(data.labels).split(', ').filter(Boolean) : undefined,
+        assignedToUserId: data.assignedToUserId ?? null,
+      },
+    })
+
+    return { success: true }
+  })
 
 export const updateFoundaryApplicationStatusFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
@@ -1626,6 +1741,8 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
     z
       .object({
         message: z.string().min(1),
+        priority: ticketPrioritySchema.optional(),
+        labels: z.string().optional(),
       })
       .parse(data),
   )
@@ -1637,6 +1754,7 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
 
     const db = await getDb()
     const cleanMessage = data.message.trim()
+    const cleanLabels = normalizeTicketLabels(data.labels ?? '')
 
     const openTickets = await db
       .select({ id: hostedSupportTickets.id })
@@ -1652,6 +1770,8 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       .values({
         userId: currentUser.id,
         message: cleanMessage,
+        ticketPriority: data.priority ?? 'normal',
+        ticketLabels: cleanLabels,
         status: 'open',
       })
       .returning({
@@ -1707,6 +1827,8 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       details: {
         messageLength: cleanMessage.length,
         organizationCount: organizationNames.length,
+        priority: data.priority ?? 'normal',
+        labels: cleanLabels ? cleanLabels.split(', ') : [],
       },
     })
 
@@ -1841,6 +1963,9 @@ export const getMyHostedSupportTicketsFn = createServerFn({ method: 'GET' }).han
       id: hostedSupportTickets.id,
       userId: hostedSupportTickets.userId,
       message: hostedSupportTickets.message,
+      ticketPriority: hostedSupportTickets.ticketPriority,
+      ticketLabels: hostedSupportTickets.ticketLabels,
+      assignedToUserId: hostedSupportTickets.assignedToUserId,
       status: hostedSupportTickets.status,
       closedAt: hostedSupportTickets.closedAt,
       closedByUserId: hostedSupportTickets.closedByUserId,
@@ -1863,6 +1988,9 @@ export const getHostedSupportTicketsForAdminFn = createServerFn({ method: 'GET' 
       reporterName: users.name,
       reporterEmail: users.email,
       message: hostedSupportTickets.message,
+      ticketPriority: hostedSupportTickets.ticketPriority,
+      ticketLabels: hostedSupportTickets.ticketLabels,
+      assignedToUserId: hostedSupportTickets.assignedToUserId,
       status: hostedSupportTickets.status,
       closedAt: hostedSupportTickets.closedAt,
       closedByUserId: hostedSupportTickets.closedByUserId,
@@ -1893,6 +2021,65 @@ export const getHostedSupportTicketMessagesForAdminFn = createServerFn({ method:
     .innerJoin(users, eq(hostedSupportTicketMessages.senderUserId, users.id))
     .orderBy(desc(hostedSupportTicketMessages.createdAt))
 })
+
+export const updateHostedSupportTicketMetadataFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        ticketId: z.number(),
+        priority: ticketPrioritySchema.optional(),
+        labels: z.string().optional(),
+        assignedToUserId: z.number().nullable().optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+
+    const ticket = await db
+      .select({ id: hostedSupportTickets.id })
+      .from(hostedSupportTickets)
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+      .limit(1)
+
+    if (!ticket[0]) {
+      throw new Error('Ticket not found')
+    }
+
+    const updates: Partial<typeof hostedSupportTickets.$inferInsert> = {
+      updatedAt: new Date(),
+    }
+
+    if (data.priority) {
+      updates.ticketPriority = data.priority
+    }
+
+    if (data.labels !== undefined) {
+      updates.ticketLabels = normalizeTicketLabels(data.labels)
+    }
+
+    if (data.assignedToUserId !== undefined) {
+      updates.assignedToUserId = await assertOrganizerAssignee(db, data.assignedToUserId)
+    }
+
+    await db.update(hostedSupportTickets).set(updates).where(eq(hostedSupportTickets.id, data.ticketId))
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.hosted.support_ticket.update_metadata',
+      entityType: 'hosted_support_ticket',
+      entityId: data.ticketId,
+      details: {
+        priority: data.priority ?? null,
+        labels: data.labels !== undefined ? normalizeTicketLabels(data.labels).split(', ') : undefined,
+        assignedToUserId: data.assignedToUserId ?? null,
+      },
+    })
+
+    return { success: true }
+  })
 
 export const closeMyHostedSupportTicketFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>

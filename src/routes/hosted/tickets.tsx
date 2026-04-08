@@ -47,6 +47,48 @@ type UnifiedTicket = {
   createdAt: string | Date | null | undefined
   applicationId?: number
   supportTicketId?: number
+  ticketPriority?: 'low' | 'normal' | 'high' | 'urgent'
+  ticketLabels?: string
+  assignedToUserId?: number | null
+}
+
+const priorityOptions: Array<{ value: 'low' | 'normal' | 'high' | 'urgent'; label: string }> = [
+  { value: 'low', label: 'Low' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'high', label: 'High' },
+  { value: 'urgent', label: 'Urgent' },
+]
+
+function normalizeTicketLabelsInput(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,;]/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ).join(', ')
+}
+
+function splitTicketLabels(value: string | null | undefined) {
+  if (!value) return []
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function PriorityBadge({ priority }: { priority: 'low' | 'normal' | 'high' | 'urgent' }) {
+  const className =
+    priority === 'urgent'
+      ? 'border-red-500/30 text-red-300'
+      : priority === 'high'
+        ? 'border-orange-500/30 text-orange-300'
+        : priority === 'normal'
+          ? 'border-border text-muted-foreground'
+          : 'border-sky-500/30 text-sky-300'
+
+  return <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${className}`}>{priority}</span>
 }
 
 function HostedTicketsPage() {
@@ -60,6 +102,8 @@ function HostedTicketsPage() {
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({})
   const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<number, string>>({})
   const [supportDraft, setSupportDraft] = useState('')
+  const [supportPriority, setSupportPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal')
+  const [supportLabels, setSupportLabels] = useState('')
 
   const [applicationActionError, setApplicationActionError] = useState('')
   const [supportActionError, setSupportActionError] = useState('')
@@ -141,6 +185,9 @@ function HostedTicketsPage() {
       preview: ticket.message,
       createdAt: ticket.createdAt,
       supportTicketId: ticket.id,
+      ticketPriority: ticket.ticketPriority,
+      ticketLabels: ticket.ticketLabels,
+      assignedToUserId: ticket.assignedToUserId,
     }))
 
     return [...applicationItems, ...supportItems].sort(
@@ -156,7 +203,7 @@ function HostedTicketsPage() {
     if (!q) return byStatus
 
     return byStatus.filter((ticket) => {
-      const haystack = `${ticket.idLabel} ${ticket.title} ${ticket.subtitle} ${ticket.preview}`.toLowerCase()
+      const haystack = `${ticket.idLabel} ${ticket.title} ${ticket.subtitle} ${ticket.preview} ${ticket.ticketLabels || ''} ${ticket.ticketPriority || ''}`.toLowerCase()
       return haystack.includes(q)
     })
   }, [unifiedTickets, filter, searchQuery])
@@ -296,8 +343,16 @@ function HostedTicketsPage() {
         setSupportActionError('You already have 3 open tickets. Close one to create a new ticket.')
         return
       }
-      await createHostedSupportTicketFn({ data: { message } })
+      await createHostedSupportTicketFn({
+        data: {
+          message,
+          priority: supportPriority,
+          labels: normalizeTicketLabelsInput(supportLabels),
+        },
+      })
       setSupportDraft('')
+      setSupportLabels('')
+      setSupportPriority('normal')
       setSupportSuccessMessage('Ticket created. Staff will follow up in this inbox.')
       await router.invalidate()
     } catch (error: any) {
@@ -385,6 +440,33 @@ function HostedTicketsPage() {
             placeholder="Describe issue, urgency, and expected outcome..."
             className="mt-2 min-h-24 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
           />
+
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <label className="space-y-1 text-sm">
+              <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Priority</span>
+              <select
+                value={supportPriority}
+                onChange={(event) => setSupportPriority(event.target.value as 'low' | 'normal' | 'high' | 'urgent')}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+              >
+                {priorityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1 text-sm md:col-span-2">
+              <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Labels</span>
+              <input
+                value={supportLabels}
+                onChange={(event) => setSupportLabels(event.target.value)}
+                placeholder="billing, bug, onboarding"
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+              />
+            </label>
+          </div>
 
           {supportActionError && <p className="mt-2 text-sm text-red-400">{supportActionError}</p>}
           {supportSuccessMessage && <p className="mt-2 text-sm text-emerald-400">{supportSuccessMessage}</p>}
@@ -474,18 +556,30 @@ function HostedTicketsPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium text-foreground">{ticket.idLabel}</p>
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${
-                          ticket.status === 'open'
-                            ? 'border-emerald-500/30 text-emerald-300'
-                            : 'border-border text-muted-foreground'
-                        }`}
-                      >
-                        {ticket.status}
-                      </span>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${
+                            ticket.status === 'open'
+                              ? 'border-emerald-500/30 text-emerald-300'
+                              : 'border-border text-muted-foreground'
+                          }`}
+                        >
+                          {ticket.status}
+                        </span>
+                        {ticket.type === 'support' && <PriorityBadge priority={ticket.ticketPriority ?? 'normal'} />}
+                      </div>
                     </div>
                     <p className="mt-1 text-xs text-foreground">{ticket.title}</p>
                     <p className="mt-1 text-[11px] text-muted-foreground">{ticket.subtitle}</p>
+                    {ticket.type === 'support' && splitTicketLabels(ticket.ticketLabels).length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {splitTicketLabels(ticket.ticketLabels).map((label) => (
+                          <span key={label} className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <p className="mt-1 truncate text-[11px] text-muted-foreground">{ticket.preview}</p>
                     <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{ticket.type}</p>
                   </button>
@@ -594,6 +688,14 @@ function HostedTicketsPage() {
                   <div>
                     <h2 className="font-display text-2xl text-foreground">SUP-{selectedSupportTicket.id}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">General support ticket · Created {formatDateTime(selectedSupportTicket.createdAt)}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <PriorityBadge priority={selectedSupportTicket.ticketPriority ?? 'normal'} />
+                      {splitTicketLabels(selectedSupportTicket.ticketLabels).map((label) => (
+                        <span key={label} className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          {label}
+                        </span>
+                      ))}
+                    </div>
                   </div>
 
                   {selectedSupportTicket.status === 'open' && (
