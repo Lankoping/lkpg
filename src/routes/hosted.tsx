@@ -122,8 +122,8 @@ function HostedLayout() {
                     ? 'Perks'
                     : currentPath.includes('/hosted/perks/storage')
                       ? 'Storage'
-                      : currentPath.includes('/hosted/applications')
-                        ? 'Applications'
+                      : currentPath.includes('/hosted/tickets')
+                        ? 'Tickets'
                         : 'Sign in'
 
   if (!user) {
@@ -303,7 +303,7 @@ function HostedLayout() {
             </button>
 
             <div className="hidden sm:flex items-center gap-2 text-sm">
-              <a href="/hosted/applications" className="text-muted-foreground hover:text-foreground transition-colors">
+              <a href="/hosted/tickets" className="text-muted-foreground hover:text-foreground transition-colors">
                 Hosted
               </a>
               <span className="text-muted">/</span>

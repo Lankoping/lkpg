@@ -4,7 +4,6 @@ import { useState } from 'react'
 import {
   LayoutDashboard,
   Ticket,
-  FileText,
   Users,
   LogOut,
   Settings,
@@ -166,12 +165,6 @@ function AdminLayout() {
                 isActive={currentPath.startsWith('/admin/tickets')}
               />
               <NavItem
-                href="/admin/applications"
-                label="Applications"
-                icon={<FileText className="w-5 h-5" />}
-                isActive={currentPath.startsWith('/admin/applications')}
-              />
-              <NavItem
                 href="/admin/storage-perks"
                 label="Storage"
                 icon={<HardDrive className="w-5 h-5" />}
@@ -256,7 +249,6 @@ function AdminLayout() {
               <span className="text-foreground font-medium">
                 {currentPath === '/admin' || currentPath === '/admin/' ? 'Overview' :
                  currentPath.includes('/tickets') ? 'Tickets' :
-                 currentPath.includes('/applications') ? 'Applications' :
                   currentPath.includes('/storage-perks') ? 'Storage' :
                  currentPath.includes('/users') ? 'Members' :
                  'Page'}

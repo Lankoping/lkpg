@@ -13,6 +13,7 @@ import {
   postMyHostedSupportTicketMessageFn,
   postFoundaryApplicationMessageFn,
 } from '../../server/functions/foundary'
+import { hostedHelpFaq, hostedHelpIntro } from '../../lib/hosted-help'
 
 export const Route = createFileRoute('/hosted/tickets')({
   loader: async () => {
@@ -479,6 +480,24 @@ function HostedTicketsPage() {
           >
             {creatingSupportTicket ? 'Creating...' : canCreateSupportTicket ? 'Create support ticket' : 'Max 3 open tickets'}
           </button>
+        </div>
+
+        <div className="mt-6 border-t border-border pt-4">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">Help</p>
+          <p className="mt-1 text-sm text-muted-foreground">{hostedHelpIntro}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Support tickets get an automatic AI first response that helps gather details, classify category, and set priority.
+          </p>
+
+          <div className="mt-3 space-y-2">
+            {hostedHelpFaq.map((item) => (
+              <details key={item.id} className="rounded-xl border border-border bg-background p-3">
+                <summary className="cursor-pointer text-sm text-foreground">{item.question}</summary>
+                <p className="mt-2 text-sm text-muted-foreground">{item.answer}</p>
+              </details>
+            ))}
+          </div>
+
         </div>
       </section>
 

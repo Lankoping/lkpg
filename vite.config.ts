@@ -12,6 +12,9 @@ import { resolve } from 'pathe'
 const forSites = process.env?.FOR_SITES !== 'false'
 
 const config = defineConfig({
+  build: {
+    target: 'es2020',
+  },
   plugins: [
     tanstackStart(),
     // this is the plugin that enables path aliases

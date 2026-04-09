@@ -69,8 +69,8 @@ function AdminDashboard() {
       <section className="rounded-2xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="font-display text-2xl text-foreground">Recent applications</h2>
-          <a href="/admin/applications" className="text-sm text-muted-foreground hover:text-foreground">
-            View all
+          <a href="/admin/tickets" className="text-sm text-muted-foreground hover:text-foreground">
+            Open tickets
           </a>
         </div>
 

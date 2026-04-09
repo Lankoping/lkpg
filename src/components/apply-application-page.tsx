@@ -84,7 +84,8 @@ export function ApplyApplicationPage() {
               <CheckCircle2 className="h-12 w-12 text-primary" />
               <h2 className="mt-4 font-display text-3xl text-foreground">Application pending</h2>
               <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
-                Your hosted account is now ready. Sign in at /hosted with the email and password from this form to follow your application status.
+                Your hosted account is now active and an application ticket was created automatically.
+                Sign in to check status and respond to requests.
               </p>
             </div>
           ) : (

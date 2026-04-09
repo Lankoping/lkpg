@@ -6,7 +6,7 @@ export const Route = createFileRoute('/hosted/')({
   loader: async () => {
     const user = await getSessionFn()
     if (user) {
-      throw redirect({ to: '/hosted/applications', search: { invite: undefined } })
+      throw redirect({ to: '/hosted/tickets', search: { invite: undefined } })
     }
     return null
   },
@@ -52,7 +52,7 @@ function HostedLoginPage() {
       }
 
       await router.invalidate()
-      window.location.href = '/hosted/applications'
+      window.location.href = '/hosted/tickets'
     } catch (loginError: any) {
       setError(loginError?.message || 'Login failed')
     } finally {

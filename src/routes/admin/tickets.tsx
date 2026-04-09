@@ -316,6 +316,7 @@ function AdminTicketsPage() {
 
   const selectedMessages = selectedApplication ? (messagesByApplication.get(selectedApplication.id) ?? []) : []
   const hasOrganizerThread = selectedMessages.some((msg) => msg.senderRole === 'organizer')
+  const canDirectlyDecideSelectedApplication = Boolean(selectedApplication?.isApplicationTicket || hasOrganizerThread)
 
   const applicationStats = useMemo(() => {
     return {
@@ -618,6 +619,9 @@ function AdminTicketsPage() {
                       </div>
                       <p className="mt-1 text-xs text-foreground">{application.eventName}</p>
                       <p className="mt-1 text-[11px] text-muted-foreground">{application.organizationName}</p>
+                      {application.isApplicationTicket && (
+                        <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-blue-300">Hosted application ticket</p>
+                      )}
                       {splitTicketLabels(application.ticketLabels).length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {splitTicketLabels(application.ticketLabels).map((label) => (
@@ -657,6 +661,11 @@ function AdminTicketsPage() {
                   <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     Funding status: {selectedApplication.status}
                   </p>
+                  {selectedApplication.isApplicationTicket && (
+                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-blue-300">
+                      Hosted application intake ticket
+                    </p>
+                  )}
 
                   <div className="mt-4 rounded-xl border border-border bg-background p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Ticket metadata</p>
@@ -886,7 +895,7 @@ function AdminTicketsPage() {
                     </button>
                   </div>
 
-                  {selectedApplication.status === 'pending' && hasOrganizerThread && !isTicketClosed(selectedApplication.id) && (
+                  {selectedApplication.status === 'pending' && canDirectlyDecideSelectedApplication && !isTicketClosed(selectedApplication.id) && (
                     <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <button
                         type="button"
@@ -894,7 +903,7 @@ function AdminTicketsPage() {
                         disabled={decidingApplicationId === selectedApplication.id}
                         className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-400/20 disabled:opacity-60"
                       >
-                        {decidingApplicationId === selectedApplication.id ? 'Applying...' : 'Approve funding'}
+                        {decidingApplicationId === selectedApplication.id ? 'Applying...' : 'Approve application'}
                       </button>
                       <button
                         type="button"
@@ -902,7 +911,7 @@ function AdminTicketsPage() {
                         disabled={decidingApplicationId === selectedApplication.id}
                         className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-700 hover:bg-red-400/20 disabled:opacity-60"
                       >
-                        {decidingApplicationId === selectedApplication.id ? 'Applying...' : 'Reject & close'}
+                        {decidingApplicationId === selectedApplication.id ? 'Applying...' : 'Reject application'}
                       </button>
                     </div>
                   )}

@@ -178,6 +178,7 @@ export const foundaryApplications = pgTable('foundary_applications', {
   ticketLabels: text('ticket_labels').default('').notNull(),
   assignedToUserId: integer('assigned_to_user_id').references(() => users.id),
   termsAccepted: boolean('terms_accepted').default(true).notNull(),
+  isApplicationTicket: boolean('is_application_ticket').default(false).notNull(),
   createdByUserId: integer('created_by_user_id').references(() => users.id),
   isConfidential: boolean('is_confidential').default(true).notNull(),
   ticketClosed: boolean('ticket_closed').default(false).notNull(),

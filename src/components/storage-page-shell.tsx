@@ -97,7 +97,7 @@ export function StoragePageShell({
         {children}
 
         <div className="border-t border-border pt-4">
-          <a href="/hosted/applications" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <a href="/hosted/tickets" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ChevronLeft className="h-4 w-4" />
             Back to hosted
           </a>
@@ -111,7 +111,7 @@ export function StoragePageShell({
       {children}
 
       <div className="rounded-3xl border border-border bg-background p-6 md:p-7">
-        <a href="/hosted/applications" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <a href="/hosted/tickets" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4" />
           Back to hosted
         </a>

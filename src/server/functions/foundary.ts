@@ -4,6 +4,7 @@ import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie } from '@tanstack/react-start/server'
 import { createHash, randomUUID } from 'node:crypto'
+import { hostedHelpContext } from '../../lib/hosted-help'
 import { getDb } from '../db/runtime'
 import {
   foundaryApplicationMessages,
@@ -32,7 +33,8 @@ const isMissingConfidentialityColumnsError = (error: unknown) => {
     msg.includes('ticket_closed_by_user_id') ||
     msg.includes('ticket_priority') ||
     msg.includes('ticket_labels') ||
-    msg.includes('assigned_to_user_id')
+    msg.includes('assigned_to_user_id') ||
+    msg.includes('is_application_ticket')
   )
 }
 
@@ -40,6 +42,151 @@ const normalizeOrg = (value: string) => value.trim()
 const getApplicationThreadId = (applicationId: number) => `<foundary-application-${applicationId}@lankoping.se>`
 const getHostedSupportThreadId = (ticketId: number) => `<hosted-support-${ticketId}@lankoping.se>`
 const ticketPrioritySchema = z.enum(['low', 'normal', 'high', 'urgent'])
+const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions'
+
+type HostedSupportAssistantResult = {
+  answer: string
+  category: string
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  labels: string[]
+  followUpQuestions: string[]
+  shouldOpenTicket: boolean
+  suggestedTicketMessage: string
+}
+
+function extractFirstJsonObject(raw: string) {
+  const trimmed = raw.trim()
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const candidate = fencedMatch ? fencedMatch[1].trim() : trimmed
+  const firstBrace = candidate.indexOf('{')
+  const lastBrace = candidate.lastIndexOf('}')
+
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    throw new Error('Assistant did not return JSON')
+  }
+
+  return candidate.slice(firstBrace, lastBrace + 1)
+}
+
+function buildHostedSupportHeuristic(message: string): HostedSupportAssistantResult {
+  const lowered = message.toLowerCase()
+
+  let category = 'general'
+  if (/login|password|account|2fa|two factor|sign in/.test(lowered)) category = 'account-access'
+  else if (/bill|invoice|refund|payment|cost|price/.test(lowered)) category = 'billing'
+  else if (/upload|file|cdn|link|storage|bucket/.test(lowered)) category = 'storage'
+  else if (/apply|application|funding|request/.test(lowered)) category = 'application'
+  else if (/error|crash|bug|broken|failed|500|403|404/.test(lowered)) category = 'technical-issue'
+
+  let priority: HostedSupportAssistantResult['priority'] = 'normal'
+  if (/urgent|asap|blocked|production down|cannot access|can't access|outage/.test(lowered)) {
+    priority = 'high'
+  }
+  if (/security|data leak|breach/.test(lowered)) {
+    priority = 'urgent'
+  }
+
+  const labels = [category]
+  const shortMessage = message.trim().length < 40
+  const followUpQuestions = shortMessage
+    ? [
+        'What did you expect to happen?',
+        'What actually happened (exact error text if any)?',
+        'Which page or feature were you using?',
+      ]
+    : ['Can you share exact steps to reproduce this?', 'Did this start after a recent change?']
+
+  return {
+    answer:
+      category === 'storage'
+        ? 'This looks like a storage-related question. Check the Storage section for limits, upload flow, and CDN links. If the issue remains, open a ticket with error text and file details.'
+        : 'Thanks for the details. I can help triage this. If this blocks your work, open a ticket and include exact steps, expected behavior, and any error message.',
+    category,
+    priority,
+    labels,
+    followUpQuestions,
+    shouldOpenTicket: true,
+    suggestedTicketMessage: message.trim() || 'Please describe your issue and expected outcome.',
+  }
+}
+
+async function getHostedSupportAssistantReply(message: string): Promise<HostedSupportAssistantResult> {
+  const prompt = message.trim()
+  if (!prompt) {
+    return buildHostedSupportHeuristic('')
+  }
+
+  const apiKey = process.env.OPENROUTER_API_KEY
+  if (!apiKey) {
+    return buildHostedSupportHeuristic(prompt)
+  }
+
+  const systemPrompt = [
+    'You are a hosted support triage assistant for Lan Foundary.',
+    'Use the provided FAQ and product info as ground truth when possible.',
+    'Classify category and priority. Ask for missing details when needed.',
+    'If the question can be solved by FAQ without staff action, set shouldOpenTicket to false.',
+    'Return only JSON with this shape:',
+    '{"answer": string, "category": string, "priority": "low"|"normal"|"high"|"urgent", "labels": string[], "followUpQuestions": string[], "shouldOpenTicket": boolean, "suggestedTicketMessage": string}',
+    'Keep answer concise and actionable.',
+  ].join('\n')
+
+  const userPrompt = [
+    'FAQ and app context:',
+    hostedHelpContext,
+    '',
+    'User request:',
+    prompt,
+  ].join('\n')
+
+  try {
+    const response = await fetch(OPENROUTER_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mistralai/mistral-nemo',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.2,
+      }),
+    })
+
+    if (!response.ok) {
+      return buildHostedSupportHeuristic(prompt)
+    }
+
+    const payload = await response.json() as {
+      choices?: Array<{ message?: { content?: string } }>
+    }
+
+    const content = payload.choices?.[0]?.message?.content ?? ''
+    const json = extractFirstJsonObject(content)
+    const parsed = z
+      .object({
+        answer: z.string().min(1),
+        category: z.string().min(1),
+        priority: ticketPrioritySchema,
+        labels: z.array(z.string()).default([]),
+        followUpQuestions: z.array(z.string()).default([]),
+        shouldOpenTicket: z.boolean().default(true),
+        suggestedTicketMessage: z.string().min(1),
+      })
+      .parse(JSON.parse(json))
+
+    return {
+      ...parsed,
+      labels: parsed.labels.map((label) => label.trim()).filter(Boolean),
+      followUpQuestions: parsed.followUpQuestions.map((q) => q.trim()).filter(Boolean).slice(0, 4),
+    }
+  } catch {
+    return buildHostedSupportHeuristic(prompt)
+  }
+}
 
 function normalizeTicketLabels(value: string) {
   return Array.from(
@@ -68,6 +215,71 @@ async function assertOrganizerAssignee(db: Awaited<ReturnType<typeof getDb>>, as
   }
 
   return assignee[0].id
+}
+
+async function getAutomationOrganizerUserId(db: Awaited<ReturnType<typeof getDb>>) {
+  const organizer = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.role, 'organizer'))
+    .orderBy(desc(users.id))
+    .limit(1)
+
+  return organizer[0]?.id ?? null
+}
+
+function combineTicketLabels(...parts: Array<string | string[] | undefined>) {
+  const merged = parts
+    .flatMap((part) => {
+      if (!part) return [] as string[]
+      if (Array.isArray(part)) return part
+      return part.split(',')
+    })
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  return normalizeTicketLabels(merged.join(', '))
+}
+
+function buildAiFirstResponseMessage(result: HostedSupportAssistantResult) {
+  const lines = [
+    'Hi, my name is Nano and I will be assisting you today.',
+    '[AI First Responder]',
+    `Category: ${result.category}`,
+    `Priority: ${result.priority}`,
+    '',
+    result.answer,
+  ]
+
+  if (result.followUpQuestions.length > 0) {
+    lines.push('', 'Please reply with these details:')
+    for (const question of result.followUpQuestions) {
+      lines.push(`- ${question}`)
+    }
+  }
+
+  lines.push('', 'A staff member can step in at any time.')
+  return lines.join('\n')
+}
+
+function buildAiFollowUpMessage(result: HostedSupportAssistantResult) {
+  const lines = [
+    '[AI First Responder]',
+    `Category: ${result.category}`,
+    `Priority: ${result.priority}`,
+    '',
+    result.answer,
+  ]
+
+  if (result.followUpQuestions.length > 0) {
+    lines.push('', 'Please reply with these details:')
+    for (const question of result.followUpQuestions) {
+      lines.push(`- ${question}`)
+    }
+  }
+
+  lines.push('', 'A staff member can step in at any time.')
+  return lines.join('\n')
 }
 
 const getHostedBaseUrl = () => {
@@ -343,6 +555,7 @@ export const submitFoundaryApplicationFn = createServerFn({ method: 'POST' })
       briefEventDescription: data.briefEventDescription,
       budgetJustification: data.budgetJustification,
       termsAccepted: data.termsAccepted,
+      isApplicationTicket: true,
       createdByUserId: accountUser.id,
       isConfidential: true,
       status: 'pending' as const,
@@ -353,9 +566,27 @@ export const submitFoundaryApplicationFn = createServerFn({ method: 'POST' })
       created = await db.insert(foundaryApplications).values(applicationValues).returning()
     } catch (error) {
       if (!isMissingConfidentialityColumnsError(error)) throw error
-      const { createdByUserId: _createdByUserId, isConfidential: _isConfidential, ...legacyValues } = applicationValues
+      const {
+        createdByUserId: _createdByUserId,
+        isConfidential: _isConfidential,
+        isApplicationTicket: _isApplicationTicket,
+        ...legacyValues
+      } = applicationValues
       created = await db.insert(foundaryApplications).values(legacyValues).returning()
     }
+
+    await db.insert(foundaryApplicationMessages).values({
+      applicationId: created[0].id,
+      senderUserId: accountUser.id,
+      senderRole: accountUser.role,
+      message: [
+        `New hosted application submitted by ${data.applicantName}.`,
+        `Organization: ${normalizedOrganizationName}`,
+        `Event: ${data.eventName}`,
+        `Requested funds: $${data.requestedFunds}`,
+        `Planned months: ${data.plannedMonths}`,
+      ].join('\n'),
+    })
 
     const existingMembership = await db
       .select({ id: organizationMembers.id })
@@ -439,6 +670,7 @@ export const getMyFoundaryApplicationsFn = createServerFn({ method: 'GET' }).han
         requestedEvents: foundaryApplications.requestedEvents,
         fundingRequestAmount: foundaryApplications.fundingRequestAmount,
         status: foundaryApplications.status,
+        isApplicationTicket: foundaryApplications.isApplicationTicket,
         isConfidential: foundaryApplications.isConfidential,
         ticketClosed: foundaryApplications.ticketClosed,
         ticketClosedAt: foundaryApplications.ticketClosedAt,
@@ -462,7 +694,7 @@ export const getMyFoundaryApplicationsFn = createServerFn({ method: 'GET' }).han
       .orderBy(desc(foundaryApplications.createdAt))
   } catch (error) {
     if (!isMissingConfidentialityColumnsError(error)) throw error
-    return await db
+    const legacyRows = await db
       .select({
         id: foundaryApplications.id,
         applicantName: foundaryApplications.applicantName,
@@ -486,6 +718,11 @@ export const getMyFoundaryApplicationsFn = createServerFn({ method: 'GET' }).han
       .from(foundaryApplications)
       .where(inArray(foundaryApplications.organizationName, organizationNames))
       .orderBy(desc(foundaryApplications.createdAt))
+
+    return legacyRows.map((row) => ({
+      ...row,
+      isApplicationTicket: false,
+    }))
   }
 })
 
@@ -1106,6 +1343,7 @@ export const getFoundaryApplicationsFn = createServerFn({ method: 'GET' }).handl
         ticketLabels: foundaryApplications.ticketLabels,
         assignedToUserId: foundaryApplications.assignedToUserId,
         status: foundaryApplications.status,
+        isApplicationTicket: foundaryApplications.isApplicationTicket,
         createdByUserId: foundaryApplications.createdByUserId,
         isConfidential: foundaryApplications.isConfidential,
         ticketClosed: foundaryApplications.ticketClosed,
@@ -1162,6 +1400,7 @@ export const getFoundaryApplicationsFn = createServerFn({ method: 'GET' }).handl
       ticketClosed: false,
       ticketClosedAt: null,
       ticketClosedByUserId: null,
+      isApplicationTicket: false,
     }))
   }
 })
@@ -1755,6 +1994,9 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
     const db = await getDb()
     const cleanMessage = data.message.trim()
     const cleanLabels = normalizeTicketLabels(data.labels ?? '')
+    const aiResult = await getHostedSupportAssistantReply(cleanMessage)
+    const aiPriority = aiResult.priority
+    const combinedLabels = combineTicketLabels(cleanLabels, aiResult.category, aiResult.labels)
 
     const openTickets = await db
       .select({ id: hostedSupportTickets.id })
@@ -1770,8 +2012,8 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       .values({
         userId: currentUser.id,
         message: cleanMessage,
-        ticketPriority: data.priority ?? 'normal',
-        ticketLabels: cleanLabels,
+        ticketPriority: aiPriority,
+        ticketLabels: combinedLabels,
         status: 'open',
       })
       .returning({
@@ -1785,6 +2027,16 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       senderRole: currentUser.role,
       message: cleanMessage,
     })
+
+    const aiResponderId = await getAutomationOrganizerUserId(db)
+    if (aiResponderId) {
+      await db.insert(hostedSupportTicketMessages).values({
+        ticketId: created[0].id,
+        senderUserId: aiResponderId,
+        senderRole: 'organizer',
+        message: buildAiFirstResponseMessage(aiResult),
+      })
+    }
 
     const organizations = await db
       .select({ organizationName: organizationMembers.organizationName })
@@ -1827,8 +2079,10 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       details: {
         messageLength: cleanMessage.length,
         organizationCount: organizationNames.length,
-        priority: data.priority ?? 'normal',
-        labels: cleanLabels ? cleanLabels.split(', ') : [],
+        priority: aiPriority,
+        labels: combinedLabels ? combinedLabels.split(', ') : [],
+        aiCategory: aiResult.category,
+        aiFollowUpQuestions: aiResult.followUpQuestions,
       },
     })
 
@@ -1904,6 +2158,7 @@ export const postMyHostedSupportTicketMessageFn = createServerFn({ method: 'POST
     }
 
     const cleanMessage = data.message.trim()
+    const aiResult = await getHostedSupportAssistantReply(cleanMessage)
 
     const created = await db
       .insert(hostedSupportTicketMessages)
@@ -1917,12 +2172,34 @@ export const postMyHostedSupportTicketMessageFn = createServerFn({ method: 'POST
         id: hostedSupportTicketMessages.id,
       })
 
+    const currentTicket = await db
+      .select({
+        ticketLabels: hostedSupportTickets.ticketLabels,
+      })
+      .from(hostedSupportTickets)
+      .where(eq(hostedSupportTickets.id, data.ticketId))
+      .limit(1)
+
+    const combinedLabels = combineTicketLabels(currentTicket[0]?.ticketLabels ?? '', aiResult.category, aiResult.labels)
+
     await db
       .update(hostedSupportTickets)
       .set({
+        ticketPriority: aiResult.priority,
+        ticketLabels: combinedLabels,
         updatedAt: new Date(),
       })
       .where(eq(hostedSupportTickets.id, data.ticketId))
+
+    const aiResponderId = await getAutomationOrganizerUserId(db)
+    if (aiResponderId) {
+      await db.insert(hostedSupportTicketMessages).values({
+        ticketId: data.ticketId,
+        senderUserId: aiResponderId,
+        senderRole: 'organizer',
+        message: buildAiFollowUpMessage(aiResult),
+      })
+    }
 
     const fromName = currentUser.name?.trim() || currentUser.email
     const text = `${fromName} replied on hosted support ticket #${data.ticketId}\n\n${cleanMessage}`
@@ -1945,6 +2222,9 @@ export const postMyHostedSupportTicketMessageFn = createServerFn({ method: 'POST
       details: {
         messageLength: cleanMessage.length,
         messageId: created[0].id,
+        aiCategory: aiResult.category,
+        aiPriority: aiResult.priority,
+        aiFollowUpQuestions: aiResult.followUpQuestions,
       },
     })
 
@@ -1958,48 +2238,103 @@ export const getMyHostedSupportTicketsFn = createServerFn({ method: 'GET' }).han
   }
 
   const db = await getDb()
-  return await db
-    .select({
-      id: hostedSupportTickets.id,
-      userId: hostedSupportTickets.userId,
-      message: hostedSupportTickets.message,
-      ticketPriority: hostedSupportTickets.ticketPriority,
-      ticketLabels: hostedSupportTickets.ticketLabels,
-      assignedToUserId: hostedSupportTickets.assignedToUserId,
-      status: hostedSupportTickets.status,
-      closedAt: hostedSupportTickets.closedAt,
-      closedByUserId: hostedSupportTickets.closedByUserId,
-      createdAt: hostedSupportTickets.createdAt,
-      updatedAt: hostedSupportTickets.updatedAt,
-    })
-    .from(hostedSupportTickets)
-    .where(eq(hostedSupportTickets.userId, currentUser.id))
-    .orderBy(desc(hostedSupportTickets.createdAt))
+
+  try {
+    return await db
+      .select({
+        id: hostedSupportTickets.id,
+        userId: hostedSupportTickets.userId,
+        message: hostedSupportTickets.message,
+        ticketPriority: hostedSupportTickets.ticketPriority,
+        ticketLabels: hostedSupportTickets.ticketLabels,
+        assignedToUserId: hostedSupportTickets.assignedToUserId,
+        status: hostedSupportTickets.status,
+        closedAt: hostedSupportTickets.closedAt,
+        closedByUserId: hostedSupportTickets.closedByUserId,
+        createdAt: hostedSupportTickets.createdAt,
+        updatedAt: hostedSupportTickets.updatedAt,
+      })
+      .from(hostedSupportTickets)
+      .where(eq(hostedSupportTickets.userId, currentUser.id))
+      .orderBy(desc(hostedSupportTickets.createdAt))
+  } catch (error) {
+    if (!isMissingConfidentialityColumnsError(error)) throw error
+
+    const legacyRows = await db
+      .select({
+        id: hostedSupportTickets.id,
+        userId: hostedSupportTickets.userId,
+        message: hostedSupportTickets.message,
+        status: hostedSupportTickets.status,
+        closedAt: hostedSupportTickets.closedAt,
+        closedByUserId: hostedSupportTickets.closedByUserId,
+        createdAt: hostedSupportTickets.createdAt,
+        updatedAt: hostedSupportTickets.updatedAt,
+      })
+      .from(hostedSupportTickets)
+      .where(eq(hostedSupportTickets.userId, currentUser.id))
+      .orderBy(desc(hostedSupportTickets.createdAt))
+
+    return legacyRows.map((row) => ({
+      ...row,
+      ticketPriority: 'normal' as const,
+      ticketLabels: '',
+      assignedToUserId: null as number | null,
+    }))
+  }
 })
 
 export const getHostedSupportTicketsForAdminFn = createServerFn({ method: 'GET' }).handler(async () => {
   await requireOrganizerUser()
   const db = await getDb()
 
-  return await db
-    .select({
-      id: hostedSupportTickets.id,
-      userId: hostedSupportTickets.userId,
-      reporterName: users.name,
-      reporterEmail: users.email,
-      message: hostedSupportTickets.message,
-      ticketPriority: hostedSupportTickets.ticketPriority,
-      ticketLabels: hostedSupportTickets.ticketLabels,
-      assignedToUserId: hostedSupportTickets.assignedToUserId,
-      status: hostedSupportTickets.status,
-      closedAt: hostedSupportTickets.closedAt,
-      closedByUserId: hostedSupportTickets.closedByUserId,
-      createdAt: hostedSupportTickets.createdAt,
-      updatedAt: hostedSupportTickets.updatedAt,
-    })
-    .from(hostedSupportTickets)
-    .innerJoin(users, eq(hostedSupportTickets.userId, users.id))
-    .orderBy(desc(hostedSupportTickets.createdAt))
+  try {
+    return await db
+      .select({
+        id: hostedSupportTickets.id,
+        userId: hostedSupportTickets.userId,
+        reporterName: users.name,
+        reporterEmail: users.email,
+        message: hostedSupportTickets.message,
+        ticketPriority: hostedSupportTickets.ticketPriority,
+        ticketLabels: hostedSupportTickets.ticketLabels,
+        assignedToUserId: hostedSupportTickets.assignedToUserId,
+        status: hostedSupportTickets.status,
+        closedAt: hostedSupportTickets.closedAt,
+        closedByUserId: hostedSupportTickets.closedByUserId,
+        createdAt: hostedSupportTickets.createdAt,
+        updatedAt: hostedSupportTickets.updatedAt,
+      })
+      .from(hostedSupportTickets)
+      .innerJoin(users, eq(hostedSupportTickets.userId, users.id))
+      .orderBy(desc(hostedSupportTickets.createdAt))
+  } catch (error) {
+    if (!isMissingConfidentialityColumnsError(error)) throw error
+
+    const legacyRows = await db
+      .select({
+        id: hostedSupportTickets.id,
+        userId: hostedSupportTickets.userId,
+        reporterName: users.name,
+        reporterEmail: users.email,
+        message: hostedSupportTickets.message,
+        status: hostedSupportTickets.status,
+        closedAt: hostedSupportTickets.closedAt,
+        closedByUserId: hostedSupportTickets.closedByUserId,
+        createdAt: hostedSupportTickets.createdAt,
+        updatedAt: hostedSupportTickets.updatedAt,
+      })
+      .from(hostedSupportTickets)
+      .innerJoin(users, eq(hostedSupportTickets.userId, users.id))
+      .orderBy(desc(hostedSupportTickets.createdAt))
+
+    return legacyRows.map((row) => ({
+      ...row,
+      ticketPriority: 'normal' as const,
+      ticketLabels: '',
+      assignedToUserId: null as number | null,
+    }))
+  }
 })
 
 export const getHostedSupportTicketMessagesForAdminFn = createServerFn({ method: 'GET' }).handler(async () => {
