@@ -16,11 +16,8 @@ export function ApplyApplicationPage() {
     hcbUsername: '',
     preferredPaymentMethod: 'direct_hcb_transfer',
     eventName: '',
-    plannedMonths: '',
     expectedAttendees: '',
-    requestedFunds: '100',
     briefEventDescription: '',
-    budgetJustification: '',
     accountPassword: '',
     termsAccepted: false,
   })
@@ -45,11 +42,10 @@ export function ApplyApplicationPage() {
           hcbUsername: formData.hcbUsername || undefined,
           preferredPaymentMethod: formData.preferredPaymentMethod as 'direct_hcb_transfer' | 'receipt_reimbursement',
           eventName: formData.eventName,
-          plannedMonths: formData.plannedMonths,
           expectedAttendees: Number(formData.expectedAttendees),
-          requestedFunds: Number(formData.requestedFunds),
+          requestedFunds: 1,
           briefEventDescription: formData.briefEventDescription,
-          budgetJustification: formData.budgetJustification,
+          budgetJustification: 'Will be provided after the first application review',
           accountPassword: formData.accountPassword,
           termsAccepted: formData.termsAccepted,
         },
@@ -92,7 +88,7 @@ export function ApplyApplicationPage() {
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary">Application form</p>
                 <h2 className="mt-2 font-display text-3xl text-foreground">Submit funding request</h2>
-                <p className="mt-2 text-sm text-muted-foreground">Complete all sections carefully. This form also creates your hosted sign-in account.</p>
+                <p className="mt-2 text-sm text-muted-foreground">Start with the basic details. Staff will follow up for funding timing, amount, and budget details if needed.</p>
               </div>
 
               <Field label="Full name" required><input className={inputStyle} value={formData.applicantName} onChange={(e) => setFormData({ ...formData, applicantName: e.target.value })} /></Field>
@@ -130,21 +126,8 @@ export function ApplyApplicationPage() {
                 </select>
               </Field>
               <Field label="Event name" required><input className={inputStyle} value={formData.eventName} onChange={(e) => setFormData({ ...formData, eventName: e.target.value })} /></Field>
-              <Field label="Planned month(s)" required><input className={inputStyle} value={formData.plannedMonths} onChange={(e) => setFormData({ ...formData, plannedMonths: e.target.value })} placeholder="e.g. March and April 2026" /></Field>
               <Field label="Expected attendees" required><input className={inputStyle} type="number" value={formData.expectedAttendees} onChange={(e) => setFormData({ ...formData, expectedAttendees: e.target.value })} /></Field>
-              <Field label="Requested funds (USD)" required>
-                <input
-                  className={inputStyle}
-                  type="number"
-                  min={1}
-                  max={100000}
-                  value={formData.requestedFunds}
-                  onChange={(e) => setFormData({ ...formData, requestedFunds: e.target.value })}
-                />
-              </Field>
-              <p className="-mt-2 text-xs text-muted-foreground">Enter the total funds you are requesting for this application.</p>
               <Field label="Brief event description" required><textarea className={`${inputStyle} min-h-24`} value={formData.briefEventDescription} onChange={(e) => setFormData({ ...formData, briefEventDescription: e.target.value })} /></Field>
-              <Field label="Budget justification" required><textarea className={`${inputStyle} min-h-24`} value={formData.budgetJustification} onChange={(e) => setFormData({ ...formData, budgetJustification: e.target.value })} /></Field>
 
               <label className="flex items-start gap-3 text-sm text-muted-foreground">
                 <input className="mt-1 accent-primary" type="checkbox" checked={formData.termsAccepted} onChange={(e) => setFormData({ ...formData, termsAccepted: e.target.checked })} required />

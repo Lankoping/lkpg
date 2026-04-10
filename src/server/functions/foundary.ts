@@ -55,6 +55,30 @@ type HostedSupportAssistantResult = {
   suggestedTicketMessage: string
 }
 
+function buildTeamMemberFollowUpQuestions() {
+  return [
+    'What is the affected team member email?',
+    'Are they in the same organization as you?',
+    'What exact error message do they see on login?',
+  ]
+}
+
+function normalizeAssistantFollowUpQuestions(prompt: string, questions: string[]) {
+  const loweredPrompt = prompt.toLowerCase()
+  const isTeamMemberContext = /(team\s*member|teammate|my\s+team|our\s+team|team\s+members)/.test(loweredPrompt)
+  if (isTeamMemberContext) {
+    return buildTeamMemberFollowUpQuestions()
+  }
+
+  return Array.from(
+    new Set(
+      questions
+        .map((question) => question.trim())
+        .filter(Boolean),
+    ),
+  ).slice(0, 3)
+}
+
 function extractFirstJsonObject(raw: string) {
   const trimmed = raw.trim()
   const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
@@ -79,7 +103,7 @@ function buildHostedSupportHeuristic(message: string): HostedSupportAssistantRes
   else if (/apply|application|funding|request/.test(lowered)) category = 'application'
   else if (/error|crash|bug|broken|failed|500|403|404/.test(lowered)) category = 'technical-issue'
 
-  let priority: HostedSupportAssistantResult['priority'] = 'normal'
+  let priority: HostedSupportAssistantResult['priority'] = 'low'
   if (/urgent|asap|blocked|production down|cannot access|can't access|outage/.test(lowered)) {
     priority = 'high'
   }
@@ -96,6 +120,8 @@ function buildHostedSupportHeuristic(message: string): HostedSupportAssistantRes
         'Which page or feature were you using?',
       ]
     : ['Can you share exact steps to reproduce this?', 'Did this start after a recent change?']
+
+  const normalizedFollowUpQuestions = normalizeAssistantFollowUpQuestions(message, followUpQuestions)
 
   return {
     summary:
@@ -115,7 +141,7 @@ function buildHostedSupportHeuristic(message: string): HostedSupportAssistantRes
     category,
     priority,
     labels,
-    followUpQuestions,
+    followUpQuestions: normalizedFollowUpQuestions,
     shouldOpenTicket: true,
     suggestedTicketMessage: message.trim() || 'Please describe your issue and expected outcome.',
   }
@@ -136,6 +162,10 @@ async function getHostedSupportAssistantReply(message: string): Promise<HostedSu
     'You are a hosted support triage assistant for Lan Foundary.',
     'Use the provided FAQ and product info as ground truth when possible.',
     'Classify category and priority. Ask for missing details when needed.',
+    'Keep followUpQuestions short and limited to the 1-3 most important questions.',
+    'Do not repeat the same request in both answer and followUpQuestions.',
+    'If reporter mentions a team member or teammate in the same organization, do not ask them to open a separate ticket.',
+    'In that case ask for the affected member email, whether it is the same organization, and the exact error text.',
     'If the question can be solved by FAQ without staff action, set shouldOpenTicket to false.',
     'Return only JSON with this shape:',
     '{"summary": string, "answer": string, "category": string, "priority": "low"|"normal"|"high"|"urgent", "labels": string[], "followUpQuestions": string[], "shouldOpenTicket": boolean, "suggestedTicketMessage": string}',
@@ -190,11 +220,13 @@ async function getHostedSupportAssistantReply(message: string): Promise<HostedSu
       })
       .parse(JSON.parse(json))
 
+    const normalizedFollowUpQuestions = normalizeAssistantFollowUpQuestions(prompt, parsed.followUpQuestions)
+
     return {
       ...parsed,
       summary: parsed.summary.trim(),
       labels: parsed.labels.map((label) => label.trim()).filter(Boolean),
-      followUpQuestions: parsed.followUpQuestions.map((q) => q.trim()).filter(Boolean).slice(0, 4),
+      followUpQuestions: normalizedFollowUpQuestions,
     }
   } catch {
     return buildHostedSupportHeuristic(prompt)
@@ -303,41 +335,24 @@ function deriveApplicationTicketLabels(input: {
 }
 
 function buildAiIntroductionMessage() {
-  return ['Hi, my name is Nano and I will be assisting you today.', '[AI First Responder]'].join('\n')
+  return 'Nano: Hi, my name is Nano and I will be assisting you today.'
 }
 
-function buildAiFollowUpMessage(result: HostedSupportAssistantResult) {
+function buildAiFollowUpMessage(result: HostedSupportAssistantResult, shownPriority: HostedSupportAssistantResult['priority'] = result.priority) {
   if (result.followUpQuestions.length === 0) {
     return [
-      '[AI First Responder]',
-      `Summary: ${result.summary}`,
-      `Category: ${result.category}`,
-      `Priority: ${result.priority}`,
-      '',
-      `Thanks, I think we\'ve got all information needed. I have categorised this ticket as ${result.category} and have set the priority to ${result.priority}.`,
-      result.answer,
-      '',
-      'A staff member can step in at any time.',
+      `Nano: Thanks, I think we\'ve got all information needed. I have categorised this ticket as ${result.category} and set the priority to ${shownPriority}.`,
     ].join('\n')
   }
 
   const lines = [
-    '[AI First Responder]',
-    `Summary: ${result.summary}`,
-    `Category: ${result.category}`,
-    `Priority: ${result.priority}`,
-    '',
-    result.answer,
+    'Nano: Need a bit more detail:',
   ]
 
-  if (result.followUpQuestions.length > 0) {
-    lines.push('', 'Please reply with these details:')
-    for (const question of result.followUpQuestions) {
-      lines.push(`- ${question}`)
-    }
+  for (const question of result.followUpQuestions) {
+    lines.push(`- ${question}`)
   }
 
-  lines.push('', 'A staff member can step in at any time.')
   return lines.join('\n')
 }
 
@@ -2059,7 +2074,6 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
     const db = await getDb()
     const cleanMessage = data.message.trim()
     const aiResult = await getHostedSupportAssistantReply(cleanMessage)
-    const aiPriority = aiResult.priority
     const combinedLabels = combineTicketLabels(aiResult.category, aiResult.labels)
 
     const openTickets = await db
@@ -2075,8 +2089,8 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       .insert(hostedSupportTickets)
       .values({
         userId: currentUser.id,
-        message: cleanMessage,
-        ticketPriority: aiPriority,
+        message: aiResult.summary,
+        ticketPriority: 'low',
         ticketLabels: combinedLabels,
         status: 'open',
       })
@@ -2105,7 +2119,7 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
         ticketId: created[0].id,
         senderUserId: aiResponderId,
         senderRole: 'organizer',
-        message: buildAiFollowUpMessage(aiResult),
+        message: buildAiFollowUpMessage(aiResult, 'low'),
       })
     }
 
@@ -2150,7 +2164,7 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       details: {
         messageLength: cleanMessage.length,
         organizationCount: organizationNames.length,
-        priority: aiPriority,
+        priority: 'low',
         labels: combinedLabels ? combinedLabels.split(', ') : [],
         aiCategory: aiResult.category,
         aiFollowUpQuestions: aiResult.followUpQuestions,
@@ -2256,6 +2270,7 @@ export const postMyHostedSupportTicketMessageFn = createServerFn({ method: 'POST
     await db
       .update(hostedSupportTickets)
       .set({
+        message: aiResult.summary,
         ticketPriority: aiResult.priority,
         ticketLabels: combinedLabels,
         updatedAt: new Date(),

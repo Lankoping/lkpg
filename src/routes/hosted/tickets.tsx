@@ -80,7 +80,14 @@ function splitTicketLabels(value: string | null | undefined) {
 }
 
 function isNanoMessage(message: { senderRole: string; message: string }) {
-  return message.senderRole === 'organizer' && message.message.startsWith('[AI First Responder]')
+  if (message.senderRole !== 'organizer') return false
+  const body = message.message
+  return (
+    body.includes('[AI First Responder]') ||
+    body.startsWith('Hi, my name is Nano and I will be assisting you today.') ||
+    body.startsWith('Nano:') ||
+    (body.includes('Summary:') && body.includes('Category:') && body.includes('Priority:'))
+  )
 }
 
 function getMessageSenderLabel(message: { senderRole: string; senderName?: string | null; senderEmail?: string | null; message: string }) {

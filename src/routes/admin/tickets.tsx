@@ -19,7 +19,14 @@ import {
 } from '../../server/functions/foundary'
 
 function isNanoMessage(message: { senderRole: string; message: string }) {
-  return message.senderRole === 'organizer' && message.message.startsWith('[AI First Responder]')
+  if (message.senderRole !== 'organizer') return false
+  const body = message.message
+  return (
+    body.includes('[AI First Responder]') ||
+    body.startsWith('Hi, my name is Nano and I will be assisting you today.') ||
+    body.startsWith('Nano:') ||
+    (body.includes('Summary:') && body.includes('Category:') && body.includes('Priority:'))
+  )
 }
 
 function getMessageSenderLabel(message: { senderRole: string; senderName?: string | null; senderEmail?: string | null; message: string }) {
@@ -29,7 +36,7 @@ function getMessageSenderLabel(message: { senderRole: string; senderName?: strin
 
 function extractAiSummary(thread: Array<{ senderRole: string; message: string }>) {
   for (const message of thread) {
-    if (message.senderRole !== 'organizer' || !message.message.startsWith('[AI First Responder]')) continue
+    if (!isNanoMessage(message)) continue
 
     const summaryLine = message.message
       .split('\n')
@@ -264,7 +271,7 @@ function AdminTicketsPage() {
       : scoped.filter((ticket) => {
       const thread = messagesBySupportTicket.get(ticket.id) ?? []
       const latest = thread[0]
-      const haystack = `${ticket.id} ${ticket.reporterName || ''} ${ticket.reporterEmail || ''} ${latest?.message || ticket.message} ${ticket.ticketPriority || ''} ${ticket.ticketLabels || ''} ${organizerById.get(ticket.assignedToUserId ?? -1)?.name || ''}`.toLowerCase()
+      const haystack = `${ticket.id} ${ticket.reporterName || ''} ${ticket.reporterEmail || ''} ${ticket.message || ''} ${latest?.message || ''} ${ticket.ticketPriority || ''} ${ticket.ticketLabels || ''} ${organizerById.get(ticket.assignedToUserId ?? -1)?.name || ''}`.toLowerCase()
       return haystack.includes(q)
       })
 
@@ -990,6 +997,7 @@ function AdminTicketsPage() {
                   const selected = selectedSupportTicket?.id === ticket.id
                   const thread = messagesBySupportTicket.get(ticket.id) ?? []
                   const latest = thread[0]
+                  const summaryPreview = ticket.message?.trim() || 'No summary yet'
                   return (
                     <button
                       key={ticket.id}
@@ -1030,7 +1038,10 @@ function AdminTicketsPage() {
                           ))}
                         </div>
                       )}
-                      <p className="mt-1 truncate text-[11px] text-muted-foreground">{latest?.message || ticket.message}</p>
+                      <p className="mt-1 truncate text-[11px] text-foreground/80">{summaryPreview}</p>
+                      {latest?.message && latest.message !== ticket.message && (
+                        <p className="mt-1 truncate text-[11px] text-muted-foreground">Latest: {latest.message}</p>
+                      )}
                     </button>
                   )
                 })}
