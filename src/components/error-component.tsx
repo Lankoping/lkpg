@@ -21,7 +21,7 @@ export function ErrorComponent({
       href: location.href,
       errorMessage: error.message,
       errorStack: error.stack,
-      errorCause: error.cause,
+      errorCause: (error as Error & { cause?: unknown }).cause,
       errorComponentStack: info?.componentStack,
     },
   }

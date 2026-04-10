@@ -13,6 +13,7 @@ import {
   hostedSupportTickets,
   organizationInvitations,
   organizationMembers,
+  storageFiles,
   users,
 } from '../db/schema'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
@@ -91,6 +92,22 @@ function extractFirstJsonObject(raw: string) {
   }
 
   return candidate.slice(firstBrace, lastBrace + 1)
+}
+
+function hasRestrictedFlags(message: string): boolean {
+  return /\bflag\s*=\s*(application|funding)\b/i.test(message)
+}
+
+async function hasStaffReplied(db: Awaited<ReturnType<typeof getDb>>, ticketId: number): Promise<boolean> {
+  const staffReply = await db
+    .select({ id: hostedSupportTicketMessages.id })
+    .from(hostedSupportTicketMessages)
+    .where(and(
+      eq(hostedSupportTicketMessages.ticketId, ticketId),
+      eq(hostedSupportTicketMessages.senderRole, 'organizer')
+    ))
+    .limit(1)
+  return staffReply.length > 0
 }
 
 function buildHostedSupportHeuristic(message: string): HostedSupportAssistantResult {
@@ -2073,8 +2090,16 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
 
     const db = await getDb()
     const cleanMessage = data.message.trim()
-    const aiResult = await getHostedSupportAssistantReply(cleanMessage)
-    const combinedLabels = combineTicketLabels(aiResult.category, aiResult.labels)
+    
+    // Check for restricted flags - AI should not process these
+    const hasRestrictedFlagsInMessage = hasRestrictedFlags(cleanMessage)
+    const aiResult = !hasRestrictedFlagsInMessage 
+      ? await getHostedSupportAssistantReply(cleanMessage)
+      : buildHostedSupportHeuristic('restricted topic')
+    
+    const combinedLabels = hasRestrictedFlagsInMessage 
+      ? 'staff-only, restricted-topic'
+      : combineTicketLabels(aiResult.category, aiResult.labels)
 
     const openTickets = await db
       .select({ id: hostedSupportTickets.id })

@@ -83,7 +83,7 @@ export function detectFileCategory(fileName: string, contentType: string | null 
 }
 
 export function StoragePageShell({
-  storage,
+  storage: _storage,
   activeTab,
   children,
 }: {

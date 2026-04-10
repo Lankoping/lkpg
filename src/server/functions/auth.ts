@@ -5,7 +5,7 @@ import { users, activityLogs, posts, tickets, loginTwoFactorCodes } from '../db/
 import { and, eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie, getCookie, deleteCookie } from '@tanstack/react-start/server'
-import { createHash, randomInt } from 'node:crypto'
+import { createHash, randomInt, randomUUID } from 'node:crypto'
 import {
   enforceDemoOwnUserScope,
   getDemoAccountEmails,
@@ -27,7 +27,7 @@ const maskEmail = (email: string) => {
 
 const hashTwoFactorCode = (code: string) => createHash('sha256').update(code).digest('hex')
 
-async function sendTwoFactorCodeEmail(targetEmail: string, code: string) {
+async function getMailerTransport() {
   const host = process.env.SMTP_HOST
   const port = Number(process.env.SMTP_PORT || 587)
   const user = process.env.SMTP_USER
@@ -38,12 +38,16 @@ async function sendTwoFactorCodeEmail(targetEmail: string, code: string) {
   }
 
   const nodemailer = await import('nodemailer')
-  const transporter = nodemailer.createTransport({
+  return nodemailer.createTransport({
     host,
     port,
     secure: port === 465,
     auth: { user, pass },
   })
+}
+
+async function sendTwoFactorCodeEmail(targetEmail: string, code: string) {
+  const transporter = await getMailerTransport()
 
   await transporter.sendMail({
     from: 'foundary@lankoping.se',
@@ -51,6 +55,36 @@ async function sendTwoFactorCodeEmail(targetEmail: string, code: string) {
     subject: 'Your Lan Foundary login code',
     text: `Your Lan Foundary verification code is ${code}. It expires in 10 minutes.`,
     html: `<p>Your Lan Foundary verification code is <strong>${code}</strong>.</p><p>It expires in 10 minutes.</p>`,
+  })
+}
+
+async function sendAdminPasswordResetEmail({
+  targetEmail,
+  temporaryPassword,
+  requestedBy,
+}: {
+  targetEmail: string
+  temporaryPassword: string
+  requestedBy: string
+}) {
+  const transporter = await getMailerTransport()
+
+  await transporter.sendMail({
+    from: 'foundary@lankoping.se',
+    to: targetEmail,
+    subject: 'Lan Foundary password reset',
+    text: [
+      `A staff member (${requestedBy}) reset your Lan Foundary password.`,
+      '',
+      `Temporary password: ${temporaryPassword}`,
+      '',
+      'Please sign in and change your password immediately.',
+    ].join('\n'),
+    html: [
+      `<p>A staff member (<strong>${requestedBy}</strong>) reset your Lan Foundary password.</p>`,
+      `<p><strong>Temporary password:</strong> <code>${temporaryPassword}</code></p>`,
+      '<p>Please sign in and change your password immediately.</p>',
+    ].join(''),
   })
 }
 
@@ -299,6 +333,62 @@ export const changePasswordFn = createServerFn({ method: "POST" })
       entityId: data.userId,
       details: {
         selfService: currentUser.id === data.userId,
+      },
+    })
+
+    return { success: true }
+  })
+
+export const adminResetUserPasswordFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z.object({
+      userId: z.number(),
+    }).parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+
+    if (isDemoTesterUser(currentUser)) {
+      throw new Error('Forbidden in demo mode')
+    }
+
+    const targetUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, data.userId))
+      .limit(1)
+
+    if (!targetUser[0]) {
+      throw new Error('User not found')
+    }
+
+    if (targetUser[0].active === false) {
+      throw new Error('Target account is locked')
+    }
+
+    const temporaryPassword = `Reset-${randomInt(100000, 999999)}-${randomUUID().slice(0, 6)}`
+
+    await db
+      .update(users)
+      .set({ passwordHash: hashPassword(temporaryPassword) })
+      .where(eq(users.id, data.userId))
+
+    const requestedBy = currentUser.name?.trim() || currentUser.email || `User ${currentUser.id}`
+    await sendAdminPasswordResetEmail({
+      targetEmail: targetUser[0].email,
+      temporaryPassword,
+      requestedBy,
+    })
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'user.password.reset_email',
+      entityType: 'user',
+      entityId: data.userId,
+      details: {
+        targetEmail: targetUser[0].email,
       },
     })
 

@@ -487,14 +487,39 @@ async function getPrimaryOrganizationNameForUser(user: { id: number; email: stri
 
 async function requireStorageOrgAccess(user: { id: number; email: string | null }, organizationName: string) {
   const db = await getDb()
-  const membership = await db
-    .select({ id: organizationMembers.id })
-    .from(organizationMembers)
-    .where(and(eq(organizationMembers.userId, user.id), eq(organizationMembers.organizationName, organizationName)))
-    .limit(1)
 
-  if (!membership[0]) {
-    throw new Error('You can only use storage for organizations you belong to')
+  try {
+    const membership = await db
+      .select({
+        id: organizationMembers.id,
+        canAccessStorage: organizationMembers.canAccessStorage,
+      })
+      .from(organizationMembers)
+      .where(and(eq(organizationMembers.userId, user.id), eq(organizationMembers.organizationName, organizationName)))
+      .limit(1)
+
+    if (!membership[0]) {
+      throw new Error('You can only use storage for organizations you belong to')
+    }
+
+    if (!membership[0].canAccessStorage) {
+      throw new Error('You do not have storage access for this organization')
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : ''
+    if (!message.includes('can_access_storage')) {
+      throw error
+    }
+
+    const legacyMembership = await db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(and(eq(organizationMembers.userId, user.id), eq(organizationMembers.organizationName, organizationName)))
+      .limit(1)
+
+    if (!legacyMembership[0]) {
+      throw new Error('You can only use storage for organizations you belong to')
+    }
   }
 }
 

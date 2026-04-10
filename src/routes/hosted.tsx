@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, useLocation, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { getSessionFn, logoutFn } from '../server/functions/auth'
-import { acceptOrganizationInviteFn } from '../server/functions/foundary'
+import { acceptOrganizationInviteFn, getHostedAccessControlFn } from '../server/functions/foundary'
 import {
   Ticket,
   Sparkles,
@@ -31,7 +31,9 @@ export const Route = createFileRoute('/hosted')({
       throw redirect({ to: '/admin' })
     }
 
-    return { user }
+    const accessControl = user ? await getHostedAccessControlFn() : null
+
+    return { user, accessControl }
   },
   component: HostedLayout,
 })
@@ -60,7 +62,7 @@ function HostedNavItem({ href, label, icon, isActive }: HostedNavItemProps) {
 }
 
 function HostedLayout() {
-  const { user } = Route.useLoaderData()
+  const { user, accessControl } = Route.useLoaderData()
   const search = Route.useSearch()
   const location = useLocation()
   const inviteToken = search.invite
@@ -102,6 +104,10 @@ function HostedLayout() {
   }, [inviteToken, router, user])
 
   const currentPath = location.pathname
+  const canManageMembers = Boolean(accessControl?.permissions?.canManageMembers)
+  const canRequestFunds = Boolean(accessControl?.permissions?.canRequestFunds)
+  const canManageTickets = Boolean(accessControl?.permissions?.canManageTickets)
+  const canAccessStorage = Boolean(accessControl?.permissions?.canAccessStorage)
   const inStorageSection = currentPath.startsWith('/hosted/perks/storage')
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
@@ -177,7 +183,7 @@ function HostedLayout() {
           <nav className="flex-1 py-4 overflow-y-auto">
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Perks</p>
-              {inStorageSection && (
+              {canAccessStorage && inStorageSection && (
                 <HostedNavItem
                   href="/hosted/perks-hub"
                   label="Back to perks"
@@ -192,12 +198,14 @@ function HostedLayout() {
                   isActive={currentPath === '/hosted/perks-hub'}
                 />
               )}
-              <HostedNavItem
-                href="/hosted/perks/storage"
-                label="Storage"
-                icon={<Gauge className="w-5 h-5" />}
-                isActive={currentPath === '/hosted/perks/storage' || currentPath.startsWith('/hosted/perks/storage/')}
-              />
+              {canAccessStorage && (
+                <HostedNavItem
+                  href="/hosted/perks/storage"
+                  label="Storage"
+                  icon={<Gauge className="w-5 h-5" />}
+                  isActive={currentPath === '/hosted/perks/storage' || currentPath.startsWith('/hosted/perks/storage/')}
+                />
+              )}
               {inStorageSection && (
                 <>
                   <HostedNavItem
@@ -233,28 +241,32 @@ function HostedLayout() {
                 <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Management</p>
                 <HostedNavItem
                   href="/hosted/team"
-                  label="Team"
+                  label={canManageMembers ? 'Team' : 'Team (read-only)'}
                   icon={<Users className="w-5 h-5" />}
                   isActive={currentPath === '/hosted/team'}
                 />
-                <HostedNavItem
-                  href="/hosted/request-funds"
-                  label="Request funds"
-                  icon={<HandCoins className="w-5 h-5" />}
-                  isActive={currentPath === '/hosted/request-funds'}
-                />
+                {canRequestFunds && (
+                  <HostedNavItem
+                    href="/hosted/request-funds"
+                    label="Request funds"
+                    icon={<HandCoins className="w-5 h-5" />}
+                    isActive={currentPath === '/hosted/request-funds'}
+                  />
+                )}
               </div>
             )}
 
             {!inStorageSection && (
               <div className="mt-8">
                 <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Get help</p>
-                <HostedNavItem
-                  href="/hosted/tickets"
-                  label="Tickets"
-                  icon={<Ticket className="w-5 h-5" />}
-                  isActive={currentPath === '/hosted/tickets'}
-                />
+                {canManageTickets && (
+                  <HostedNavItem
+                    href="/hosted/tickets"
+                    label="Tickets"
+                    icon={<Ticket className="w-5 h-5" />}
+                    isActive={currentPath === '/hosted/tickets'}
+                  />
+                )}
               </div>
             )}
           </nav>
@@ -303,7 +315,7 @@ function HostedLayout() {
             </button>
 
             <div className="hidden sm:flex items-center gap-2 text-sm">
-              <a href="/hosted/tickets" className="text-muted-foreground hover:text-foreground transition-colors">
+              <a href={canManageTickets ? '/hosted/tickets' : '/hosted/team'} className="text-muted-foreground hover:text-foreground transition-colors">
                 Hosted
               </a>
               <span className="text-muted">/</span>

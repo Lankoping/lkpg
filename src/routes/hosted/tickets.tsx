@@ -9,6 +9,7 @@ import {
   getMyHostedSupportTicketsFn,
   getMyHostedSupportTicketMessagesFn,
   getMyFoundaryApplicationMessagesFn,
+  getHostedAccessControlFn,
   getMyFoundaryApplicationsFn,
   postMyHostedSupportTicketMessageFn,
   postFoundaryApplicationMessageFn,
@@ -25,12 +26,17 @@ export const Route = createFileRoute('/hosted/tickets')({
       throw redirect({ to: '/admin' })
     }
 
-    const [applications, messages, supportTickets, supportMessages] = await Promise.all([
+    const [applications, messages, supportTickets, supportMessages, accessControl] = await Promise.all([
       getMyFoundaryApplicationsFn(),
       getMyFoundaryApplicationMessagesFn(),
       getMyHostedSupportTicketsFn(),
       getMyHostedSupportTicketMessagesFn(),
+      getHostedAccessControlFn(),
     ])
+
+    if (!accessControl.permissions.canManageTickets) {
+      throw redirect({ to: '/hosted/team' })
+    }
 
     return { applications, messages, supportTickets, supportMessages }
   },
@@ -127,7 +133,6 @@ function HostedTicketsPage() {
   const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
   const [closingApplicationId, setClosingApplicationId] = useState<number | null>(null)
   const [creatingSupportTicket, setCreatingSupportTicket] = useState(false)
-  const [closingSupportTicketId, setClosingSupportTicketId] = useState<number | null>(null)
   const [busySupportTicketId, setBusySupportTicketId] = useState<number | null>(null)
 
   const formatDateTime = (value: string | Date | null | undefined) => {
@@ -370,21 +375,6 @@ function HostedTicketsPage() {
       setSupportActionError(error?.message || 'Could not create ticket')
     } finally {
       setCreatingSupportTicket(false)
-    }
-  }
-
-  const closeSupportTicket = async (ticketId: number) => {
-    setSupportActionError('')
-    setSupportSuccessMessage('')
-    setClosingSupportTicketId(ticketId)
-    try {
-      await closeMyHostedSupportTicketFn({ data: { ticketId } })
-      setSupportSuccessMessage('Ticket closed.')
-      await router.invalidate()
-    } catch (error: any) {
-      setSupportActionError(error?.message || 'Could not close ticket')
-    } finally {
-      setClosingSupportTicketId(null)
     }
   }
 
@@ -699,17 +689,6 @@ function HostedTicketsPage() {
                       ))}
                     </div>
                   </div>
-
-                  {selectedSupportTicket.status === 'open' && (
-                    <button
-                      type="button"
-                      onClick={() => closeSupportTicket(selectedSupportTicket.id)}
-                      disabled={closingSupportTicketId === selectedSupportTicket.id}
-                      className="rounded-xl border border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground disabled:opacity-60"
-                    >
-                      {closingSupportTicketId === selectedSupportTicket.id ? 'Closing...' : 'Close ticket'}
-                    </button>
-                  )}
                 </div>
 
                 <div className="mt-4 rounded-xl border border-border bg-background p-4">

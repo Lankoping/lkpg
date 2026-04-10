@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Gauge, LockKeyhole, PlusCircle, FolderOpen, Link2, Settings, Search, CheckCircle2, Clock, XCircle } from 'lucide-react'
 import { getSessionFn } from '../../../server/functions/auth'
 import { activateStoragePerkFn, getMyStoragePerkFn, requestStoragePerkFn } from '../../../server/functions/storage'
+import { getHostedAccessControlFn } from '../../../server/functions/foundary'
 import { StoragePageShell, formatBytes, storageTabRoutes, type StorageState } from '../../../components/storage-page-shell'
 
 const EMPTY_STORAGE_STATE: StorageState = {
@@ -31,6 +32,11 @@ export const Route = createFileRoute('/hosted/perks/storage')({
     }
     if (user.role === 'organizer') {
       throw redirect({ to: '/admin' })
+    }
+
+    const accessControl = await getHostedAccessControlFn()
+    if (!accessControl.permissions.canAccessStorage) {
+      throw redirect({ to: '/hosted/team' })
     }
 
     try {

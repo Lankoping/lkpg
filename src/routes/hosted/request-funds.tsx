@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
-import { createHostedFundingRequestFn, getMyFoundaryApplicationsFn } from '../../server/functions/foundary'
+import { createHostedFundingRequestFn, getHostedAccessControlFn, getMyFoundaryApplicationsFn } from '../../server/functions/foundary'
 
 export const Route = createFileRoute('/hosted/request-funds')({
   loader: async () => {
@@ -13,15 +13,23 @@ export const Route = createFileRoute('/hosted/request-funds')({
       throw redirect({ to: '/admin' })
     }
 
-    const applications = await getMyFoundaryApplicationsFn()
-    return { applications }
+    const [applications, accessControl] = await Promise.all([
+      getMyFoundaryApplicationsFn(),
+      getHostedAccessControlFn(),
+    ])
+
+    if (!accessControl.permissions.canRequestFunds) {
+      throw redirect({ to: '/hosted/team' })
+    }
+
+    return { applications, accessControl }
   },
   component: HostedRequestFundsPage,
 })
 
 function HostedRequestFundsPage() {
   const router = useRouter()
-  const { applications } = Route.useLoaderData()
+  const { applications, accessControl } = Route.useLoaderData()
   const [fundingBusy, setFundingBusy] = useState(false)
   const [fundingMessage, setFundingMessage] = useState('')
   const [fundingError, setFundingError] = useState('')
@@ -77,6 +85,11 @@ function HostedRequestFundsPage() {
     <section className="rounded-2xl border border-border bg-card p-5">
       <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Request funds</p>
       <p className="mt-2 text-sm text-muted-foreground">Create a new funding request for your hosted organization.</p>
+      {accessControl.organizationName && (
+        <p className="mt-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+          Organization state: {accessControl.organizationState.status}
+        </p>
+      )}
 
       {!primaryOrganization ? (
         <div className="mt-4 rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">

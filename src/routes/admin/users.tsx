@@ -9,6 +9,7 @@ import {
   updateUserFn,
   getDemoAccountsFn,
   setDemoAccountsActiveFn,
+  adminResetUserPasswordFn,
 } from '../../server/functions/auth'
 
 export const Route = createFileRoute('/admin/users')({
@@ -54,6 +55,8 @@ function AdminUsers() {
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [isTogglingDemo, setIsTogglingDemo] = useState(false)
   const [demoToggleError, setDemoToggleError] = useState('')
+  const [resettingPasswordId, setResettingPasswordId] = useState<number | null>(null)
+  const [resetPasswordMessage, setResetPasswordMessage] = useState('')
 
   const handleChangePassword = async (userId: number, e: React.FormEvent) => {
     e.preventDefault()
@@ -143,6 +146,19 @@ function AdminUsers() {
     }
   }
 
+  const handleResetPasswordEmail = async (userId: number) => {
+    setResetPasswordMessage('')
+    setResettingPasswordId(userId)
+    try {
+      await adminResetUserPasswordFn({ data: { userId } })
+      setResetPasswordMessage('Password reset email sent.')
+    } catch (err: any) {
+      setResetPasswordMessage(err?.message || 'Could not send password reset email')
+    } finally {
+      setResettingPasswordId(null)
+    }
+  }
+
   const filteredUsers = users.filter(user => {
     const q = searchQuery.toLowerCase()
     return (
@@ -162,8 +178,9 @@ function AdminUsers() {
       <div>
         <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-foreground">Members</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Create organizers and hosts, rename users, and copy IDs for digital signing.
+          Create organizers and hosts, rename users, send reset-password emails, and copy IDs for digital signing.
         </p>
+        {resetPasswordMessage && <p className="text-sm text-muted-foreground mt-2">{resetPasswordMessage}</p>}
       </div>
 
       {/* Demo accounts */}
@@ -320,6 +337,14 @@ function AdminUsers() {
                     Change password
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => handleResetPasswordEmail(user.id)}
+                  disabled={resettingPasswordId === user.id}
+                  className="px-3 py-1.5 text-xs border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 rounded transition-colors disabled:opacity-50"
+                >
+                  {resettingPasswordId === user.id ? 'Sending reset...' : 'Send reset email'}
+                </button>
                 {user.id !== currentUser?.id && (
                   <button
                     type="button"

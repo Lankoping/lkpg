@@ -196,6 +196,10 @@ export const organizationMembers = pgTable('organization_members', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').notNull().references(() => users.id),
   organizationName: text('organization_name').notNull(),
+  canManageMembers: boolean('can_manage_members').default(true).notNull(),
+  canRequestFunds: boolean('can_request_funds').default(true).notNull(),
+  canManageTickets: boolean('can_manage_tickets').default(true).notNull(),
+  canAccessStorage: boolean('can_access_storage').default(true).notNull(),
   addedBy: integer('added_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
@@ -231,6 +235,9 @@ export const hostedSupportTickets = pgTable('hosted_support_tickets', {
   status: text('status', { enum: ['open', 'closed'] }).default('open').notNull(),
   closedAt: timestamp('closed_at'),
   closedByUserId: integer('closed_by_user_id').references(() => users.id),
+  aiHasSufficientInfo: boolean('ai_has_sufficient_info').default(false).notNull(),
+  shouldForwardToStaff: boolean('should_forward_to_staff').default(false).notNull(),
+  aiSummary: text('ai_summary'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
