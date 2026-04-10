@@ -79,6 +79,15 @@ function splitTicketLabels(value: string | null | undefined) {
     .filter(Boolean)
 }
 
+function isNanoMessage(message: { senderRole: string; message: string }) {
+  return message.senderRole === 'organizer' && message.message.startsWith('[AI First Responder]')
+}
+
+function getMessageSenderLabel(message: { senderRole: string; senderName?: string | null; senderEmail?: string | null; message: string }) {
+  if (isNanoMessage(message)) return 'Nano'
+  return message.senderName || message.senderEmail || (message.senderRole === 'organizer' ? 'Staff' : 'Hosted')
+}
+
 function PriorityBadge({ priority }: { priority: 'low' | 'normal' | 'high' | 'urgent' }) {
   const className =
     priority === 'urgent'
@@ -103,8 +112,6 @@ function HostedTicketsPage() {
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({})
   const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<number, string>>({})
   const [supportDraft, setSupportDraft] = useState('')
-  const [supportPriority, setSupportPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal')
-  const [supportLabels, setSupportLabels] = useState('')
 
   const [applicationActionError, setApplicationActionError] = useState('')
   const [supportActionError, setSupportActionError] = useState('')
@@ -167,7 +174,7 @@ function HostedTicketsPage() {
         key: `app:${application.id}`,
         type: 'application',
         status: application.ticketClosed ? 'closed' : 'open',
-        idLabel: `APP-${application.id}`,
+        idLabel: `#${application.id}`,
         title: application.eventName,
         subtitle: application.organizationName,
         preview: latest ? `${latest.senderRole === 'organizer' ? 'Staff' : 'You'}: ${latest.message}` : 'No messages yet',
@@ -180,7 +187,7 @@ function HostedTicketsPage() {
       key: `sup:${ticket.id}`,
       type: 'support',
       status: ticket.status === 'open' ? 'open' : 'closed',
-      idLabel: `SUP-${ticket.id}`,
+      idLabel: `#${ticket.id}`,
       title: 'General support',
       subtitle: 'Hosted support desk',
       preview: ticket.message,
@@ -347,13 +354,9 @@ function HostedTicketsPage() {
       await createHostedSupportTicketFn({
         data: {
           message,
-          priority: supportPriority,
-          labels: normalizeTicketLabelsInput(supportLabels),
         },
       })
       setSupportDraft('')
-      setSupportLabels('')
-      setSupportPriority('normal')
       setSupportSuccessMessage('Ticket created. Staff will follow up in this inbox.')
       await router.invalidate()
     } catch (error: any) {
@@ -441,33 +444,6 @@ function HostedTicketsPage() {
             placeholder="Describe issue, urgency, and expected outcome..."
             className="mt-2 min-h-24 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
           />
-
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            <label className="space-y-1 text-sm">
-              <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Priority</span>
-              <select
-                value={supportPriority}
-                onChange={(event) => setSupportPriority(event.target.value as 'low' | 'normal' | 'high' | 'urgent')}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
-              >
-                {priorityOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-1 text-sm md:col-span-2">
-              <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Labels</span>
-              <input
-                value={supportLabels}
-                onChange={(event) => setSupportLabels(event.target.value)}
-                placeholder="billing, bug, onboarding"
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
-              />
-            </label>
-          </div>
 
           {supportActionError && <p className="mt-2 text-sm text-red-400">{supportActionError}</p>}
           {supportSuccessMessage && <p className="mt-2 text-sm text-emerald-400">{supportSuccessMessage}</p>}
@@ -618,7 +594,7 @@ function HostedTicketsPage() {
               <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h2 className="font-display text-2xl text-foreground">APP-{selectedApplication.id}</h2>
+                    <h2 className="font-display text-2xl text-foreground">#{selectedApplication.id}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {selectedApplication.organizationName} · {selectedApplication.eventName}
                     </p>
@@ -645,7 +621,7 @@ function HostedTicketsPage() {
                       .map((msg) => (
                         <div key={msg.id} className="rounded-xl border border-border bg-card p-3 text-sm">
                           <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                            {msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {msg.senderName || msg.senderEmail} · {formatDateTime(msg.createdAt)}
+                            {isNanoMessage(msg) ? 'AI' : msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {getMessageSenderLabel(msg)} · {formatDateTime(msg.createdAt)}
                           </p>
                           <p className="mt-1 whitespace-pre-wrap text-foreground/90">{msg.message}</p>
                         </div>
@@ -705,7 +681,7 @@ function HostedTicketsPage() {
               <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h2 className="font-display text-2xl text-foreground">SUP-{selectedSupportTicket.id}</h2>
+                    <h2 className="font-display text-2xl text-foreground">#{selectedSupportTicket.id}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">General support ticket · Created {formatDateTime(selectedSupportTicket.createdAt)}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <PriorityBadge priority={selectedSupportTicket.ticketPriority ?? 'normal'} />
@@ -740,7 +716,7 @@ function HostedTicketsPage() {
                         .map((msg) => (
                           <div key={msg.id} className="rounded-xl border border-border bg-card p-3 text-sm">
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              {msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {msg.senderName || msg.senderEmail} · {formatDateTime(msg.createdAt)}
+                              {isNanoMessage(msg) ? 'AI' : msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {getMessageSenderLabel(msg)} · {formatDateTime(msg.createdAt)}
                             </p>
                             <p className="mt-1 whitespace-pre-wrap text-foreground/90">{msg.message}</p>
                           </div>

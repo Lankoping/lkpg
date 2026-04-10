@@ -160,7 +160,7 @@ export const foundaryApplications = pgTable('foundary_applications', {
   cityCountry: text('city_country').notNull(),
   organizationName: text('organization_name').notNull(),
   organizationStatus: text('organization_status', {
-    enum: ['registered_nonprofit', 'equivalent_in_my_country', 'individual_group_for_reimbursements_only'],
+    enum: ['registered_nonprofit_at_hackclub_bank', 'individual_group_for_reimbursements_only'],
   }).notNull(),
   hasHcbAccount: boolean('has_hcb_account').default(false).notNull(),
   hcbUsername: text('hcb_username'),

@@ -18,6 +18,31 @@ import {
   updateHostedSupportTicketMetadataFn,
 } from '../../server/functions/foundary'
 
+function isNanoMessage(message: { senderRole: string; message: string }) {
+  return message.senderRole === 'organizer' && message.message.startsWith('[AI First Responder]')
+}
+
+function getMessageSenderLabel(message: { senderRole: string; senderName?: string | null; senderEmail?: string | null; message: string }) {
+  if (isNanoMessage(message)) return 'Nano'
+  return message.senderName || message.senderEmail || (message.senderRole === 'organizer' ? 'Staff' : 'Hosted')
+}
+
+function extractAiSummary(thread: Array<{ senderRole: string; message: string }>) {
+  for (const message of thread) {
+    if (message.senderRole !== 'organizer' || !message.message.startsWith('[AI First Responder]')) continue
+
+    const summaryLine = message.message
+      .split('\n')
+      .find((line) => line.toLowerCase().startsWith('summary:'))
+
+    if (summaryLine) {
+      return summaryLine.slice('summary:'.length).trim()
+    }
+  }
+
+  return ''
+}
+
 export const Route = createFileRoute('/admin/tickets')({
   beforeLoad: async () => {
     const user = await getSessionFn()
@@ -606,7 +631,7 @@ function AdminTicketsPage() {
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">APP-{application.id}</p>
+                        <p className="text-sm font-medium text-foreground">#{application.id}</p>
                         <div className="flex flex-wrap justify-end gap-1.5">
                           <QueueStateBadge state={state} />
                           <PriorityBadge priority={application.ticketPriority ?? 'normal'} />
@@ -636,7 +661,7 @@ function AdminTicketsPage() {
                       )}
                       {latest && (
                         <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                          {latest.senderRole === 'organizer' ? 'Staff' : 'Hosted'}: {latest.message}
+                          {isNanoMessage(latest) ? 'AI' : latest.senderRole === 'organizer' ? 'Staff' : 'Hosted'}: {latest.message}
                         </p>
                       )}
                     </button>
@@ -654,7 +679,7 @@ function AdminTicketsPage() {
             <div className="p-5">
               {selectedApplication ? (
                 <>
-                  <h3 className="font-display text-2xl text-foreground">APP-{selectedApplication.id}</h3>
+                  <h3 className="font-display text-2xl text-foreground">#{selectedApplication.id}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {selectedApplication.organizationName} · {selectedApplication.eventName}
                   </p>
@@ -769,7 +794,7 @@ function AdminTicketsPage() {
                         .map((msg) => (
                           <div key={msg.id} className="rounded-xl border border-border bg-card p-3 text-sm">
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              {msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {msg.senderName || msg.senderEmail} · {formatDateTime(msg.createdAt)}
+                              {isNanoMessage(msg) ? 'AI' : msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {getMessageSenderLabel(msg)} · {formatDateTime(msg.createdAt)}
                             </p>
                             <p className="mt-1 whitespace-pre-wrap text-foreground/90">{msg.message}</p>
                           </div>
@@ -975,7 +1000,7 @@ function AdminTicketsPage() {
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">SUP-{ticket.id}</p>
+                        <p className="text-sm font-medium text-foreground">#{ticket.id}</p>
                         <div className="flex flex-wrap justify-end gap-1.5">
                           <span
                             className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${
@@ -1021,7 +1046,7 @@ function AdminTicketsPage() {
             <div className="p-5">
               {selectedSupportTicket ? (
                 <>
-                  <h3 className="font-display text-2xl text-foreground">SUP-{selectedSupportTicket.id}</h3>
+                  <h3 className="font-display text-2xl text-foreground">#{selectedSupportTicket.id}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Reporter: {selectedSupportTicket.reporterName || 'Unknown'} ({selectedSupportTicket.reporterEmail || 'No email'})
                   </p>
@@ -1133,7 +1158,7 @@ function AdminTicketsPage() {
                           .map((msg) => (
                             <div key={msg.id} className="rounded-xl border border-border bg-card p-3 text-sm">
                               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                                {msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {msg.senderName || msg.senderEmail} · {formatDateTime(msg.createdAt)}
+                                  {isNanoMessage(msg) ? 'AI' : msg.senderRole === 'organizer' ? 'Staff' : 'Hosted'} · {getMessageSenderLabel(msg)} · {formatDateTime(msg.createdAt)}
                               </p>
                               <p className="mt-1 whitespace-pre-wrap text-foreground/90">{msg.message}</p>
                             </div>

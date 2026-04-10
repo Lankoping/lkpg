@@ -1,5 +1,10 @@
 Lan Foundary is a web-based system for LAN communities and nonprofits. It manages tickets, members, events, funding requests, and sponsor applications without depending on unnecessary external services.
 
+## Environment variables
+- `DATABASE_URL` is required.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, and `SMTP_PASS` are required for email delivery.
+- `OPENROUTER_API_KEY` enables the AI support first responder for hosted support tickets.
+
 ## First admin on an empty database
 - No demo user is created automatically.
 - Follow [docs/first-admin-user.md](docs/first-admin-user.md) to create the first admin account manually.

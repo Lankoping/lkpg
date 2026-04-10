@@ -11,7 +11,7 @@ export function ApplyApplicationPage() {
     age: '',
     cityCountry: '',
     organizationName: '',
-    organizationStatus: 'registered_nonprofit',
+    organizationStatus: 'registered_nonprofit_at_hackclub_bank',
     hasHcbAccount: false,
     hcbUsername: '',
     preferredPaymentMethod: 'direct_hcb_transfer',
@@ -39,8 +39,7 @@ export function ApplyApplicationPage() {
           cityCountry: formData.cityCountry,
           organizationName: formData.organizationName,
           organizationStatus: formData.organizationStatus as
-            | 'registered_nonprofit'
-            | 'equivalent_in_my_country'
+            | 'registered_nonprofit_at_hackclub_bank'
             | 'individual_group_for_reimbursements_only',
           hasHcbAccount: formData.hasHcbAccount,
           hcbUsername: formData.hcbUsername || undefined,
@@ -112,9 +111,8 @@ export function ApplyApplicationPage() {
               <Field label="City and country" required><input className={inputStyle} value={formData.cityCountry} onChange={(e) => setFormData({ ...formData, cityCountry: e.target.value })} /></Field>
               <Field label="Organization or nonprofit status" required>
                 <select className={inputStyle} value={formData.organizationStatus} onChange={(e) => setFormData({ ...formData, organizationStatus: e.target.value })}>
-                  <option value="registered_nonprofit">Registered nonprofit</option>
-                  <option value="equivalent_in_my_country">Equivalent in my country</option>
-                  <option value="individual_group_for_reimbursements_only">Individual/group for reimbursements only</option>
+                  <option value="registered_nonprofit_at_hackclub_bank">Registered nonprofit at Hack Club Bank</option>
+                  <option value="individual_group_for_reimbursements_only">Individual group for reimbursements only</option>
                 </select>
               </Field>
               <Field label="Organization name" required><input className={inputStyle} value={formData.organizationName} onChange={(e) => setFormData({ ...formData, organizationName: e.target.value })} /></Field>

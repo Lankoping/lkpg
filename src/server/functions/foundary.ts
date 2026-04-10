@@ -45,6 +45,7 @@ const ticketPrioritySchema = z.enum(['low', 'normal', 'high', 'urgent'])
 const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
 type HostedSupportAssistantResult = {
+  summary: string
   answer: string
   category: string
   priority: 'low' | 'normal' | 'high' | 'urgent'
@@ -97,6 +98,16 @@ function buildHostedSupportHeuristic(message: string): HostedSupportAssistantRes
     : ['Can you share exact steps to reproduce this?', 'Did this start after a recent change?']
 
   return {
+    summary:
+      category === 'storage'
+        ? 'Storage issue: check limits, file path, and CDN or upload configuration.'
+        : category === 'account-access'
+          ? 'Account access issue: verify login, password, and 2FA details.'
+          : category === 'billing'
+            ? 'Billing issue: verify payment method, receipts, and requested amount.'
+            : category === 'technical-issue'
+              ? 'Technical issue: gather exact error text and reproduction steps.'
+              : 'General support request: more details needed to triage.',
     answer:
       category === 'storage'
         ? 'This looks like a storage-related question. Check the Storage section for limits, upload flow, and CDN links. If the issue remains, open a ticket with error text and file details.'
@@ -127,7 +138,7 @@ async function getHostedSupportAssistantReply(message: string): Promise<HostedSu
     'Classify category and priority. Ask for missing details when needed.',
     'If the question can be solved by FAQ without staff action, set shouldOpenTicket to false.',
     'Return only JSON with this shape:',
-    '{"answer": string, "category": string, "priority": "low"|"normal"|"high"|"urgent", "labels": string[], "followUpQuestions": string[], "shouldOpenTicket": boolean, "suggestedTicketMessage": string}',
+    '{"summary": string, "answer": string, "category": string, "priority": "low"|"normal"|"high"|"urgent", "labels": string[], "followUpQuestions": string[], "shouldOpenTicket": boolean, "suggestedTicketMessage": string}',
     'Keep answer concise and actionable.',
   ].join('\n')
 
@@ -168,6 +179,7 @@ async function getHostedSupportAssistantReply(message: string): Promise<HostedSu
     const json = extractFirstJsonObject(content)
     const parsed = z
       .object({
+        summary: z.string().min(1),
         answer: z.string().min(1),
         category: z.string().min(1),
         priority: ticketPrioritySchema,
@@ -180,6 +192,7 @@ async function getHostedSupportAssistantReply(message: string): Promise<HostedSu
 
     return {
       ...parsed,
+      summary: parsed.summary.trim(),
       labels: parsed.labels.map((label) => label.trim()).filter(Boolean),
       followUpQuestions: parsed.followUpQuestions.map((q) => q.trim()).filter(Boolean).slice(0, 4),
     }
@@ -241,30 +254,76 @@ function combineTicketLabels(...parts: Array<string | string[] | undefined>) {
   return normalizeTicketLabels(merged.join(', '))
 }
 
-function buildAiFirstResponseMessage(result: HostedSupportAssistantResult) {
-  const lines = [
-    'Hi, my name is Nano and I will be assisting you today.',
-    '[AI First Responder]',
-    `Category: ${result.category}`,
-    `Priority: ${result.priority}`,
-    '',
-    result.answer,
-  ]
+function deriveApplicationTicketLabels(input: {
+  organizationStatus: string
+  hasHcbAccount: boolean
+  preferredPaymentMethod: string
+  requestedFunds: number
+  eventName: string
+}) {
+  const labels = new Set<string>()
 
-  if (result.followUpQuestions.length > 0) {
-    lines.push('', 'Please reply with these details:')
-    for (const question of result.followUpQuestions) {
-      lines.push(`- ${question}`)
-    }
+  labels.add('application')
+  labels.add('funding-request')
+
+  if (input.organizationStatus === 'registered_nonprofit_at_hackclub_bank') {
+    labels.add('nonprofit')
+  }
+  if (input.organizationStatus === 'individual_group_for_reimbursements_only') {
+    labels.add('reimbursement-only')
   }
 
-  lines.push('', 'A staff member can step in at any time.')
-  return lines.join('\n')
+  if (input.hasHcbAccount) {
+    labels.add('hcb')
+  } else {
+    labels.add('no-hcb')
+  }
+
+  if (input.preferredPaymentMethod === 'direct_hcb_transfer') {
+    labels.add('direct-transfer')
+  } else {
+    labels.add('reimbursement')
+  }
+
+  if (input.requestedFunds >= 15000) {
+    labels.add('large-request')
+  } else if (input.requestedFunds >= 5000) {
+    labels.add('medium-request')
+  } else {
+    labels.add('small-request')
+  }
+
+  const loweredEvent = input.eventName.toLowerCase()
+  if (/workshop|talk|lecture|seminar/.test(loweredEvent)) labels.add('workshop')
+  if (/music|concert|gig|dj/.test(loweredEvent)) labels.add('music')
+  if (/gaming|game|tournament/.test(loweredEvent)) labels.add('gaming')
+  if (/kids|youth|family/.test(loweredEvent)) labels.add('family')
+
+  return Array.from(labels)
+}
+
+function buildAiIntroductionMessage() {
+  return ['Hi, my name is Nano and I will be assisting you today.', '[AI First Responder]'].join('\n')
 }
 
 function buildAiFollowUpMessage(result: HostedSupportAssistantResult) {
+  if (result.followUpQuestions.length === 0) {
+    return [
+      '[AI First Responder]',
+      `Summary: ${result.summary}`,
+      `Category: ${result.category}`,
+      `Priority: ${result.priority}`,
+      '',
+      `Thanks, I think we\'ve got all information needed. I have categorised this ticket as ${result.category} and have set the priority to ${result.priority}.`,
+      result.answer,
+      '',
+      'A staff member can step in at any time.',
+    ].join('\n')
+  }
+
   const lines = [
     '[AI First Responder]',
+    `Summary: ${result.summary}`,
     `Category: ${result.category}`,
     `Priority: ${result.priority}`,
     '',
@@ -464,7 +523,7 @@ const applicationSchema = z.object({
   age: z.coerce.number().int().min(13),
   cityCountry: z.string().min(1),
   organizationName: z.string().min(1),
-  organizationStatus: z.enum(['registered_nonprofit', 'equivalent_in_my_country', 'individual_group_for_reimbursements_only']),
+  organizationStatus: z.enum(['registered_nonprofit_at_hackclub_bank', 'individual_group_for_reimbursements_only']),
   hasHcbAccount: z.boolean(),
   hcbUsername: z.string().optional(),
   preferredPaymentMethod: z.enum(['direct_hcb_transfer', 'receipt_reimbursement']),
@@ -556,6 +615,13 @@ export const submitFoundaryApplicationFn = createServerFn({ method: 'POST' })
       budgetJustification: data.budgetJustification,
       termsAccepted: data.termsAccepted,
       isApplicationTicket: true,
+      ticketLabels: deriveApplicationTicketLabels({
+        organizationStatus: data.organizationStatus,
+        hasHcbAccount: data.hasHcbAccount,
+        preferredPaymentMethod: data.preferredPaymentMethod,
+        requestedFunds: data.requestedFunds,
+        eventName: data.eventName,
+      }).join(', '),
       createdByUserId: accountUser.id,
       isConfidential: true,
       status: 'pending' as const,
@@ -570,6 +636,7 @@ export const submitFoundaryApplicationFn = createServerFn({ method: 'POST' })
         createdByUserId: _createdByUserId,
         isConfidential: _isConfidential,
         isApplicationTicket: _isApplicationTicket,
+        ticketLabels: _ticketLabels,
         ...legacyValues
       } = applicationValues
       created = await db.insert(foundaryApplications).values(legacyValues).returning()
@@ -1980,8 +2047,6 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
     z
       .object({
         message: z.string().min(1),
-        priority: ticketPrioritySchema.optional(),
-        labels: z.string().optional(),
       })
       .parse(data),
   )
@@ -1993,10 +2058,9 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
 
     const db = await getDb()
     const cleanMessage = data.message.trim()
-    const cleanLabels = normalizeTicketLabels(data.labels ?? '')
     const aiResult = await getHostedSupportAssistantReply(cleanMessage)
     const aiPriority = aiResult.priority
-    const combinedLabels = combineTicketLabels(cleanLabels, aiResult.category, aiResult.labels)
+    const combinedLabels = combineTicketLabels(aiResult.category, aiResult.labels)
 
     const openTickets = await db
       .select({ id: hostedSupportTickets.id })
@@ -2028,13 +2092,20 @@ export const createHostedSupportTicketFn = createServerFn({ method: 'POST' })
       message: cleanMessage,
     })
 
-    const aiResponderId = await getAutomationOrganizerUserId(db)
+    const aiResponderId = (await getAutomationOrganizerUserId(db)) ?? currentUser.id
     if (aiResponderId) {
       await db.insert(hostedSupportTicketMessages).values({
         ticketId: created[0].id,
         senderUserId: aiResponderId,
         senderRole: 'organizer',
-        message: buildAiFirstResponseMessage(aiResult),
+        message: buildAiIntroductionMessage(),
+      })
+
+      await db.insert(hostedSupportTicketMessages).values({
+        ticketId: created[0].id,
+        senderUserId: aiResponderId,
+        senderRole: 'organizer',
+        message: buildAiFollowUpMessage(aiResult),
       })
     }
 
@@ -2191,7 +2262,7 @@ export const postMyHostedSupportTicketMessageFn = createServerFn({ method: 'POST
       })
       .where(eq(hostedSupportTickets.id, data.ticketId))
 
-    const aiResponderId = await getAutomationOrganizerUserId(db)
+    const aiResponderId = (await getAutomationOrganizerUserId(db)) ?? currentUser.id
     if (aiResponderId) {
       await db.insert(hostedSupportTicketMessages).values({
         ticketId: data.ticketId,
