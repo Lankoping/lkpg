@@ -1,105 +1,192 @@
-import { CalendarDays, CircleDollarSign, FileText, Shield, Users } from 'lucide-react'
+import { Calendar, DollarSign, HelpCircle, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
 
 export function HomeApplicationPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-30 h-16 border-b border-border bg-card">
-        <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.28em] text-primary">Lan Foundary</p>
-            <h1 className="font-display text-2xl text-foreground">Host application portal</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <a href="/hosted" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Hosted sign in
+      <header className="sticky top-0 z-30 border-b border-border bg-background">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+          <h1 className="text-lg font-semibold text-foreground">Lan Foundary</h1>
+          <div className="flex items-center gap-6 text-sm">
+            <a href="/hosted" className="text-muted-foreground hover:text-foreground transition-colors">
+              Track application
             </a>
-            <a href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Staff sign in
+            <a href="/login" className="text-muted-foreground hover:text-foreground transition-colors">
+              Staff portal
             </a>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl space-y-6 px-6 py-8">
-        <section className="space-y-6">
-          <div className="rounded-2xl border border-border bg-card p-6">
-            <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary">Lan Foundary</p>
-            <h2 className="mt-4 font-display text-4xl leading-tight text-foreground md:text-5xl">
-              Funding applications for LAN and community events.
-            </h2>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-              This portal helps organizers request support for upcoming events. Applications are reviewed manually by staff.
-            </p>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border border-border bg-background p-4">
-                <CircleDollarSign className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-sm font-medium text-foreground">Funding support</p>
-                <p className="mt-1 text-sm text-muted-foreground">Request event funding with clear budget and attendance details.</p>
-              </div>
-              <div className="rounded-xl border border-border bg-background p-4">
-                <Users className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-sm font-medium text-foreground">Hosted access</p>
-                <p className="mt-1 text-sm text-muted-foreground">Track application progress and follow staff review notes after submission.</p>
+      <main className="mx-auto max-w-4xl px-6 py-12">
+        {/* Overview Section */}
+        <section className="mb-12">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Event Funding Application</h2>
+          <p className="text-base text-muted-foreground leading-relaxed max-w-3xl mb-6">
+            This portal allows organizers of LAN events and community activities to apply for funding support. All applications are reviewed manually by our team based on organizational details, event scope, and budget justification.
+          </p>
+          <div className="flex gap-3">
+            <a href="/apply" className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
+              Submit application
+            </a>
+            <a href="/hosted" className="px-4 py-2 border border-border text-sm font-medium hover:bg-card">
+              Track your application
+            </a>
+          </div>
+        </section>
+
+        {/* Quick Facts */}
+        <section className="mb-12 grid gap-4 md:grid-cols-3">
+          <div className="border border-border p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground">Timeline</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">Submit at least 2 months before your event date for full review consideration.</p>
+          </div>
+          <div className="border border-border p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign className="h-5 w-5 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground">Requirements</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">Include event schedule, attendee estimates, organization details, and detailed budget breakdown.</p>
+          </div>
+          <div className="border border-border p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="h-5 w-5 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground">Review Process</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">Manual review by staff. Decisions may include follow-up questions or requests for clarification.</p>
+          </div>
+        </section>
+
+        {/* Application Process */}
+        <section className="mb-10">
+          <h3 className="text-lg font-semibold text-foreground mb-3">Application Process</h3>
+
+          <div className="border border-border divide-y divide-border">
+            <div className="p-3">
+              <div className="flex gap-2">
+                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center border border-border text-[10px] font-semibold">1</span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Prepare Your Information</p>
+                  <p className="text-xs text-muted-foreground">2-3 hours. Collect organization details, event info, attendance estimate, and budget.</p>
+                </div>
               </div>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <a href="/apply" className="rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                Go to application form
-              </a>
-              <a href="/hosted" className="rounded-2xl border border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground">
-                Open hosted portal
-              </a>
+            <div className="p-3">
+              <div className="flex gap-2">
+                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center border border-border text-[10px] font-semibold">2</span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Submit Application</p>
+                  <p className="text-xs text-muted-foreground">Submit at least 2 months before the event with complete and specific details.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3">
+              <div className="flex gap-2">
+                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center border border-border text-[10px] font-semibold">3</span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Staff Review</p>
+                  <p className="text-xs text-muted-foreground">2-4 weeks. Manual review of impact, budget quality, and organizational readiness.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3">
+              <div className="flex gap-2">
+                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center border border-border text-[10px] font-semibold">4</span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Decision & Next Steps</p>
+                  <p className="text-xs text-muted-foreground">Outcome is approved, conditional, or denied. Track updates in Hosted.</p>
+                </div>
+              </div>
             </div>
           </div>
+        </section>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border border-border bg-card p-5">
-              <div className="flex items-center gap-3">
-                <CalendarDays className="h-5 w-5 text-primary" />
-                <p className="font-medium text-foreground">Submission timing</p>
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">Submit at least two months before your event date to allow for full review.</p>
+        {/* Required Information */}
+        <section className="mb-12">
+          <h3 className="text-xl font-bold text-foreground mb-4">Required Information</h3>
+          <div className="grid gap-4 md:grid-cols-2 mb-6">
+            <div className="border border-border p-4">
+              <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+                Organization Details
+              </h4>
+              <ul className="text-sm text-muted-foreground space-y-2">
+                <li>• Organization name and contact</li>
+                <li>• Event name and date</li>
+                <li>• Venue information</li>
+                <li>• Expected attendance</li>
+              </ul>
             </div>
-            <div className="rounded-xl border border-border bg-card p-5">
-              <div className="flex items-center gap-3">
-                <Shield className="h-5 w-5 text-primary" />
-                <p className="font-medium text-foreground">Manual review</p>
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">Approvals are not automatic. Staff manually checks eligibility and budget context.</p>
+            <div className="border border-border p-4">
+              <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+                Budget Information
+              </h4>
+              <ul className="text-sm text-muted-foreground space-y-2">
+                <li>• Total funding requested</li>
+                <li>• Itemized budget breakdown</li>
+                <li>• Cost justifications</li>
+                <li>• Other funding sources (if any)</li>
+              </ul>
             </div>
           </div>
+        </section>
 
-          <div className="rounded-2xl border border-border bg-card p-6">
-            <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary">Before you apply</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="flex gap-3 rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
-                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>Prepare organization details, attendee estimate, and event schedule.</span>
-              </div>
-              <div className="flex gap-3 rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
-                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>Include requested amount and a clear budget justification.</span>
-              </div>
-              <div className="flex gap-3 rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
-                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>Approval is manual and can include follow-up questions.</span>
-              </div>
-              <div className="flex gap-3 rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
-                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>After submission, use Hosted to track status and updates.</span>
-              </div>
-            </div>
+        {/* Storage Perk */}
+        <section className="mb-12 border border-border bg-card p-6">
+          <div className="flex gap-3 mb-3">
+            <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <h3 className="font-semibold text-foreground">Storage Allocation</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            After your application is approved, you can request up to 5GB of hosted storage for event-related materials. Upload access will be provided once you accept the storage terms and conditions. This storage remains available to you for the duration specified in your agreement.
+          </p>
+        </section>
 
-            <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium text-foreground">Storage perk</p>
-                <span className="rounded-full border border-amber-500/40 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-amber-200">
-                  Available on request
-                </span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">Request up to 5GB of hosted storage after approval. Upload access is disabled until staff approves and terms are accepted.</p>
-            </div>
+        {/* FAQ Section */}
+        <section>
+          <h3 className="text-xl font-bold text-foreground mb-6">Frequently Asked Questions</h3>
+          <div className="space-y-4">
+            <details className="group border border-border p-4 cursor-pointer hover:bg-card transition-colors">
+              <summary className="flex items-center justify-between font-semibold text-foreground">
+                <span>What's the minimum advance notice required?</span>
+                <HelpCircle className="h-5 w-5 text-muted-foreground group-open:hidden" />
+              </summary>
+              <p className="text-sm text-muted-foreground mt-3">We require a minimum of 2 months advance notice before your event. This allows our team sufficient time to review your application thoroughly and provide feedback if needed.</p>
+            </details>
+            <details className="group border border-border p-4 cursor-pointer hover:bg-card transition-colors">
+              <summary className="flex items-center justify-between font-semibold text-foreground">
+                <span>How long does the review process take?</span>
+                <HelpCircle className="h-5 w-5 text-muted-foreground group-open:hidden" />
+              </summary>
+              <p className="text-sm text-muted-foreground mt-3">Review timelines vary depending on application complexity and current volume. Typically, you can expect a response within 2-4 weeks of submission. You can monitor your application status in the Hosted portal.</p>
+            </details>
+            <details className="group border border-border p-4 cursor-pointer hover:bg-card transition-colors">
+              <summary className="flex items-center justify-between font-semibold text-foreground">
+                <span>Can I use the funding for virtual events?</span>
+                <HelpCircle className="h-5 w-5 text-muted-foreground group-open:hidden" />
+              </summary>
+              <p className="text-sm text-muted-foreground mt-3">This platform is designed for LAN events and in-person community activities. Virtual events have different funding considerations. Please contact staff if you're unsure whether your event qualifies.</p>
+            </details>
+            <details className="group border border-border p-4 cursor-pointer hover:bg-card transition-colors">
+              <summary className="flex items-center justify-between font-semibold text-foreground">
+                <span>What happens if my application is rejected?</span>
+                <HelpCircle className="h-5 w-5 text-muted-foreground group-open:hidden" />
+              </summary>
+              <p className="text-sm text-muted-foreground mt-3">If your application is not approved, you'll receive feedback explaining the reasons and potential next steps. You may be able to reapply with modified details or at a future date.</p>
+            </details>
+            <details className="group border border-border p-4 cursor-pointer hover:bg-card transition-colors">
+              <summary className="flex items-center justify-between font-semibold text-foreground">
+                <span>Is this funding guaranteed?</span>
+                <HelpCircle className="h-5 w-5 text-muted-foreground group-open:hidden" />
+              </summary>
+              <p className="text-sm text-muted-foreground mt-3">No. All applications undergo a manual review process. Approval is not automatic and depends on various factors including eligibility, budget justification, and available resources.</p>
+            </details>
           </div>
         </section>
       </main>

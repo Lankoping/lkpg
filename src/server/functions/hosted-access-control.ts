@@ -55,34 +55,50 @@ export const getHostedAccessControlFn = createServerFn({ method: 'GET' }).handle
         canRequestFunds: organizationMembers.canRequestFunds,
         canManageTickets: organizationMembers.canManageTickets,
         canAccessStorage: organizationMembers.canAccessStorage,
+        createdAt: organizationMembers.createdAt,
       })
       .from(organizationMembers)
       .where(eq(organizationMembers.userId, currentUser.id))
       .orderBy(desc(organizationMembers.createdAt))
-      .limit(1)
 
-    if (!memberships[0]) {
+    if (memberships.length === 0) {
       return defaultHostedAccessControl
     }
 
-    const organizationName = normalizeOrg(memberships[0].organizationName)
-    const latestApplication = await db
-      .select({ status: foundaryApplications.status })
-      .from(foundaryApplications)
-      .where(eq(foundaryApplications.organizationName, organizationName))
-      .orderBy(desc(foundaryApplications.createdAt))
-      .limit(1)
+    const candidates = await Promise.all(
+      memberships.map(async (membership) => {
+        const organizationName = normalizeOrg(membership.organizationName)
+        const latestApplication = await db
+          .select({ status: foundaryApplications.status, createdAt: foundaryApplications.createdAt })
+          .from(foundaryApplications)
+          .where(eq(foundaryApplications.organizationName, organizationName))
+          .orderBy(desc(foundaryApplications.createdAt))
+          .limit(1)
+
+        return {
+          membership,
+          organizationName,
+          applicationStatus: latestApplication[0]?.status ?? 'none',
+          applicationCreatedAt: latestApplication[0]?.createdAt ?? null,
+        }
+      }),
+    )
+
+    const selected =
+      candidates
+        .filter((entry) => entry.applicationCreatedAt)
+        .sort((a, b) => b.applicationCreatedAt!.getTime() - a.applicationCreatedAt!.getTime())[0] ?? candidates[0]
 
     return {
-      organizationName,
+      organizationName: selected.organizationName,
       organizationState: {
-        status: latestApplication[0]?.status ?? 'none',
+        status: selected.applicationStatus,
       },
       permissions: {
-        canManageMembers: memberships[0].canManageMembers,
-        canRequestFunds: memberships[0].canRequestFunds,
-        canManageTickets: memberships[0].canManageTickets,
-        canAccessStorage: memberships[0].canAccessStorage,
+        canManageMembers: selected.membership.canManageMembers,
+        canRequestFunds: selected.membership.canRequestFunds,
+        canManageTickets: selected.membership.canManageTickets,
+        canAccessStorage: selected.membership.canAccessStorage,
       },
     }
   } catch (error) {
@@ -91,28 +107,42 @@ export const getHostedAccessControlFn = createServerFn({ method: 'GET' }).handle
     }
 
     const memberships = await db
-      .select({ organizationName: organizationMembers.organizationName })
+      .select({ organizationName: organizationMembers.organizationName, createdAt: organizationMembers.createdAt })
       .from(organizationMembers)
       .where(eq(organizationMembers.userId, currentUser.id))
       .orderBy(desc(organizationMembers.createdAt))
-      .limit(1)
 
-    if (!memberships[0]) {
+    if (memberships.length === 0) {
       return defaultHostedAccessControl
     }
 
-    const organizationName = normalizeOrg(memberships[0].organizationName)
-    const latestApplication = await db
-      .select({ status: foundaryApplications.status })
-      .from(foundaryApplications)
-      .where(eq(foundaryApplications.organizationName, organizationName))
-      .orderBy(desc(foundaryApplications.createdAt))
-      .limit(1)
+    const candidates = await Promise.all(
+      memberships.map(async (membership) => {
+        const organizationName = normalizeOrg(membership.organizationName)
+        const latestApplication = await db
+          .select({ status: foundaryApplications.status, createdAt: foundaryApplications.createdAt })
+          .from(foundaryApplications)
+          .where(eq(foundaryApplications.organizationName, organizationName))
+          .orderBy(desc(foundaryApplications.createdAt))
+          .limit(1)
+
+        return {
+          organizationName,
+          applicationStatus: latestApplication[0]?.status ?? 'none',
+          applicationCreatedAt: latestApplication[0]?.createdAt ?? null,
+        }
+      }),
+    )
+
+    const selected =
+      candidates
+        .filter((entry) => entry.applicationCreatedAt)
+        .sort((a, b) => b.applicationCreatedAt!.getTime() - a.applicationCreatedAt!.getTime())[0] ?? candidates[0]
 
     return {
-      organizationName,
+      organizationName: selected.organizationName,
       organizationState: {
-        status: latestApplication[0]?.status ?? 'none',
+        status: selected.applicationStatus,
       },
       permissions: {
         canManageMembers: true,
@@ -161,6 +191,17 @@ export const updateOrganizationMemberAccessFn = createServerFn({ method: 'POST' 
 
     if (!member[0]) {
       throw new Error('Member not found')
+    }
+
+    const ownerMembership = await db
+      .select({ userId: organizationMembers.userId })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationName, organizationName))
+      .orderBy(organizationMembers.createdAt)
+      .limit(1)
+
+    if (ownerMembership[0] && ownerMembership[0].userId === data.userId) {
+      throw new Error('Owner access cannot be modified')
     }
 
     const updated = await db

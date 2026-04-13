@@ -525,6 +525,86 @@ async function sendApplicationThreadEmail({
   })
 }
 
+async function sendApplicationStatusNotificationEmail({
+  to,
+  applicationId,
+  organizationName,
+  eventName,
+  status,
+  reviewNotes,
+}: {
+  to: string
+  applicationId: number
+  organizationName: string
+  eventName: string
+  status: 'pending' | 'approved' | 'rejected'
+  reviewNotes?: string | null
+}) {
+  const readableStatus = status === 'pending' ? 'under review' : status
+  const subjectPrefix =
+    status === 'approved'
+      ? 'Approved'
+      : status === 'rejected'
+        ? 'Rejected'
+        : 'Under Review'
+  const notes = reviewNotes?.trim()
+
+  const textLines = [
+    `Hi! Thanks for your application for the organisation: ${organizationName}.`,
+    '',
+    `Current status: ${readableStatus}.`,
+    'You will receive notifications over email if anything changes.',
+    '',
+    `Event: ${eventName}`,
+  ]
+
+  if (notes) {
+    textLines.push('', `Review notes: ${notes}`)
+  }
+
+  const text = textLines.join('\n')
+  const html = `
+    <p>Hi! Thanks for your application for the organisation: <strong>${organizationName}</strong>.</p>
+    <p>Current status: <strong>${readableStatus}</strong>.</p>
+    <p>You will receive notifications over email if anything changes.</p>
+    <p><strong>Event:</strong> ${eventName}</p>
+    ${notes ? `<p><strong>Review notes:</strong> ${notes.replace(/\n/g, '<br />')}</p>` : ''}
+  `
+
+  await sendApplicationThreadEmail({
+    to,
+    subject: `${subjectPrefix}: Lanfoundary application #${applicationId}`,
+    text,
+    html,
+    applicationId,
+  })
+}
+
+function buildAdminReplyNotificationMessage(replyMessage: string) {
+  const forgotPasswordLink = `${getHostedBaseUrl()}?forgotpassword`
+
+  const text = [
+    'Hi! An admin has replied to your application.',
+    'Please log on to the dashboard with the details you created to reply and see what they wrote.',
+    '',
+    'Forgot your password?',
+    `Go to ${forgotPasswordLink}`,
+    '',
+    'Admin reply:',
+    replyMessage,
+  ].join('\n')
+
+  const html = `
+    <p>Hi! An admin has replied to your application.</p>
+    <p>Please log on to the dashboard with the details you created to reply and see what they wrote.</p>
+    <p><strong>Forgot your password?</strong><br /><a href="${forgotPasswordLink}">${forgotPasswordLink}</a></p>
+    <p><strong>Admin reply:</strong></p>
+    <p>${replyMessage.replace(/\n/g, '<br />')}</p>
+  `
+
+  return { text, html }
+}
+
 async function sendHostedSupportThreadEmail({
   to,
   subject,
@@ -742,6 +822,15 @@ export const submitFoundaryApplicationFn = createServerFn({ method: 'POST' })
       })
     }
 
+    await sendApplicationStatusNotificationEmail({
+      to: normalizedEmail,
+      applicationId: created[0].id,
+      organizationName: normalizedOrganizationName,
+      eventName: data.eventName,
+      status: 'pending',
+      reviewNotes: null,
+    })
+
     return created[0]
   })
 
@@ -916,13 +1005,17 @@ export const createHostedFundingRequestFn = createServerFn({ method: 'POST' })
     const organizationName = normalizeOrg(data.organizationName)
 
     const membership = await db
-      .select({ id: organizationMembers.id })
+      .select({ id: organizationMembers.id, canRequestFunds: organizationMembers.canRequestFunds })
       .from(organizationMembers)
       .where(and(eq(organizationMembers.userId, currentUser.id), eq(organizationMembers.organizationName, organizationName)))
       .limit(1)
 
     if (!membership[0]) {
       throw new Error('You can only request funds for organizations you belong to')
+    }
+
+    if (!membership[0].canRequestFunds) {
+      throw new Error('You do not have permission to request funds for this organization')
     }
 
     const profileSource = await db
@@ -1011,7 +1104,7 @@ export const inviteOrganizationMemberFn = createServerFn({ method: 'POST' })
     const targetEmail = data.email.trim().toLowerCase()
 
     const inviterMembership = await db
-      .select({ id: organizationMembers.id })
+      .select({ id: organizationMembers.id, canManageMembers: organizationMembers.canManageMembers })
       .from(organizationMembers)
       .where(
         and(
@@ -1023,6 +1116,10 @@ export const inviteOrganizationMemberFn = createServerFn({ method: 'POST' })
 
     if (!inviterMembership[0]) {
       throw new Error('You can only invite members to organizations you belong to')
+    }
+
+    if (!inviterMembership[0].canManageMembers) {
+      throw new Error('You do not have permission to invite members for this organization')
     }
 
     const token = createHash('sha256').update(`${organizationName}:${targetEmail}:${randomUUID()}`).digest('hex')
@@ -1348,14 +1445,7 @@ export const postFoundaryApplicationMessageFn = createServerFn({ method: 'POST' 
       .returning()
 
     if (currentUser.role === 'organizer') {
-      const staffName = currentUser.name?.trim() || currentUser.email
-      const text = [
-        'You have received a reply to your funding request.',
-        '',
-        `${staffName} replied to you:`,
-        cleanMessage,
-      ].join('\n')
-      const html = `<p>You have received a reply to your funding request.</p><p><strong>${staffName}</strong> replied to you:</p><p>${cleanMessage.replace(/\n/g, '<br />')}</p>`
+      const { text, html } = buildAdminReplyNotificationMessage(cleanMessage)
       await sendApplicationThreadEmail({
         to: application[0].email,
         subject: `Re: Lanfoundary funding request #${application[0].id}`,
@@ -1617,6 +1707,22 @@ export const updateFoundaryApplicationStatusFn = createServerFn({ method: 'POST'
     const db = await getDb()
     const now = new Date()
 
+    const existing = await db
+      .select({
+        id: foundaryApplications.id,
+        status: foundaryApplications.status,
+        email: foundaryApplications.email,
+        organizationName: foundaryApplications.organizationName,
+        eventName: foundaryApplications.eventName,
+      })
+      .from(foundaryApplications)
+      .where(eq(foundaryApplications.id, data.applicationId))
+      .limit(1)
+
+    if (!existing[0]) {
+      throw new Error('Application not found')
+    }
+
     const updated = await db
       .update(foundaryApplications)
       .set({
@@ -1639,14 +1745,7 @@ export const updateFoundaryApplicationStatusFn = createServerFn({ method: 'POST'
         message: requestMessage,
       })
 
-      const staffName = currentUser.name?.trim() || currentUser.email
-      const text = [
-        'You have received a reply to your funding request.',
-        '',
-        `${staffName} replied to you:`,
-        requestMessage,
-      ].join('\n')
-      const html = `<p>You have received a reply to your funding request.</p><p><strong>${staffName}</strong> replied to you:</p><p>${requestMessage.replace(/\n/g, '<br />')}</p>`
+      const { text, html } = buildAdminReplyNotificationMessage(requestMessage)
 
       await sendApplicationThreadEmail({
         to: updated[0].email,
@@ -1654,6 +1753,17 @@ export const updateFoundaryApplicationStatusFn = createServerFn({ method: 'POST'
         text,
         html,
         applicationId: data.applicationId,
+      })
+    }
+
+    if (existing[0].status !== data.status) {
+      await sendApplicationStatusNotificationEmail({
+        to: updated[0].email,
+        applicationId: data.applicationId,
+        organizationName: existing[0].organizationName,
+        eventName: existing[0].eventName,
+        status: data.status,
+        reviewNotes: data.reviewNotes ?? null,
       })
     }
 

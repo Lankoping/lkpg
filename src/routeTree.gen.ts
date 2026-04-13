@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TosRouteImport } from './routes/tos'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as InviteRegisterRouteImport } from './routes/invite-register'
 import { Route as HostedRouteImport } from './routes/hosted'
@@ -35,6 +37,16 @@ import { Route as HostedPerksStorageLimitsRouteImport } from './routes/hosted/pe
 import { Route as HostedPerksStorageExplorerRouteImport } from './routes/hosted/perks/storage/explorer'
 import { Route as HostedPerksStorageCdnRouteImport } from './routes/hosted/perks/storage/cdn'
 
+const TosRoute = TosRouteImport.update({
+  id: '/tos',
+  path: '/tos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -172,6 +184,8 @@ export interface FileRoutesByFullPath {
   '/hosted': typeof HostedRouteWithChildren
   '/invite-register': typeof InviteRegisterRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
+  '/tos': typeof TosRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
   '/admin/storage-perks': typeof AdminStoragePerksRoute
@@ -197,6 +211,8 @@ export interface FileRoutesByTo {
   '/foundary': typeof FoundaryRoute
   '/invite-register': typeof InviteRegisterRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
+  '/tos': typeof TosRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
   '/admin/storage-perks': typeof AdminStoragePerksRoute
@@ -225,6 +241,8 @@ export interface FileRoutesById {
   '/hosted': typeof HostedRouteWithChildren
   '/invite-register': typeof InviteRegisterRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
+  '/tos': typeof TosRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
   '/admin/storage-perks': typeof AdminStoragePerksRoute
@@ -254,6 +272,8 @@ export interface FileRouteTypes {
     | '/hosted'
     | '/invite-register'
     | '/login'
+    | '/privacy'
+    | '/tos'
     | '/admin/applications'
     | '/admin/logs'
     | '/admin/storage-perks'
@@ -279,6 +299,8 @@ export interface FileRouteTypes {
     | '/foundary'
     | '/invite-register'
     | '/login'
+    | '/privacy'
+    | '/tos'
     | '/admin/applications'
     | '/admin/logs'
     | '/admin/storage-perks'
@@ -306,6 +328,8 @@ export interface FileRouteTypes {
     | '/hosted'
     | '/invite-register'
     | '/login'
+    | '/privacy'
+    | '/tos'
     | '/admin/applications'
     | '/admin/logs'
     | '/admin/storage-perks'
@@ -334,11 +358,27 @@ export interface RootRouteChildren {
   HostedRoute: typeof HostedRouteWithChildren
   InviteRegisterRoute: typeof InviteRegisterRoute
   LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
+  TosRoute: typeof TosRoute
   VerifyCodeRoute: typeof VerifyCodeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tos': {
+      id: '/tos'
+      path: '/tos'
+      fullPath: '/tos'
+      preLoaderRoute: typeof TosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -585,6 +625,8 @@ const rootRouteChildren: RootRouteChildren = {
   HostedRoute: HostedRouteWithChildren,
   InviteRegisterRoute: InviteRegisterRoute,
   LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
+  TosRoute: TosRoute,
   VerifyCodeRoute: VerifyCodeRoute,
 }
 export const routeTree = rootRouteImport

@@ -42,7 +42,7 @@ function HostedRequestFundsPage() {
     budgetJustification: '',
   })
 
-  const primaryOrganization = applications[0]?.organizationName || ''
+  const primaryOrganization = accessControl.organizationName || applications[0]?.organizationName || ''
 
   const handleFundingRequest = async (event: React.FormEvent) => {
     event.preventDefault()

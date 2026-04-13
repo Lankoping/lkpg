@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
   getMyFoundaryApplicationsFn,
@@ -42,6 +42,16 @@ function HostedTeamPage() {
   const primaryOrganization = accessControl.organizationName || applications[0]?.organizationName || ''
   const organizationState = accessControl.organizationState?.status || 'none'
   const canManageMembers = Boolean(accessControl.permissions?.canManageMembers)
+  const ownerUserId = useMemo(() => {
+    if (!primaryOrganization) return null
+    const orgMembers = members
+      .filter((member) => member.organizationName === primaryOrganization)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    return orgMembers[0]?.userId ?? null
+  }, [members, primaryOrganization])
+  const [memberAccessOverrides, setMemberAccessOverrides] = useState<
+    Record<number, { canManageMembers: boolean; canRequestFunds: boolean; canManageTickets: boolean; canAccessStorage: boolean }>
+  >({})
 
   const updateMemberAccess = async (
     userId: number,
@@ -52,6 +62,22 @@ function HostedTeamPage() {
 
     const member = members.find((row) => row.userId === userId && row.organizationName === primaryOrganization)
     if (!member) return
+    if (ownerUserId && userId === ownerUserId) {
+      setAccessMessage('Owner access cannot be modified.')
+      return
+    }
+
+    const baselineAccess = {
+      canManageMembers: Boolean(member.canManageMembers),
+      canRequestFunds: Boolean(member.canRequestFunds),
+      canManageTickets: Boolean(member.canManageTickets),
+      canAccessStorage: Boolean(member.canAccessStorage),
+    }
+    const optimistic = {
+      ...(memberAccessOverrides[userId] ?? baselineAccess),
+      [field]: checked,
+    }
+    setMemberAccessOverrides((curr) => ({ ...curr, [userId]: optimistic }))
 
     setAccessMessage('')
     setSavingAccessUserId(userId)
@@ -71,6 +97,11 @@ function HostedTeamPage() {
       await router.invalidate()
     } catch (error: any) {
       setAccessMessage(error?.message || 'Could not update access settings')
+      setMemberAccessOverrides((curr) => {
+        const next = { ...curr }
+        delete next[userId]
+        return next
+      })
     } finally {
       setSavingAccessUserId(null)
     }
@@ -158,7 +189,9 @@ function HostedTeamPage() {
                       <p className="text-sm font-medium text-foreground">{member.name || member.email}</p>
                       <p className="text-xs text-muted-foreground">{member.email}</p>
                     </div>
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Member</span>
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      {ownerUserId === member.userId ? 'Owner' : 'Member'}
+                    </span>
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     {([
@@ -167,18 +200,28 @@ function HostedTeamPage() {
                       ['canManageTickets', 'Tickets'],
                       ['canAccessStorage', 'Storage'],
                     ] as const).map(([field, label]) => (
-                      <label key={field} className="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs text-muted-foreground">
+                      <label
+                        key={field}
+                        className={`flex items-center gap-2 rounded border px-2 py-1.5 text-xs ${
+                          Boolean((memberAccessOverrides[member.userId] ?? member as any)[field])
+                            ? 'border-primary/50 bg-primary/10 text-foreground'
+                            : 'border-border text-muted-foreground'
+                        }`}
+                      >
                         <input
                           type="checkbox"
-                          checked={Boolean((member as any)[field])}
-                          disabled={!canManageMembers || savingAccessUserId === member.userId}
+                          checked={Boolean((memberAccessOverrides[member.userId] ?? member as any)[field])}
+                          disabled={!canManageMembers || savingAccessUserId === member.userId || ownerUserId === member.userId}
                           onChange={(event) => updateMemberAccess(member.userId, field, event.target.checked)}
-                          className="accent-primary"
+                          className="h-4 w-4 accent-primary"
                         />
                         <span>{label}</span>
                       </label>
                     ))}
                   </div>
+                  {ownerUserId === member.userId && (
+                    <p className="mt-2 text-xs text-muted-foreground">Owner permissions are locked and cannot be changed.</p>
+                  )}
                 </div>
               ))}
           </div>
