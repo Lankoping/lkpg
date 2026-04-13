@@ -1127,6 +1127,11 @@ const applicationSchema = z.object({
   termsAccepted: z.literal(true),
 })
 
+const signedInApplicationSchema = applicationSchema.omit({
+  email: true,
+  accountPassword: true,
+})
+
 export const submitFoundaryApplicationFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => applicationSchema.parse(data))
   .handler(async ({ data }) => {
@@ -1261,6 +1266,127 @@ export const submitFoundaryApplicationFn = createServerFn({ method: 'POST' })
         userId: accountUser.id,
         organizationName: normalizedOrganizationName,
         addedBy: accountUser.id,
+      })
+    }
+
+    await sendApplicationStatusNotificationEmail({
+      to: normalizedEmail,
+      applicationId: created[0].id,
+      organizationName: normalizedOrganizationName,
+      eventName: data.eventName,
+      status: 'pending',
+      reviewNotes: null,
+    })
+
+    return created[0]
+  })
+
+export const submitFoundaryApplicationForCurrentUserFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) => signedInApplicationSchema.parse(data))
+  .handler(async ({ data }) => {
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+
+    if (currentUser.role === 'organizer') {
+      throw new Error('Organizer accounts cannot submit hosted applications here')
+    }
+
+    if (currentUser.active === false) {
+      throw new Error('Account is locked')
+    }
+
+    const normalizedEmail = (currentUser.email ?? '').trim().toLowerCase()
+    if (!normalizedEmail) {
+      throw new Error('Current account is missing an email address')
+    }
+
+    const normalizedOrganizationName = normalizeOrg(data.organizationName)
+
+    const duplicate = await db
+      .select()
+      .from(foundaryApplications)
+      .where(and(eq(foundaryApplications.email, normalizedEmail), eq(foundaryApplications.status, 'pending')))
+      .limit(1)
+
+    if (duplicate[0]) {
+      throw new Error('You already have a pending application')
+    }
+
+    const applicationValues = {
+      applicantName: data.applicantName,
+      email: normalizedEmail,
+      age: data.age,
+      cityCountry: data.cityCountry,
+      organizationName: normalizedOrganizationName,
+      organizationStatus: data.organizationStatus,
+      hasHcbAccount: data.hasHcbAccount,
+      hcbUsername: data.hasHcbAccount ? (data.hcbUsername?.trim() || null) : null,
+      preferredPaymentMethod: data.preferredPaymentMethod,
+      eventName: data.eventName,
+      plannedMonths: data.plannedMonths,
+      expectedAttendees: data.expectedAttendees,
+      requestedEvents: 1,
+      fundingRequestAmount: data.requestedFunds,
+      briefEventDescription: data.briefEventDescription,
+      budgetJustification: data.budgetJustification,
+      termsAccepted: data.termsAccepted,
+      isApplicationTicket: true,
+      ticketLabels: deriveApplicationTicketLabels({
+        organizationStatus: data.organizationStatus,
+        hasHcbAccount: data.hasHcbAccount,
+        preferredPaymentMethod: data.preferredPaymentMethod,
+        requestedFunds: data.requestedFunds,
+        eventName: data.eventName,
+      }).join(', '),
+      createdByUserId: currentUser.id,
+      isConfidential: true,
+      status: 'pending' as const,
+    }
+
+    let created
+    try {
+      created = await db.insert(foundaryApplications).values(applicationValues).returning()
+    } catch (error) {
+      if (!isMissingConfidentialityColumnsError(error)) throw error
+      const {
+        createdByUserId: _createdByUserId,
+        isConfidential: _isConfidential,
+        isApplicationTicket: _isApplicationTicket,
+        ticketLabels: _ticketLabels,
+        ...legacyValues
+      } = applicationValues
+      created = await db.insert(foundaryApplications).values(legacyValues).returning()
+    }
+
+    await db.insert(foundaryApplicationMessages).values({
+      applicationId: created[0].id,
+      senderUserId: currentUser.id,
+      senderRole: currentUser.role,
+      message: [
+        `New hosted application submitted by ${data.applicantName}.`,
+        `Organization: ${normalizedOrganizationName}`,
+        `Event: ${data.eventName}`,
+        `Requested funds: $${data.requestedFunds}`,
+        `Planned months: ${data.plannedMonths}`,
+      ].join('\n'),
+    })
+
+    const existingMembership = await db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(
+        and(
+          eq(organizationMembers.userId, currentUser.id),
+          eq(organizationMembers.organizationName, normalizedOrganizationName),
+        ),
+      )
+      .limit(1)
+
+    if (!existingMembership[0]) {
+      await db.insert(organizationMembers).values({
+        userId: currentUser.id,
+        organizationName: normalizedOrganizationName,
+        addedBy: currentUser.id,
       })
     }
 

@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
-import { submitFoundaryApplicationFn } from '../server/functions/foundary'
+import { getSessionFn } from '../server/functions/auth'
+import { submitFoundaryApplicationFn, submitFoundaryApplicationForCurrentUserFn } from '../server/functions/foundary'
 
 export function ApplyApplicationPage() {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'submitted'>('idle')
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
+  const [sessionUser, setSessionUser] = useState<{ id: number; email: string; name?: string | null; role: string } | null>(null)
   const [formData, setFormData] = useState({
     applicantName: '',
     email: '',
@@ -23,35 +25,78 @@ export function ApplyApplicationPage() {
     termsAccepted: false,
   })
 
+  useEffect(() => {
+    let cancelled = false
+
+    const loadSession = async () => {
+      try {
+        const user = await getSessionFn()
+        if (!cancelled && user && user.role !== 'organizer') {
+          setSessionUser({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          })
+          setFormData((current) => ({
+            ...current,
+            applicantName: current.applicantName || (user.name ?? ''),
+            email: current.email || user.email,
+          }))
+        }
+      } catch {
+        // Continue with public apply flow if session lookup fails.
+      }
+    }
+
+    loadSession()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const isSignedInApply = Boolean(sessionUser)
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setError('')
     setStatus('submitting')
 
     try {
-      await submitFoundaryApplicationFn({
-        data: {
-          applicantName: formData.applicantName,
-          email: formData.email,
-          age: calculateAge(formData.birthDate),
-          cityCountry: `${formData.city}, ${formData.country}`,
-          organizationName: formData.organizationName,
-          organizationStatus: formData.organizationStatus as
-            | 'registered_nonprofit_at_hackclub_bank'
-            | 'individual_group_for_reimbursements_only',
-          hasHcbAccount: formData.hasHcbAccount,
-          hcbUsername: formData.hcbOrganizationLink || undefined,
-          preferredPaymentMethod: formData.preferredPaymentMethod as 'direct_hcb_transfer' | 'receipt_reimbursement',
-          eventName: formData.eventName,
-          plannedMonths: 'Will be provided later in the Request Funding dashboard.',
-          expectedAttendees: 1,
-          requestedFunds: 1,
-          briefEventDescription: formData.eventDescription,
-          budgetJustification: 'Will be provided after the first application review',
-          accountPassword: formData.accountPassword,
-          termsAccepted: formData.termsAccepted,
-        },
-      })
+      const baseData = {
+        applicantName: formData.applicantName,
+        age: calculateAge(formData.birthDate),
+        cityCountry: `${formData.city}, ${formData.country}`,
+        organizationName: formData.organizationName,
+        organizationStatus: formData.organizationStatus as
+          | 'registered_nonprofit_at_hackclub_bank'
+          | 'individual_group_for_reimbursements_only',
+        hasHcbAccount: formData.hasHcbAccount,
+        hcbUsername: formData.hcbOrganizationLink || undefined,
+        preferredPaymentMethod: formData.preferredPaymentMethod as 'direct_hcb_transfer' | 'receipt_reimbursement',
+        eventName: formData.eventName,
+        plannedMonths: 'Will be provided later in the Request Funding dashboard.',
+        expectedAttendees: 1,
+        requestedFunds: 1,
+        briefEventDescription: formData.eventDescription,
+        budgetJustification: 'Will be provided after the first application review',
+        termsAccepted: formData.termsAccepted,
+      }
+
+      if (isSignedInApply) {
+        await submitFoundaryApplicationForCurrentUserFn({
+          data: baseData,
+        })
+      } else {
+        await submitFoundaryApplicationFn({
+          data: {
+            ...baseData,
+            email: formData.email,
+            accountPassword: formData.accountPassword,
+          },
+        })
+      }
 
       setStatus('submitted')
     } catch (submitError: any) {
@@ -81,8 +126,8 @@ export function ApplyApplicationPage() {
               <CheckCircle2 className="h-12 w-12 text-primary" />
               <h2 className="mt-4 font-display text-3xl text-foreground">Application pending</h2>
               <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
-                Your hosted account is now active and an application ticket was created automatically.
-                Sign in to check status and respond to requests.
+                Your application ticket was created automatically.
+                Open your dashboard to check status and respond to requests.
               </p>
             </div>
           ) : (
@@ -91,23 +136,32 @@ export function ApplyApplicationPage() {
                 <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary">Application form</p>
                 <h2 className="mt-2 font-display text-3xl text-foreground">Submit funding request</h2>
                 <p className="mt-2 text-sm text-muted-foreground">Start with the basic details. Staff will follow up for funding timing, amount, and budget details if needed.</p>
+                {isSignedInApply && (
+                  <p className="mt-2 rounded border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+                    Applying as signed-in account: {sessionUser?.email}. No password or account email input is required.
+                  </p>
+                )}
                 <p className="mt-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">Step {page} of 3</p>
               </div>
 
               {page === 1 && (
                 <div className="space-y-5">
                   <Field label="Full name" required><input className={inputStyle} value={formData.applicantName} onChange={(e) => setFormData({ ...formData, applicantName: e.target.value })} /></Field>
-                  <Field label="Email address" required><input className={inputStyle} type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} /></Field>
-                  <Field label="Hosted account password" required>
-                    <input
-                      className={inputStyle}
-                      type="password"
-                      minLength={8}
-                      value={formData.accountPassword}
-                      onChange={(e) => setFormData({ ...formData, accountPassword: e.target.value })}
-                      placeholder="Minimum 8 characters"
-                    />
-                  </Field>
+                  {!isSignedInApply && (
+                    <Field label="Email address" required><input className={inputStyle} type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} /></Field>
+                  )}
+                  {!isSignedInApply && (
+                    <Field label="Hosted account password" required>
+                      <input
+                        className={inputStyle}
+                        type="password"
+                        minLength={8}
+                        value={formData.accountPassword}
+                        onChange={(e) => setFormData({ ...formData, accountPassword: e.target.value })}
+                        placeholder="Minimum 8 characters"
+                      />
+                    </Field>
+                  )}
                   <Field label="Date of birth" required><input className={inputStyle} type="date" value={formData.birthDate} onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })} /></Field>
                   <Field label="City" required><input className={inputStyle} value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} /></Field>
                   <Field label="Country" required>
@@ -242,7 +296,11 @@ export function ApplyApplicationPage() {
                   </button>
                 ) : (
                   <button type="submit" disabled={status === 'submitting'} className="ml-auto bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50">
-                    {status === 'submitting' ? 'Submitting...' : 'Create account and submit application'}
+                    {status === 'submitting'
+                      ? 'Submitting...'
+                      : isSignedInApply
+                        ? 'Submit application'
+                        : 'Create account and submit application'}
                   </button>
                 )}
               </div>

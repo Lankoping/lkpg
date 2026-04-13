@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
+  closeFoundaryApplicationFn,
   closeFoundaryApplicationTicketFn,
   closeHostedSupportTicketFromAdminFn,
   createFoundaryApplicationTicketFn,
@@ -146,6 +147,7 @@ function AdminTicketsPage() {
 
   const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
   const [closingApplicationId, setClosingApplicationId] = useState<number | null>(null)
+  const [closingWholeApplicationId, setClosingWholeApplicationId] = useState<number | null>(null)
   const [decidingApplicationId, setDecidingApplicationId] = useState<number | null>(null)
   const [updatingApplicationMetadataId, setUpdatingApplicationMetadataId] = useState<number | null>(null)
   const [closedApplicationIds, setClosedApplicationIds] = useState<Record<number, boolean>>({})
@@ -466,6 +468,25 @@ function AdminTicketsPage() {
       setApplicationActionError(error?.message || 'Could not close ticket')
     } finally {
       setClosingApplicationId(null)
+    }
+  }
+
+  const closeApplication = async (applicationId: number) => {
+    setApplicationActionError('')
+    setClosingWholeApplicationId(applicationId)
+    setClosedApplicationIds((current) => ({ ...current, [applicationId]: true }))
+    try {
+      await closeFoundaryApplicationFn({ data: { applicationId } })
+      await router.invalidate()
+    } catch (error: any) {
+      setClosedApplicationIds((current) => {
+        const next = { ...current }
+        delete next[applicationId]
+        return next
+      })
+      setApplicationActionError(error?.message || 'Could not close application')
+    } finally {
+      setClosingWholeApplicationId(null)
     }
   }
 
@@ -1001,7 +1022,20 @@ function AdminTicketsPage() {
                     </button>
                   </div>
 
-                  {selectedApplication.status === 'pending' && canDirectlyDecideSelectedApplication && !isTicketClosed(selectedApplication.id) && (
+                  {!isTicketClosed(selectedApplication.id) && (
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => closeApplication(selectedApplication.id)}
+                        disabled={closingWholeApplicationId === selectedApplication.id}
+                        className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-700 hover:bg-red-500/20 disabled:opacity-60"
+                      >
+                        {closingWholeApplicationId === selectedApplication.id ? 'Closing application...' : 'Close application'}
+                      </button>
+                    </div>
+                  )}
+
+                  {selectedApplication.status === 'pending' && !isTicketClosed(selectedApplication.id) && (
                     <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <button
                         type="button"
