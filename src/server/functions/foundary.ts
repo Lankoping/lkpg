@@ -110,6 +110,21 @@ type NamespaceTransferStatus = {
   errorMessage: string | null
 }
 
+function getExecuteRows<T>(result: unknown): T[] {
+  if (Array.isArray(result)) {
+    return result as T[]
+  }
+
+  if (result && typeof result === 'object' && 'rows' in result) {
+    const rows = (result as { rows?: unknown }).rows
+    if (Array.isArray(rows)) {
+      return rows as T[]
+    }
+  }
+
+  return []
+}
+
 async function ensureNamespaceTransferTable(db: Awaited<ReturnType<typeof getDb>>) {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS organization_namespace_transfers (
@@ -1439,7 +1454,7 @@ export const getMyOrganizationNamespaceTransferStatusFn = createServerFn({ metho
 
   const orgMatch = sql.join(names.map((name) => sql`organization_name = ${name}`), sql` OR `)
   const newOrgMatch = sql.join(names.map((name) => sql`new_organization_name = ${name}`), sql` OR `)
-  const rows = await db.execute(sql`
+  const rowsResult = await db.execute(sql`
     SELECT
       id,
       organization_name AS "organizationName",
@@ -1458,7 +1473,7 @@ export const getMyOrganizationNamespaceTransferStatusFn = createServerFn({ metho
     LIMIT 1
   `)
 
-  const transfer = (rows as unknown as Array<NamespaceTransferStatus>)[0]
+  const transfer = getExecuteRows<NamespaceTransferStatus>(rowsResult)[0]
   return transfer ?? null
 })
 
@@ -1498,17 +1513,18 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
       throw new Error('That organization name is already in use')
     }
 
-    const activeTransferRows = await db.execute(sql`
+    const activeTransferRowsResult = await db.execute(sql`
       SELECT id FROM organization_namespace_transfers
       WHERE (organization_name = ${organizationName} OR new_organization_name = ${organizationName})
         AND status = 'in_progress'
       LIMIT 1
     `)
-    if ((activeTransferRows as unknown as Array<{ id: number }>).length > 0) {
+    const activeTransferRows = getExecuteRows<{ id: number }>(activeTransferRowsResult)
+    if (activeTransferRows.length > 0) {
       throw new Error('A namespace transfer is already in progress for this organization')
     }
 
-    const transferCreateRows = await db.execute(sql`
+    const transferCreateRowsResult = await db.execute(sql`
       INSERT INTO organization_namespace_transfers (
         organization_name,
         new_organization_name,
@@ -1531,7 +1547,7 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
       RETURNING id
     `)
 
-    const transferId = (transferCreateRows as unknown as Array<{ id: number }>)[0]?.id
+    const transferId = getExecuteRows<{ id: number }>(transferCreateRowsResult)[0]?.id
     if (!transferId) {
       throw new Error('Could not initialize namespace transfer')
     }
