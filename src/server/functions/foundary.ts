@@ -1437,6 +1437,8 @@ export const getMyOrganizationNamespaceTransferStatusFn = createServerFn({ metho
     return null
   }
 
+  const orgMatch = sql.join(names.map((name) => sql`organization_name = ${name}`), sql` OR `)
+  const newOrgMatch = sql.join(names.map((name) => sql`new_organization_name = ${name}`), sql` OR `)
   const rows = await db.execute(sql`
     SELECT
       id,
@@ -1451,7 +1453,7 @@ export const getMyOrganizationNamespaceTransferStatusFn = createServerFn({ metho
       completed_at AS "completedAt",
       error_message AS "errorMessage"
     FROM organization_namespace_transfers
-    WHERE organization_name = ANY(${names}) OR new_organization_name = ANY(${names})
+    WHERE (${orgMatch}) OR (${newOrgMatch})
     ORDER BY started_at DESC
     LIMIT 1
   `)

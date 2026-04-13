@@ -290,6 +290,20 @@ export const storageFiles = pgTable('storage_files', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+export const organizationNamespaceTransfers = pgTable('organization_namespace_transfers', {
+  id: serial('id').primaryKey(),
+  organizationName: text('organization_name').notNull(),
+  newOrganizationName: text('new_organization_name').notNull(),
+  status: text('status').default('in_progress').notNull(),
+  progressPercent: integer('progress_percent').default(0).notNull(),
+  currentStep: text('current_step').default('').notNull(),
+  totalSteps: integer('total_steps').default(0).notNull(),
+  completedSteps: integer('completed_steps').default(0).notNull(),
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+  errorMessage: text('error_message'),
+})
+
 export const navigationItems = pgTable('navigation_items', {
   id: serial('id').primaryKey(),
   label: text('label').notNull(),
