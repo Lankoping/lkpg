@@ -58,6 +58,11 @@ export const Route = createFileRoute('/admin/tickets')({
     }
   },
   loader: async () => {
+    const user = await getSessionFn()
+    if (!user || user.role !== 'organizer') {
+      throw redirect({ to: '/foundary' })
+    }
+
     const [applications, messages, supportTickets, supportMessages, organizers] = await Promise.all([
       getFoundaryApplicationsFn(),
       getFoundaryApplicationMessagesFn(),
@@ -65,13 +70,13 @@ export const Route = createFileRoute('/admin/tickets')({
       getHostedSupportTicketMessagesForAdminFn(),
       getOrganizerUsersFn(),
     ])
-    return { applications, messages, supportTickets, supportMessages, organizers }
+    return { applications, messages, supportTickets, supportMessages, organizers, currentOrganizerId: user.id }
   },
   component: AdminTicketsPage,
 })
 
 function AdminTicketsPage() {
-  const { applications, messages, supportTickets, supportMessages, organizers } = Route.useLoaderData()
+  const { applications, messages, supportTickets, supportMessages, organizers, currentOrganizerId } = Route.useLoaderData()
   const router = useRouter()
 
   type TicketPriority = 'low' | 'normal' | 'high' | 'urgent'
@@ -117,6 +122,10 @@ function AdminTicketsPage() {
   const [queueType, setQueueType] = useState<'applications' | 'support'>('applications')
   const [applicationFilter, setApplicationFilter] = useState<'all' | 'open' | 'closed' | 'waiting-hosted' | 'waiting-staff' | 'assigned' | 'unassigned'>('open')
   const [supportFilter, setSupportFilter] = useState<'all' | 'open' | 'closed' | 'assigned' | 'unassigned'>('open')
+  const [applicationNeedsActionOnly, setApplicationNeedsActionOnly] = useState(false)
+  const [applicationAssignedToMeOnly, setApplicationAssignedToMeOnly] = useState(false)
+  const [supportNeedsActionOnly, setSupportNeedsActionOnly] = useState(false)
+  const [supportAssignedToMeOnly, setSupportAssignedToMeOnly] = useState(false)
   const [applicationQuery, setApplicationQuery] = useState('')
   const [supportQuery, setSupportQuery] = useState('')
 
@@ -238,6 +247,17 @@ function AdminTicketsPage() {
       scoped = applications.filter((application) => application.assignedToUserId == null)
     }
 
+    if (applicationNeedsActionOnly) {
+      scoped = scoped.filter((application) => {
+        const state = getApplicationQueueState(application.id)
+        return state === 'new' || state === 'waiting-staff'
+      })
+    }
+
+    if (applicationAssignedToMeOnly) {
+      scoped = scoped.filter((application) => application.assignedToUserId === currentOrganizerId)
+    }
+
     const q = applicationQuery.trim().toLowerCase()
     const filtered = !q
       ? scoped
@@ -251,7 +271,7 @@ function AdminTicketsPage() {
         priorityRank(a.ticketPriority ?? 'normal') - priorityRank(b.ticketPriority ?? 'normal') ||
         new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime(),
     )
-  }, [applicationFilter, applicationQuery, applications, closedApplicationIds, messagesByApplication])
+  }, [applicationAssignedToMeOnly, applicationFilter, applicationNeedsActionOnly, applicationQuery, applications, closedApplicationIds, currentOrganizerId, messagesByApplication])
 
   const filteredSupportTickets = useMemo(() => {
     let scoped = supportTickets
@@ -263,6 +283,14 @@ function AdminTicketsPage() {
       scoped = supportTickets.filter((ticket) => ticket.assignedToUserId != null)
     } else if (supportFilter === 'unassigned') {
       scoped = supportTickets.filter((ticket) => ticket.assignedToUserId == null)
+    }
+
+    if (supportNeedsActionOnly) {
+      scoped = scoped.filter((ticket) => ticket.status === 'open' && (ticket.assignedToUserId == null || ticket.assignedToUserId === currentOrganizerId))
+    }
+
+    if (supportAssignedToMeOnly) {
+      scoped = scoped.filter((ticket) => ticket.assignedToUserId === currentOrganizerId)
     }
 
     const q = supportQuery.trim().toLowerCase()
@@ -280,7 +308,26 @@ function AdminTicketsPage() {
         priorityRank(a.ticketPriority ?? 'normal') - priorityRank(b.ticketPriority ?? 'normal') ||
         new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime(),
     )
-  }, [supportFilter, supportQuery, supportTickets, messagesBySupportTicket])
+  }, [currentOrganizerId, messagesBySupportTicket, supportAssignedToMeOnly, supportFilter, supportNeedsActionOnly, supportQuery, supportTickets])
+
+  const openNextApplicationNeedsAction = () => {
+    const next = filteredApplications.find((application) => {
+      const state = getApplicationQueueState(application.id)
+      return state === 'new' || state === 'waiting-staff'
+    })
+    if (next) {
+      setSelectedApplicationId(next.id)
+    }
+  }
+
+  const openNextSupportNeedsAction = () => {
+    const next = filteredSupportTickets.find(
+      (ticket) => ticket.status === 'open' && (ticket.assignedToUserId == null || ticket.assignedToUserId === currentOrganizerId),
+    )
+    if (next) {
+      setSelectedSupportTicketId(next.id)
+    }
+  }
 
   useEffect(() => {
     if (filteredApplications.length === 0) {
@@ -618,6 +665,33 @@ function AdminTicketsPage() {
                       {label}
                     </button>
                   ))}
+                </div>
+                <div className="mt-3 space-y-2 rounded-xl border border-border bg-card p-3">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={applicationNeedsActionOnly}
+                      onChange={(event) => setApplicationNeedsActionOnly(event.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Needs staff action only
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={applicationAssignedToMeOnly}
+                      onChange={(event) => setApplicationAssignedToMeOnly(event.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Assigned to me only
+                  </label>
+                  <button
+                    type="button"
+                    onClick={openNextApplicationNeedsAction}
+                    className="w-full rounded-lg border border-border px-2 py-1.5 text-[11px] uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+                  >
+                    Open next actionable
+                  </button>
                 </div>
               </div>
 
@@ -989,6 +1063,33 @@ function AdminTicketsPage() {
                       {value}
                     </button>
                   ))}
+                </div>
+                <div className="mt-3 space-y-2 rounded-xl border border-border bg-card p-3">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={supportNeedsActionOnly}
+                      onChange={(event) => setSupportNeedsActionOnly(event.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Needs action (open + mine/unassigned)
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={supportAssignedToMeOnly}
+                      onChange={(event) => setSupportAssignedToMeOnly(event.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Assigned to me only
+                  </label>
+                  <button
+                    type="button"
+                    onClick={openNextSupportNeedsAction}
+                    className="w-full rounded-lg border border-border px-2 py-1.5 text-[11px] uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+                  >
+                    Open next actionable
+                  </button>
                 </div>
               </div>
 

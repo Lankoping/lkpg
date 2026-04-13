@@ -2,7 +2,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getDb } from '../db/runtime'
 import { users, activityLogs, posts, tickets, loginTwoFactorCodes } from '../db/schema'
-import { and, eq, inArray, or } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie, getCookie, deleteCookie } from '@tanstack/react-start/server'
 import { createHash, randomInt, randomUUID } from 'node:crypto'
@@ -17,6 +17,7 @@ import { hashPassword, isHashedPassword, verifyPassword } from '../lib/password'
 import { writeActivityLog } from './logs'
 
 const TWO_FACTOR_TTL_MS = 10 * 60 * 1000
+const TWO_FACTOR_RESEND_COOLDOWN_MS = 60 * 1000
 
 const maskEmail = (email: string) => {
   const [local, domain] = email.split('@')
@@ -122,6 +123,26 @@ export const loginFn = createServerFn({ method: "POST" })
 
     // Start 2FA step if no challenge/code has been submitted yet.
     if (!data.twoFactorCode || !data.challengeId) {
+      const recentChallenge = await db
+        .select()
+        .from(loginTwoFactorCodes)
+        .where(and(eq(loginTwoFactorCodes.userId, user[0].id), isNull(loginTwoFactorCodes.consumedAt)))
+        .orderBy(desc(loginTwoFactorCodes.createdAt))
+        .limit(1)
+
+      if (
+        recentChallenge[0] &&
+        recentChallenge[0].expiresAt.getTime() > Date.now() &&
+        Date.now() - recentChallenge[0].createdAt.getTime() < TWO_FACTOR_RESEND_COOLDOWN_MS
+      ) {
+        return {
+          success: false,
+          requiresTwoFactor: true,
+          challengeId: recentChallenge[0].challengeId,
+          email: maskEmail(user[0].email),
+        }
+      }
+
       const code = randomInt(100000, 1000000).toString()
       const challengeId = createHash('sha256')
         .update(`${user[0].id}:${Date.now()}:${Math.random()}`)
