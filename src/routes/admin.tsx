@@ -14,6 +14,7 @@ import {
   ExternalLink,
   HardDrive,
   GitBranch,
+  Building2,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/admin')({
@@ -188,6 +189,12 @@ function AdminLayout() {
                 icon={<Users className="w-5 h-5" />}
                 isActive={currentPath.startsWith('/admin/users')}
               />
+              <NavItem
+                href="/admin/organizations"
+                label="Organizations"
+                icon={<Building2 className="w-5 h-5" />}
+                isActive={currentPath.startsWith('/admin/organizations')}
+              />
             </div>
 
             {/* System */}
@@ -257,7 +264,10 @@ function AdminLayout() {
                 {currentPath === '/admin' || currentPath === '/admin/' ? 'Overview' :
                  currentPath.includes('/tickets') ? 'Tickets' :
                   currentPath.includes('/storage-perks') ? 'Storage' :
+                 currentPath.includes('/transfers') ? 'Transfers' :
+                 currentPath.includes('/organizations') ? 'Organizations' :
                  currentPath.includes('/users') ? 'Members' :
+                 currentPath.includes('/logs') ? 'Activity log' :
                  'Page'}
               </span>
             </div>

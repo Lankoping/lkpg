@@ -3384,6 +3384,147 @@ export const getFoundaryApplicationsFn = createServerFn({ method: 'GET' }).handl
   }
 })
 
+export const getOrganizationsForAdminFn = createServerFn({ method: 'GET' }).handler(async () => {
+  await requireOrganizerUser()
+  const db = await getDb()
+
+  const rows = await db
+    .select({
+      applicationId: foundaryApplications.id,
+      organizationName: foundaryApplications.organizationName,
+      status: foundaryApplications.status,
+      reviewNotes: foundaryApplications.reviewNotes,
+      eventName: foundaryApplications.eventName,
+      email: foundaryApplications.email,
+      applicantName: foundaryApplications.applicantName,
+      reviewedAt: foundaryApplications.reviewedAt,
+      createdAt: foundaryApplications.createdAt,
+      updatedAt: foundaryApplications.updatedAt,
+    })
+    .from(foundaryApplications)
+    .orderBy(desc(foundaryApplications.createdAt))
+
+  const seen = new Set<string>()
+  const organizations: Array<{
+    organizationName: string
+    status: 'pending' | 'approved' | 'rejected'
+    applicationId: number
+    reviewNotes: string | null
+    eventName: string
+    email: string
+    applicantName: string
+    reviewedAt: Date | null
+    createdAt: Date
+    updatedAt: Date
+  }> = []
+
+  for (const row of rows) {
+    const normalizedOrganizationName = normalizeOrg(row.organizationName)
+    if (!normalizedOrganizationName || seen.has(normalizedOrganizationName)) {
+      continue
+    }
+
+    seen.add(normalizedOrganizationName)
+    organizations.push({
+      organizationName: normalizedOrganizationName,
+      status: row.status,
+      applicationId: row.applicationId,
+      reviewNotes: row.reviewNotes,
+      eventName: row.eventName,
+      email: row.email,
+      applicantName: row.applicantName,
+      reviewedAt: row.reviewedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    })
+  }
+
+  return organizations
+})
+
+export const forceOrganizationStatusForAdminFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+        status: z.enum(['pending', 'approved', 'rejected']),
+        reviewNotes: z.string().optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+    const organizationName = normalizeOrg(data.organizationName)
+
+    const latestApplication = await db
+      .select({
+        id: foundaryApplications.id,
+        status: foundaryApplications.status,
+        email: foundaryApplications.email,
+        eventName: foundaryApplications.eventName,
+      })
+      .from(foundaryApplications)
+      .where(eq(foundaryApplications.organizationName, organizationName))
+      .orderBy(desc(foundaryApplications.createdAt))
+      .limit(1)
+
+    if (!latestApplication[0]) {
+      throw new Error('No application found for this organization')
+    }
+
+    const now = new Date()
+    const reviewNotes = data.reviewNotes?.trim() || null
+
+    const updated = await db
+      .update(foundaryApplications)
+      .set({
+        status: data.status,
+        reviewNotes,
+        reviewedBy: currentUser.id,
+        reviewedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(foundaryApplications.id, latestApplication[0].id))
+      .returning({ id: foundaryApplications.id, status: foundaryApplications.status })
+
+    if (!updated[0]) {
+      throw new Error('Could not update organization status')
+    }
+
+    if (latestApplication[0].status !== data.status) {
+      await sendApplicationStatusNotificationEmail({
+        to: latestApplication[0].email,
+        applicationId: latestApplication[0].id,
+        organizationName,
+        eventName: latestApplication[0].eventName,
+        status: data.status,
+        reviewNotes,
+      })
+    }
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.organization.force_status',
+      entityType: 'organization',
+      entityId: latestApplication[0].id,
+      details: {
+        organizationName,
+        previousStatus: latestApplication[0].status,
+        nextStatus: data.status,
+        reviewNotes,
+      },
+    })
+
+    return {
+      success: true,
+      organizationName,
+      status: updated[0].status,
+      applicationId: updated[0].id,
+    }
+  })
+
 export const updateFoundaryApplicationTicketMetadataFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
     z

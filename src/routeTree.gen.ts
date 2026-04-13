@@ -32,6 +32,7 @@ import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminTransfersRouteImport } from './routes/admin/transfers'
 import { Route as AdminTicketsRouteImport } from './routes/admin/tickets'
 import { Route as AdminStoragePerksRouteImport } from './routes/admin/storage-perks'
+import { Route as AdminOrganizationsRouteImport } from './routes/admin/organizations'
 import { Route as AdminLogsRouteImport } from './routes/admin/logs'
 import { Route as AdminApplicationsRouteImport } from './routes/admin/applications'
 import { Route as HostedPerksStorageRouteImport } from './routes/hosted/perks/storage'
@@ -155,6 +156,11 @@ const AdminStoragePerksRoute = AdminStoragePerksRouteImport.update({
   path: '/storage-perks',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
+  id: '/organizations',
+  path: '/organizations',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminLogsRoute = AdminLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -206,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/tos': typeof TosRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
+  '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/storage-perks': typeof AdminStoragePerksRoute
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/transfers': typeof AdminTransfersRoute
@@ -236,6 +243,7 @@ export interface FileRoutesByTo {
   '/tos': typeof TosRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
+  '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/storage-perks': typeof AdminStoragePerksRoute
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/transfers': typeof AdminTransfersRoute
@@ -269,6 +277,7 @@ export interface FileRoutesById {
   '/tos': typeof TosRoute
   '/admin/applications': typeof AdminApplicationsRoute
   '/admin/logs': typeof AdminLogsRoute
+  '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/storage-perks': typeof AdminStoragePerksRoute
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/transfers': typeof AdminTransfersRoute
@@ -303,6 +312,7 @@ export interface FileRouteTypes {
     | '/tos'
     | '/admin/applications'
     | '/admin/logs'
+    | '/admin/organizations'
     | '/admin/storage-perks'
     | '/admin/tickets'
     | '/admin/transfers'
@@ -333,6 +343,7 @@ export interface FileRouteTypes {
     | '/tos'
     | '/admin/applications'
     | '/admin/logs'
+    | '/admin/organizations'
     | '/admin/storage-perks'
     | '/admin/tickets'
     | '/admin/transfers'
@@ -365,6 +376,7 @@ export interface FileRouteTypes {
     | '/tos'
     | '/admin/applications'
     | '/admin/logs'
+    | '/admin/organizations'
     | '/admin/storage-perks'
     | '/admin/tickets'
     | '/admin/transfers'
@@ -562,6 +574,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminStoragePerksRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/organizations': {
+      id: '/admin/organizations'
+      path: '/organizations'
+      fullPath: '/admin/organizations'
+      preLoaderRoute: typeof AdminOrganizationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/logs': {
       id: '/admin/logs'
       path: '/logs'
@@ -617,6 +636,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminApplicationsRoute: typeof AdminApplicationsRoute
   AdminLogsRoute: typeof AdminLogsRoute
+  AdminOrganizationsRoute: typeof AdminOrganizationsRoute
   AdminStoragePerksRoute: typeof AdminStoragePerksRoute
   AdminTicketsRoute: typeof AdminTicketsRoute
   AdminTransfersRoute: typeof AdminTransfersRoute
@@ -627,6 +647,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminApplicationsRoute: AdminApplicationsRoute,
   AdminLogsRoute: AdminLogsRoute,
+  AdminOrganizationsRoute: AdminOrganizationsRoute,
   AdminStoragePerksRoute: AdminStoragePerksRoute,
   AdminTicketsRoute: AdminTicketsRoute,
   AdminTransfersRoute: AdminTransfersRoute,
