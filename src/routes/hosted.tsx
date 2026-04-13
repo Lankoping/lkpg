@@ -4,6 +4,7 @@ import { getSessionFn, logoutFn } from '../server/functions/auth'
 import { acceptOrganizationInviteFn, getHostedAccessControlFn } from '../server/functions/foundary'
 import {
   Ticket,
+  CircleHelp,
   Sparkles,
   ChevronLeft,
   Users,
@@ -112,6 +113,8 @@ function HostedLayout() {
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
       ? 'Request funds'
+      : currentPath.includes('/hosted/faq')
+        ? 'FAQ'
       : currentPath.includes('/hosted/tickets')
         ? 'Tickets'
         : currentPath.includes('/hosted/team')
@@ -259,6 +262,12 @@ function HostedLayout() {
             {!inStorageSection && (
               <div className="mt-8">
                 <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Get help</p>
+                <HostedNavItem
+                  href="/hosted/faq"
+                  label="FAQ"
+                  icon={<CircleHelp className="w-5 h-5" />}
+                  isActive={currentPath === '/hosted/faq'}
+                />
                 {canManageTickets && (
                   <HostedNavItem
                     href="/hosted/tickets"

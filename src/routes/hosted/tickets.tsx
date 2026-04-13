@@ -14,7 +14,6 @@ import {
   postMyHostedSupportTicketMessageFn,
   postFoundaryApplicationMessageFn,
 } from '../../server/functions/foundary'
-import { hostedHelpFaq, hostedHelpIntro } from '../../lib/hosted-help'
 
 export const Route = createFileRoute('/hosted/tickets')({
   loader: async () => {
@@ -35,7 +34,7 @@ export const Route = createFileRoute('/hosted/tickets')({
     ])
 
     if (!accessControl.permissions.canManageTickets) {
-      throw redirect({ to: '/hosted/team' })
+      throw redirect({ to: '/hosted/team', search: { invite: undefined } })
     }
 
     return { applications, messages, supportTickets, supportMessages }
@@ -132,6 +131,7 @@ function HostedTicketsPage() {
 
   const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
   const [closingApplicationId, setClosingApplicationId] = useState<number | null>(null)
+  const [closingSupportTicketId, setClosingSupportTicketId] = useState<number | null>(null)
   const [creatingSupportTicket, setCreatingSupportTicket] = useState(false)
   const [busySupportTicketId, setBusySupportTicketId] = useState<number | null>(null)
 
@@ -406,6 +406,19 @@ function HostedTicketsPage() {
     }
   }
 
+  const closeSupportTicket = async (ticketId: number) => {
+    setSupportActionError('')
+    setClosingSupportTicketId(ticketId)
+    try {
+      await closeMyHostedSupportTicketFn({ data: { ticketId } })
+      await router.invalidate()
+    } catch (error: any) {
+      setSupportActionError(error?.message || 'Could not close ticket')
+    } finally {
+      setClosingSupportTicketId(null)
+    }
+  }
+
   const stats = useMemo(
     () => ({
       total: unifiedTickets.length,
@@ -457,20 +470,15 @@ function HostedTicketsPage() {
 
         <div className="mt-6 border-t border-border pt-4">
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">Help</p>
-          <p className="mt-1 text-sm text-muted-foreground">{hostedHelpIntro}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Support tickets get an automatic AI first response that helps gather details, classify category, and set priority.
+            FAQ has moved to a dedicated page so tickets stay focused.
           </p>
-
-          <div className="mt-3 space-y-2">
-            {hostedHelpFaq.map((item) => (
-              <details key={item.id} className="rounded-xl border border-border bg-background p-3">
-                <summary className="cursor-pointer text-sm text-foreground">{item.question}</summary>
-                <p className="mt-2 text-sm text-muted-foreground">{item.answer}</p>
-              </details>
-            ))}
-          </div>
-
+          <a
+            href="/hosted/faq"
+            className="mt-3 inline-flex rounded-xl border border-border px-4 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Open FAQ
+          </a>
         </div>
       </section>
 
@@ -689,6 +697,17 @@ function HostedTicketsPage() {
                       ))}
                     </div>
                   </div>
+
+                  {selectedSupportTicket.status === 'open' && (
+                    <button
+                      type="button"
+                      onClick={() => closeSupportTicket(selectedSupportTicket.id)}
+                      disabled={closingSupportTicketId === selectedSupportTicket.id}
+                      className="rounded-xl border border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground disabled:opacity-60"
+                    >
+                      {closingSupportTicketId === selectedSupportTicket.id ? 'Closing...' : 'Close ticket'}
+                    </button>
+                  )}
                 </div>
 
                 <div className="mt-4 rounded-xl border border-border bg-background p-4">
@@ -735,6 +754,8 @@ function HostedTicketsPage() {
                     </button>
                   </>
                 )}
+
+                {supportActionError && <p className="mt-3 text-sm text-red-400">{supportActionError}</p>}
               </>
             ) : (
               <div>

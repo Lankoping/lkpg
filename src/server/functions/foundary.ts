@@ -4,6 +4,7 @@ import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie } from '@tanstack/react-start/server'
 import { createHash, randomUUID } from 'node:crypto'
+import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { hostedHelpContext } from '../../lib/hosted-help'
 import { getDb } from '../db/runtime'
 import {
@@ -14,10 +15,19 @@ import {
   organizationInvitations,
   organizationMembers,
   storageFiles,
+  storagePerkRequests,
+  storageUploadReservations,
   users,
 } from '../db/schema'
 import { requireOrganizerUser, requireStaffUser } from '../lib/access'
 import { hashPassword, verifyPassword } from '../lib/password'
+import {
+  getStorageClient,
+  getStorageConfig,
+  getStorageUpstreamErrorMessage,
+  isStorageMissingObjectError,
+  logStorageError,
+} from '../lib/s3-compatible'
 import { writeActivityLog } from './logs'
 
 const FUNDING_PER_EVENT = 25
@@ -107,6 +117,13 @@ function normalizeAssistantFollowUpQuestions(prompt: string, questions: string[]
     return buildTeamMemberFollowUpQuestions()
   }
 
+  const isUserDeletionContext = /(delete\s+(a\s+)?user|remove\s+(a\s+)?user|delete\s+account|remove\s+account)/.test(loweredPrompt)
+  const hasEmail = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(prompt)
+  const hasOrganizationReference = /(org|organisation|organization)\b/i.test(prompt)
+  if (isUserDeletionContext && hasEmail && hasOrganizationReference) {
+    return []
+  }
+
   return Array.from(
     new Set(
       questions
@@ -128,6 +145,20 @@ function extractFirstJsonObject(raw: string) {
   }
 
   return candidate.slice(firstBrace, lastBrace + 1)
+}
+
+function buildHostedSupportConversationContext(messages: Array<{ senderRole: string; message: string }>) {
+  return messages
+    .filter((entry) => {
+      const body = entry.message || ''
+      if (entry.senderRole === 'organizer' && (body.startsWith('Nano:') || body.includes('[AI First Responder]'))) {
+        return false
+      }
+      return Boolean(body.trim())
+    })
+    .slice(-8)
+    .map((entry) => `${entry.senderRole === 'organizer' ? 'Staff' : 'Hosted'}: ${entry.message.trim()}`)
+    .join('\n')
 }
 
 function hasRestrictedFlags(message: string): boolean {
@@ -200,7 +231,7 @@ function buildHostedSupportHeuristic(message: string): HostedSupportAssistantRes
   }
 }
 
-async function getHostedSupportAssistantReply(message: string): Promise<HostedSupportAssistantResult> {
+async function getHostedSupportAssistantReply(message: string, conversationContext?: string): Promise<HostedSupportAssistantResult> {
   const prompt = message.trim()
   if (!prompt) {
     return buildHostedSupportHeuristic('')
@@ -217,6 +248,7 @@ async function getHostedSupportAssistantReply(message: string): Promise<HostedSu
     'Classify category and priority. Ask for missing details when needed.',
     'Keep followUpQuestions short and limited to the 1-3 most important questions.',
     'Do not repeat the same request in both answer and followUpQuestions.',
+    'Use the conversation context and do not ask for information already provided earlier in the same ticket.',
     'If reporter mentions a team member or teammate in the same organization, do not ask them to open a separate ticket.',
     'In that case ask for the affected member email, whether it is the same organization, and the exact error text.',
     'If the question can be solved by FAQ without staff action, set shouldOpenTicket to false.',
@@ -228,6 +260,9 @@ async function getHostedSupportAssistantReply(message: string): Promise<HostedSu
   const userPrompt = [
     'FAQ and app context:',
     hostedHelpContext,
+    '',
+    'Current ticket conversation:',
+    conversationContext?.trim() || '(none)',
     '',
     'User request:',
     prompt,
@@ -287,14 +322,19 @@ async function getHostedSupportAssistantReply(message: string): Promise<HostedSu
 }
 
 function normalizeTicketLabels(value: string) {
-  return Array.from(
-    new Set(
-      value
-        .split(/[\n,;]/)
-        .map((item) => item.trim())
-        .filter(Boolean),
-    ),
-  ).join(', ')
+  const seen = new Set<string>()
+  const labels: string[] = []
+
+  for (const raw of value.split(/[\n,;]/)) {
+    const cleaned = raw.trim()
+    if (!cleaned) continue
+    const normalized = cleaned.toLowerCase()
+    if (seen.has(normalized)) continue
+    seen.add(normalized)
+    labels.push(normalized)
+  }
+
+  return labels.join(', ')
 }
 
 async function assertOrganizerAssignee(db: Awaited<ReturnType<typeof getDb>>, assignedToUserId: number | null | undefined) {
@@ -523,6 +563,188 @@ async function sendApplicationThreadEmail({
       References: threadId,
     },
   })
+}
+
+async function sendOrganizationAccountRemovedEmail({
+  to,
+  organizationName,
+}: {
+  to: string
+  organizationName: string
+}) {
+  const host = process.env.SMTP_HOST
+  const port = Number(process.env.SMTP_PORT || 587)
+  const user = process.env.SMTP_USER
+  const pass = process.env.SMTP_PASS
+
+  if (!host || !user || !pass) {
+    throw new Error('SMTP configuration missing: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS')
+  }
+
+  const nodemailer = await import('nodemailer')
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  })
+
+  const text = [
+    `Hi, The orginisation (${organizationName}) has removed your account.`,
+    'Please note that all files you have uploaded also has been deleted.',
+  ].join('\n')
+
+  const html = `
+    <p>Hi, The orginisation (${organizationName}) has removed your account.</p>
+    <p>Please note that all files you have uploaded also has been deleted.</p>
+  `
+
+  await transporter.sendMail({
+    from: 'foundary@lankoping.se',
+    to,
+    subject: `Account removed from ${organizationName}`,
+    text,
+    html,
+  })
+}
+
+function formatDeletionDurationHours(startedAtMs: number) {
+  const elapsedMs = Math.max(0, Date.now() - startedAtMs)
+  return (elapsedMs / (1000 * 60 * 60)).toFixed(2)
+}
+
+async function sendDataDeletionCompletedEmail({
+  to,
+  elapsedHours,
+}: {
+  to: string
+  elapsedHours: string
+}) {
+  const host = process.env.SMTP_HOST
+  const port = Number(process.env.SMTP_PORT || 587)
+  const user = process.env.SMTP_USER
+  const pass = process.env.SMTP_PASS
+
+  if (!host || !user || !pass) {
+    throw new Error('SMTP configuration missing: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS')
+  }
+
+  const nodemailer = await import('nodemailer')
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  })
+
+  const text = [
+    'Your reciving this email to notify you that your data has been sucsessfully deleted.',
+    `This took us a total of : ${elapsedHours} hrs`,
+  ].join('\n')
+
+  const html = `
+    <p>Your reciving this email to notify you that your data has been sucsessfully deleted.</p>
+    <p>This took us a total of : <strong>${elapsedHours} hrs</strong></p>
+  `
+
+  await transporter.sendMail({
+    from: 'foundary@lankoping.se',
+    to,
+    subject: 'Data deletion completed',
+    text,
+    html,
+  })
+}
+
+async function deleteStorageFilesForOrganization({
+  db,
+  organizationName,
+  uploadedByUserId,
+}: {
+  db: Awaited<ReturnType<typeof getDb>>
+  organizationName: string
+  uploadedByUserId?: number
+}) {
+  const whereClause = uploadedByUserId
+    ? and(eq(storageFiles.organizationName, organizationName), eq(storageFiles.uploadedByUserId, uploadedByUserId))
+    : eq(storageFiles.organizationName, organizationName)
+
+  const files = await db
+    .select({
+      id: storageFiles.id,
+      objectKey: storageFiles.objectKey,
+    })
+    .from(storageFiles)
+    .where(whereClause)
+
+  if (files.length === 0) {
+    return { deletedFileCount: 0 }
+  }
+
+  const config = getStorageConfig()
+  const client = getStorageClient(config)
+
+  for (const file of files) {
+    try {
+      await client.send(
+        new DeleteObjectCommand({
+          Bucket: config.bucket,
+          Key: file.objectKey,
+        }),
+      )
+    } catch (error) {
+      if (!isStorageMissingObjectError(error)) {
+        logStorageError('deleteStorageFilesForOrganization DeleteObject', error, {
+          organizationName,
+          uploadedByUserId,
+          objectKey: file.objectKey,
+        })
+        throw new Error(getStorageUpstreamErrorMessage(error))
+      }
+    }
+  }
+
+  await db.delete(storageFiles).where(inArray(storageFiles.id, files.map((file) => file.id)))
+
+  return { deletedFileCount: files.length }
+}
+
+async function assertOrganizationOwner({
+  db,
+  organizationName,
+  currentUserId,
+}: {
+  db: Awaited<ReturnType<typeof getDb>>
+  organizationName: string
+  currentUserId: number
+}) {
+  const ownerMembership = await db
+    .select({ userId: organizationMembers.userId })
+    .from(organizationMembers)
+    .where(eq(organizationMembers.organizationName, organizationName))
+    .orderBy(organizationMembers.createdAt)
+    .limit(1)
+
+  if (!ownerMembership[0] || ownerMembership[0].userId !== currentUserId) {
+    throw new Error('Only the organization owner can perform this action')
+  }
+
+  return ownerMembership[0]
+}
+
+async function deactivateUserIfNoMemberships(db: Awaited<ReturnType<typeof getDb>>, userId: number) {
+  const memberships = await db
+    .select({ id: organizationMembers.id })
+    .from(organizationMembers)
+    .where(eq(organizationMembers.userId, userId))
+    .limit(1)
+
+  if (!memberships[0]) {
+    await db.update(users).set({ active: false }).where(eq(users.id, userId))
+    return true
+  }
+
+  return false
 }
 
 async function sendApplicationStatusNotificationEmail({
@@ -971,6 +1193,10 @@ export const getMyOrganizationMembersFn = createServerFn({ method: 'GET' }).hand
       userId: users.id,
       email: users.email,
       name: users.name,
+      canManageMembers: organizationMembers.canManageMembers,
+      canRequestFunds: organizationMembers.canRequestFunds,
+      canManageTickets: organizationMembers.canManageTickets,
+      canAccessStorage: organizationMembers.canAccessStorage,
       addedBy: organizationMembers.addedBy,
       createdAt: organizationMembers.createdAt,
     })
@@ -980,6 +1206,333 @@ export const getMyOrganizationMembersFn = createServerFn({ method: 'GET' }).hand
 
   return rows
 })
+
+export const transferOrganizationMemberFilesFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+        fromUserId: z.number().int().positive(),
+        toUserId: z.number().int().positive(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+    const organizationName = normalizeOrg(data.organizationName)
+
+    await assertOrganizationOwner({
+      db,
+      organizationName,
+      currentUserId: currentUser.id,
+    })
+
+    if (data.fromUserId === data.toUserId) {
+      throw new Error('Source and destination users must be different')
+    }
+
+    const sourceMembership = await db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(and(eq(organizationMembers.organizationName, organizationName), eq(organizationMembers.userId, data.fromUserId)))
+      .limit(1)
+
+    const destinationMembership = await db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(and(eq(organizationMembers.organizationName, organizationName), eq(organizationMembers.userId, data.toUserId)))
+      .limit(1)
+
+    if (!sourceMembership[0]) {
+      throw new Error('Source member not found in this organization')
+    }
+
+    if (!destinationMembership[0]) {
+      throw new Error('Destination member not found in this organization')
+    }
+
+    const transferred = await db
+      .update(storageFiles)
+      .set({ uploadedByUserId: data.toUserId })
+      .where(
+        and(
+          eq(storageFiles.organizationName, organizationName),
+          eq(storageFiles.uploadedByUserId, data.fromUserId),
+        ),
+      )
+      .returning({ id: storageFiles.id })
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.organization.files.transfer_owner',
+      entityType: 'organization_member',
+      entityId: sourceMembership[0].id,
+      details: {
+        organizationName,
+        fromUserId: data.fromUserId,
+        toUserId: data.toUserId,
+        transferredFileCount: transferred.length,
+      },
+    })
+
+    return {
+      success: true,
+      transferredFileCount: transferred.length,
+    }
+  })
+
+export const removeOrganizationMemberFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+        userId: z.number().int().positive(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const startedAtMs = Date.now()
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+    const organizationName = normalizeOrg(data.organizationName)
+
+    await assertOrganizationOwner({
+      db,
+      organizationName,
+      currentUserId: currentUser.id,
+    })
+
+    const targetMembership = await db
+      .select({
+        id: organizationMembers.id,
+        userId: organizationMembers.userId,
+        email: users.email,
+      })
+      .from(organizationMembers)
+      .innerJoin(users, eq(organizationMembers.userId, users.id))
+      .where(and(eq(organizationMembers.organizationName, organizationName), eq(organizationMembers.userId, data.userId)))
+      .limit(1)
+
+    if (!targetMembership[0]) {
+      throw new Error('Member not found in this organization')
+    }
+
+    if (targetMembership[0].userId === currentUser.id) {
+      throw new Error('Use delete account to remove yourself')
+    }
+
+    const storageCleanup = await deleteStorageFilesForOrganization({
+      db,
+      organizationName,
+      uploadedByUserId: targetMembership[0].userId,
+    })
+
+    await db
+      .delete(organizationMembers)
+      .where(and(eq(organizationMembers.organizationName, organizationName), eq(organizationMembers.userId, targetMembership[0].userId)))
+
+    await deactivateUserIfNoMemberships(db, targetMembership[0].userId)
+
+    await sendOrganizationAccountRemovedEmail({
+      to: targetMembership[0].email,
+      organizationName,
+    })
+
+    await sendDataDeletionCompletedEmail({
+      to: targetMembership[0].email,
+      elapsedHours: formatDeletionDurationHours(startedAtMs),
+    })
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.organization.member.remove',
+      entityType: 'organization_member',
+      entityId: targetMembership[0].id,
+      details: {
+        organizationName,
+        removedUserId: targetMembership[0].userId,
+        removedUserEmail: targetMembership[0].email,
+        deletedFileCount: storageCleanup.deletedFileCount,
+      },
+    })
+
+    return {
+      success: true,
+      removedUserId: targetMembership[0].userId,
+      deletedFileCount: storageCleanup.deletedFileCount,
+    }
+  })
+
+export const deleteMyOrganizationAccountFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const startedAtMs = Date.now()
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+    const organizationName = normalizeOrg(data.organizationName)
+
+    const ownerMembership = await db
+      .select({ userId: organizationMembers.userId })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationName, organizationName))
+      .orderBy(organizationMembers.createdAt)
+      .limit(1)
+
+    if (ownerMembership[0] && ownerMembership[0].userId === currentUser.id) {
+      throw new Error('Owner cannot self-delete from organization. Delete the organization instead.')
+    }
+
+    const membership = await db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(and(eq(organizationMembers.organizationName, organizationName), eq(organizationMembers.userId, currentUser.id)))
+      .limit(1)
+
+    if (!membership[0]) {
+      throw new Error('You are not a member of this organization')
+    }
+
+    const storageCleanup = await deleteStorageFilesForOrganization({
+      db,
+      organizationName,
+      uploadedByUserId: currentUser.id,
+    })
+
+    await db
+      .delete(organizationMembers)
+      .where(and(eq(organizationMembers.organizationName, organizationName), eq(organizationMembers.userId, currentUser.id)))
+
+    const deactivated = await deactivateUserIfNoMemberships(db, currentUser.id)
+    if (deactivated) {
+      setCookie('session', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 0,
+        path: '/',
+      })
+    }
+
+    await sendDataDeletionCompletedEmail({
+      to: currentUser.email,
+      elapsedHours: formatDeletionDurationHours(startedAtMs),
+    })
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.organization.member.self_delete',
+      entityType: 'organization_member',
+      entityId: membership[0].id,
+      details: {
+        organizationName,
+        deletedFileCount: storageCleanup.deletedFileCount,
+        deactivated,
+      },
+    })
+
+    return {
+      success: true,
+      deletedFileCount: storageCleanup.deletedFileCount,
+      deactivated,
+    }
+  })
+
+export const deleteOrganizationFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const startedAtMs = Date.now()
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+    const organizationName = normalizeOrg(data.organizationName)
+
+    await assertOrganizationOwner({
+      db,
+      organizationName,
+      currentUserId: currentUser.id,
+    })
+
+    const members = await db
+      .select({
+        id: organizationMembers.id,
+        userId: organizationMembers.userId,
+        email: users.email,
+      })
+      .from(organizationMembers)
+      .innerJoin(users, eq(organizationMembers.userId, users.id))
+      .where(eq(organizationMembers.organizationName, organizationName))
+
+    const storageCleanup = await deleteStorageFilesForOrganization({
+      db,
+      organizationName,
+    })
+
+    await db.delete(storageUploadReservations).where(eq(storageUploadReservations.organizationName, organizationName))
+    await db.delete(storagePerkRequests).where(eq(storagePerkRequests.organizationName, organizationName))
+
+    const applications = await db
+      .select({ id: foundaryApplications.id })
+      .from(foundaryApplications)
+      .where(eq(foundaryApplications.organizationName, organizationName))
+
+    if (applications.length > 0) {
+      await db.delete(foundaryApplicationMessages).where(inArray(foundaryApplicationMessages.applicationId, applications.map((row) => row.id)))
+    }
+
+    await db.delete(foundaryApplications).where(eq(foundaryApplications.organizationName, organizationName))
+    await db.delete(organizationInvitations).where(eq(organizationInvitations.organizationName, organizationName))
+    await db.delete(organizationMembers).where(eq(organizationMembers.organizationName, organizationName))
+
+    let notifiedMemberCount = 0
+    for (const member of members) {
+      if (member.userId === currentUser.id) continue
+      await sendOrganizationAccountRemovedEmail({
+        to: member.email,
+        organizationName,
+      })
+      await sendDataDeletionCompletedEmail({
+        to: member.email,
+        elapsedHours: formatDeletionDurationHours(startedAtMs),
+      })
+      notifiedMemberCount += 1
+      await deactivateUserIfNoMemberships(db, member.userId)
+    }
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.organization.delete',
+      entityType: 'organization',
+      details: {
+        organizationName,
+        deletedMemberCount: members.length,
+        deletedFileCount: storageCleanup.deletedFileCount,
+        deletedApplicationCount: applications.length,
+        notifiedMemberCount,
+      },
+    })
+
+    return {
+      success: true,
+      deletedMemberCount: members.length,
+      deletedFileCount: storageCleanup.deletedFileCount,
+      deletedApplicationCount: applications.length,
+    }
+  })
 
 export { getHostedAccessControlFn } from './hosted-access-control'
 export { updateOrganizationMemberAccessFn } from './hosted-access-control'
@@ -2417,7 +2970,15 @@ export const postMyHostedSupportTicketMessageFn = createServerFn({ method: 'POST
     }
 
     const cleanMessage = data.message.trim()
-    const aiResult = await getHostedSupportAssistantReply(cleanMessage)
+    const recentThreadMessages = await db
+      .select({ senderRole: hostedSupportTicketMessages.senderRole, message: hostedSupportTicketMessages.message })
+      .from(hostedSupportTicketMessages)
+      .where(eq(hostedSupportTicketMessages.ticketId, data.ticketId))
+      .orderBy(desc(hostedSupportTicketMessages.createdAt))
+      .limit(12)
+
+    const conversationContext = buildHostedSupportConversationContext(recentThreadMessages.reverse())
+    const aiResult = await getHostedSupportAssistantReply(cleanMessage, conversationContext)
 
     const created = await db
       .insert(hostedSupportTicketMessages)

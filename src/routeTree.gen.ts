@@ -25,6 +25,7 @@ import { Route as HostedTicketsRouteImport } from './routes/hosted/tickets'
 import { Route as HostedTeamRouteImport } from './routes/hosted/team'
 import { Route as HostedRequestFundsRouteImport } from './routes/hosted/request-funds'
 import { Route as HostedPerksHubRouteImport } from './routes/hosted/perks-hub'
+import { Route as HostedFaqRouteImport } from './routes/hosted/faq'
 import { Route as HostedApplicationsRouteImport } from './routes/hosted/applications'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminTicketsRouteImport } from './routes/admin/tickets'
@@ -117,6 +118,11 @@ const HostedPerksHubRoute = HostedPerksHubRouteImport.update({
   path: '/perks-hub',
   getParentRoute: () => HostedRoute,
 } as any)
+const HostedFaqRoute = HostedFaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => HostedRoute,
+} as any)
 const HostedApplicationsRoute = HostedApplicationsRouteImport.update({
   id: '/applications',
   path: '/applications',
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
+  '/hosted/faq': typeof HostedFaqRoute
   '/hosted/perks-hub': typeof HostedPerksHubRoute
   '/hosted/request-funds': typeof HostedRequestFundsRoute
   '/hosted/team': typeof HostedTeamRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByTo {
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
+  '/hosted/faq': typeof HostedFaqRoute
   '/hosted/perks-hub': typeof HostedPerksHubRoute
   '/hosted/request-funds': typeof HostedRequestFundsRoute
   '/hosted/team': typeof HostedTeamRoute
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/admin/tickets': typeof AdminTicketsRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
+  '/hosted/faq': typeof HostedFaqRoute
   '/hosted/perks-hub': typeof HostedPerksHubRoute
   '/hosted/request-funds': typeof HostedRequestFundsRoute
   '/hosted/team': typeof HostedTeamRoute
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
+    | '/hosted/faq'
     | '/hosted/perks-hub'
     | '/hosted/request-funds'
     | '/hosted/team'
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
+    | '/hosted/faq'
     | '/hosted/perks-hub'
     | '/hosted/request-funds'
     | '/hosted/team'
@@ -336,6 +347,7 @@ export interface FileRouteTypes {
     | '/admin/tickets'
     | '/admin/users'
     | '/hosted/applications'
+    | '/hosted/faq'
     | '/hosted/perks-hub'
     | '/hosted/request-funds'
     | '/hosted/team'
@@ -477,6 +489,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HostedPerksHubRouteImport
       parentRoute: typeof HostedRoute
     }
+    '/hosted/faq': {
+      id: '/hosted/faq'
+      path: '/faq'
+      fullPath: '/hosted/faq'
+      preLoaderRoute: typeof HostedFaqRouteImport
+      parentRoute: typeof HostedRoute
+    }
     '/hosted/applications': {
       id: '/hosted/applications'
       path: '/applications'
@@ -596,6 +615,7 @@ const HostedPerksStorageRouteWithChildren =
 
 interface HostedRouteChildren {
   HostedApplicationsRoute: typeof HostedApplicationsRoute
+  HostedFaqRoute: typeof HostedFaqRoute
   HostedPerksHubRoute: typeof HostedPerksHubRoute
   HostedRequestFundsRoute: typeof HostedRequestFundsRoute
   HostedTeamRoute: typeof HostedTeamRoute
@@ -606,6 +626,7 @@ interface HostedRouteChildren {
 
 const HostedRouteChildren: HostedRouteChildren = {
   HostedApplicationsRoute: HostedApplicationsRoute,
+  HostedFaqRoute: HostedFaqRoute,
   HostedPerksHubRoute: HostedPerksHubRoute,
   HostedRequestFundsRoute: HostedRequestFundsRoute,
   HostedTeamRoute: HostedTeamRoute,
