@@ -23,6 +23,30 @@ import { writeActivityLog } from './logs'
 const FUNDING_PER_EVENT = 25
 const INVITE_TTL_MS = 2 * 60 * 60 * 1000
 
+type HostedAccessControl = {
+  organizationName: string | null
+  organizationState: {
+    status: 'none' | 'pending' | 'approved' | 'rejected'
+  }
+  permissions: {
+    canManageMembers: boolean
+    canRequestFunds: boolean
+    canManageTickets: boolean
+    canAccessStorage: boolean
+  }
+}
+
+const defaultHostedAccessControl: HostedAccessControl = {
+  organizationName: null,
+  organizationState: { status: 'none' },
+  permissions: {
+    canManageMembers: false,
+    canRequestFunds: false,
+    canManageTickets: false,
+    canAccessStorage: false,
+  },
+}
+
 const isMissingConfidentialityColumnsError = (error: unknown) => {
   if (!(error instanceof Error)) return false
   const msg = error.message.toLowerCase()
@@ -36,6 +60,18 @@ const isMissingConfidentialityColumnsError = (error: unknown) => {
     msg.includes('ticket_labels') ||
     msg.includes('assigned_to_user_id') ||
     msg.includes('is_application_ticket')
+  )
+}
+
+const isMissingAccessControlColumnsError = (error: unknown) => {
+  if (!(error instanceof Error)) return false
+
+  const msg = error.message.toLowerCase()
+  return (
+    msg.includes('can_manage_members') ||
+    msg.includes('can_request_funds') ||
+    msg.includes('can_manage_tickets') ||
+    msg.includes('can_access_storage')
   )
 }
 
@@ -855,6 +891,9 @@ export const getMyOrganizationMembersFn = createServerFn({ method: 'GET' }).hand
 
   return rows
 })
+
+export { getHostedAccessControlFn } from './hosted-access-control'
+export { updateOrganizationMemberAccessFn } from './hosted-access-control'
 
 export const createHostedFundingRequestFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
