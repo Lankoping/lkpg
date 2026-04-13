@@ -2,6 +2,8 @@ import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
+  cancelOrganizationNamespaceTransferFn,
+  deleteOrganizationFn,
   deleteMyOrganizationAccountFn,
   getHostedAccessControlFn,
   getMyOrganizationNamespaceTransferStatusFn,
@@ -42,6 +44,10 @@ function HostedSettingsPage() {
   const [transferStatus, setTransferStatus] = useState(initialTransferStatus)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteMessage, setDeleteMessage] = useState('')
+  const [cancelBusy, setCancelBusy] = useState(false)
+  const [cancelMessage, setCancelMessage] = useState('')
+  const [deleteOrgBusy, setDeleteOrgBusy] = useState(false)
+  const [deleteOrgMessage, setDeleteOrgMessage] = useState('')
 
   const organizationName = accessControl.organizationName || applications[0]?.organizationName || ''
 
@@ -54,6 +60,29 @@ function HostedSettingsPage() {
   }, [members, organizationName])
 
   const isOwner = Boolean(ownerUserId && ownerUserId === user.id)
+
+  const transferStartedAtMs = transferStatus?.startedAt ? new Date(transferStatus.startedAt).getTime() : null
+  const transferElapsedMs = transferStartedAtMs && Number.isFinite(transferStartedAtMs) ? Date.now() - transferStartedAtMs : null
+  const isStuckAtStart =
+    transferStatus?.status === 'in_progress' &&
+    (transferStatus.progressPercent ?? 0) <= 0 &&
+    (transferStatus.completedSteps ?? 0) <= 0 &&
+    transferElapsedMs != null &&
+    transferElapsedMs > 2 * 60 * 1000
+
+  const transferErrorStep =
+    transferStatus?.status === 'failed'
+      ? transferStatus.currentStep || 'Unknown step'
+      : isStuckAtStart
+        ? transferStatus?.currentStep || 'Starting namespace transfer'
+        : null
+
+  const transferErrorDetails =
+    transferStatus?.status === 'failed'
+      ? transferStatus.errorMessage || 'No details were provided by the server.'
+      : isStuckAtStart
+        ? 'No progress was detected for more than 2 minutes. The transfer likely failed to start; refresh and retry rename.'
+        : null
 
   useEffect(() => {
     let stopped = false
@@ -130,6 +159,49 @@ function HostedSettingsPage() {
     }
   }
 
+  const onCancelNamespaceTransfer = async () => {
+    if (!organizationName) return
+
+    setCancelMessage('')
+    setCancelBusy(true)
+
+    try {
+      const response = await cancelOrganizationNamespaceTransferFn({
+        data: { organizationName },
+      })
+      setCancelMessage(response.notice)
+      await router.invalidate()
+    } catch (error: any) {
+      setCancelMessage(error?.message || 'Could not cancel namespace transfer')
+    } finally {
+      setCancelBusy(false)
+    }
+  }
+
+  const onDeleteOrganization = async () => {
+    if (!organizationName || !isOwner) return
+
+    setDeleteOrgMessage('')
+    setDeleteOrgBusy(true)
+
+    try {
+      const response = await deleteOrganizationFn({
+        data: { organizationName },
+      })
+
+      setDeleteOrgMessage(
+        `Organization deleted. Members: ${response.deletedMemberCount}, files: ${response.deletedFileCount}, applications: ${response.deletedApplicationCount}.`,
+      )
+
+      await router.invalidate()
+      window.location.replace('/hosted')
+    } catch (error: any) {
+      setDeleteOrgMessage(error?.message || 'Could not delete organization')
+    } finally {
+      setDeleteOrgBusy(false)
+    }
+  }
+
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
       <div>
@@ -156,7 +228,27 @@ function HostedSettingsPage() {
               <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
                 <div className="h-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, transferStatus.progressPercent || 0))}%` }} />
               </div>
-              {transferStatus.errorMessage && <p className="mt-2 text-sm text-red-400">{transferStatus.errorMessage}</p>}
+
+              {transferErrorStep && transferErrorDetails && (
+                <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/5 p-3">
+                  <p className="text-sm font-medium text-red-700">Error on step: {transferErrorStep}</p>
+                  <p className="mt-1 text-sm text-red-700">Details: {transferErrorDetails}</p>
+                </div>
+              )}
+
+              {isOwner && transferStatus.status !== 'completed' && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    disabled={cancelBusy}
+                    onClick={onCancelNamespaceTransfer}
+                    className="rounded border border-amber-500/50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-500/10 disabled:opacity-50"
+                  >
+                    {cancelBusy ? 'Cancelling...' : 'Cancel name change and undo changes'}
+                  </button>
+                  {cancelMessage && <p className="mt-2 text-sm text-muted-foreground">{cancelMessage}</p>}
+                </div>
+              )}
             </div>
           )}
 
@@ -199,6 +291,12 @@ function HostedSettingsPage() {
               Delete your own organization account from here. This removes your membership and deletes your uploaded files.
             </p>
 
+            {isOwner && (
+              <p className="mt-2 text-sm text-red-700">
+                Owners cannot self-delete while they still own the organization. Use Delete organization below.
+              </p>
+            )}
+
             <button
               type="button"
               disabled={deleteBusy}
@@ -210,6 +308,26 @@ function HostedSettingsPage() {
 
             {deleteMessage && <p className="mt-3 text-sm text-red-700">{deleteMessage}</p>}
           </div>
+
+          {isOwner && (
+            <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4">
+              <p className="text-xs font-medium uppercase tracking-[0.22em] text-red-800">Organization danger zone</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Delete the entire organization. This removes members, storage data, invitations, and applications.
+              </p>
+
+              <button
+                type="button"
+                disabled={deleteOrgBusy}
+                onClick={onDeleteOrganization}
+                className="mt-3 rounded border border-red-600/50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-500/10 disabled:opacity-50"
+              >
+                {deleteOrgBusy ? 'Deleting organization...' : 'Delete organization'}
+              </button>
+
+              {deleteOrgMessage && <p className="mt-2 text-sm text-red-800">{deleteOrgMessage}</p>}
+            </div>
+          )}
         </>
       )}
     </section>

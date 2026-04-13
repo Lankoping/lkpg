@@ -95,6 +95,7 @@ const getApplicationThreadId = (applicationId: number) => `<foundary-application
 const getHostedSupportThreadId = (ticketId: number) => `<hosted-support-${ticketId}@lankoping.se>`
 const ticketPrioritySchema = z.enum(['low', 'normal', 'high', 'urgent'])
 const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const NAMESPACE_TRANSFER_STALE_MS = 2 * 60 * 1000
 
 type NamespaceTransferStatus = {
   id: number
@@ -108,6 +109,107 @@ type NamespaceTransferStatus = {
   startedAt: Date
   completedAt: Date | null
   errorMessage: string | null
+}
+
+async function rollbackNamespaceTransferChanges(params: {
+  db: Awaited<ReturnType<typeof getDb>>
+  sourceOrganizationName: string
+  targetOrganizationName: string
+}) {
+  const { db, sourceOrganizationName, targetOrganizationName } = params
+  const sourceOrg = normalizeOrg(sourceOrganizationName)
+  const targetOrg = normalizeOrg(targetOrganizationName)
+
+  const sourcePrefix = slugifyOrgName(sourceOrg) || 'organization'
+  const targetPrefix = slugifyOrgName(targetOrg) || 'organization'
+
+  const config = getStorageConfig()
+  const client = getStorageClient(config)
+
+  const files = await db
+    .select({
+      id: storageFiles.id,
+      objectKey: storageFiles.objectKey,
+      organizationName: storageFiles.organizationName,
+    })
+    .from(storageFiles)
+    .where(or(eq(storageFiles.organizationName, sourceOrg), eq(storageFiles.organizationName, targetOrg)))
+
+  for (const file of files) {
+    if (!file.objectKey.startsWith(`${targetPrefix}/`)) {
+      continue
+    }
+
+    const restoredKey = `${sourcePrefix}/${file.objectKey.slice(targetPrefix.length + 1)}`
+    const encodedSourceKey = file.objectKey.split('/').map(encodeURIComponent).join('/')
+
+    try {
+      await client.send(
+        new CopyObjectCommand({
+          Bucket: config.bucket,
+          CopySource: `${config.bucket}/${encodedSourceKey}`,
+          Key: restoredKey,
+        }),
+      )
+      await client.send(
+        new DeleteObjectCommand({
+          Bucket: config.bucket,
+          Key: file.objectKey,
+        }),
+      )
+    } catch (error) {
+      if (!isStorageMissingObjectError(error)) {
+        logStorageError('rollbackNamespaceTransferChanges storage copy/delete', error, {
+          sourceOrganizationName: sourceOrg,
+          targetOrganizationName: targetOrg,
+          objectKey: file.objectKey,
+          restoredKey,
+        })
+        throw new Error(getStorageUpstreamErrorMessage(error))
+      }
+    }
+
+    await db.update(storageFiles).set({ objectKey: restoredKey }).where(eq(storageFiles.id, file.id))
+  }
+
+  const reservations = await db
+    .select({
+      id: storageUploadReservations.id,
+      objectKey: storageUploadReservations.objectKey,
+      organizationName: storageUploadReservations.organizationName,
+    })
+    .from(storageUploadReservations)
+    .where(or(eq(storageUploadReservations.organizationName, sourceOrg), eq(storageUploadReservations.organizationName, targetOrg)))
+
+  for (const reservation of reservations) {
+    if (!reservation.objectKey.startsWith(`${targetPrefix}/`)) {
+      continue
+    }
+
+    const restoredKey = `${sourcePrefix}/${reservation.objectKey.slice(targetPrefix.length + 1)}`
+    await db.update(storageUploadReservations).set({ objectKey: restoredKey }).where(eq(storageUploadReservations.id, reservation.id))
+  }
+
+  await db.update(organizationMembers).set({ organizationName: sourceOrg }).where(eq(organizationMembers.organizationName, targetOrg))
+  await db.update(organizationInvitations).set({ organizationName: sourceOrg }).where(eq(organizationInvitations.organizationName, targetOrg))
+  await db.update(foundaryApplications).set({ organizationName: sourceOrg }).where(eq(foundaryApplications.organizationName, targetOrg))
+  await db.update(storagePerkRequests).set({ organizationName: sourceOrg }).where(eq(storagePerkRequests.organizationName, targetOrg))
+  await db.update(storageUploadReservations).set({ organizationName: sourceOrg }).where(eq(storageUploadReservations.organizationName, targetOrg))
+  await db.update(storageFiles).set({ organizationName: sourceOrg }).where(eq(storageFiles.organizationName, targetOrg))
+}
+
+const isStaleNamespaceTransfer = (transfer: NamespaceTransferStatus, now = Date.now()) => {
+  if (transfer.status !== 'in_progress') {
+    return false
+  }
+
+  const startedAtMs = new Date(transfer.startedAt).getTime()
+  if (!Number.isFinite(startedAtMs)) {
+    return false
+  }
+
+  const isInitialStep = transfer.completedSteps <= 0 || transfer.progressPercent <= 0
+  return isInitialStep && now - startedAtMs >= NAMESPACE_TRANSFER_STALE_MS
 }
 
 function getExecuteRows<T>(result: unknown): T[] {
@@ -1474,7 +1576,58 @@ export const getMyOrganizationNamespaceTransferStatusFn = createServerFn({ metho
   `)
 
   const transfer = getExecuteRows<NamespaceTransferStatus>(rowsResult)[0]
-  return transfer ?? null
+  if (!transfer) {
+    return null
+  }
+
+  if (isStaleNamespaceTransfer(transfer)) {
+    await db.execute(sql`
+      UPDATE organization_namespace_transfers
+      SET
+        status = 'failed',
+        error_message = 'Namespace transfer did not start in time. Please retry.',
+        current_step = 'Failed to start',
+        completed_at = now()
+      WHERE id = ${transfer.id}
+        AND status = 'in_progress'
+    `)
+
+    return {
+      ...transfer,
+      status: 'failed',
+      currentStep: 'Failed to start',
+      errorMessage: 'Namespace transfer did not start in time. Please retry.',
+      completedAt: new Date(),
+    }
+  }
+
+  return transfer
+})
+
+export const getNamespaceTransfersForAdminFn = createServerFn({ method: 'GET' }).handler(async () => {
+  await requireOrganizerUser()
+  const db = await getDb()
+  await ensureNamespaceTransferTable(db)
+
+  const rowsResult = await db.execute(sql`
+    SELECT
+      id,
+      organization_name AS "organizationName",
+      new_organization_name AS "newOrganizationName",
+      status,
+      progress_percent AS "progressPercent",
+      current_step AS "currentStep",
+      total_steps AS "totalSteps",
+      completed_steps AS "completedSteps",
+      started_at AS "startedAt",
+      completed_at AS "completedAt",
+      error_message AS "errorMessage"
+    FROM organization_namespace_transfers
+    ORDER BY started_at DESC
+    LIMIT 100
+  `)
+
+  return getExecuteRows<NamespaceTransferStatus>(rowsResult)
 })
 
 export const renameOrganizationFn = createServerFn({ method: 'POST' })
@@ -1512,6 +1665,20 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
     if (existingTarget[0]) {
       throw new Error('That organization name is already in use')
     }
+
+    await db.execute(sql`
+      UPDATE organization_namespace_transfers
+      SET
+        status = 'failed',
+        error_message = 'Namespace transfer did not start in time. Please retry.',
+        current_step = 'Failed to start',
+        completed_at = now()
+      WHERE (organization_name = ${organizationName} OR new_organization_name = ${organizationName})
+        AND status = 'in_progress'
+        AND completed_steps = 0
+        AND progress_percent = 0
+        AND started_at <= now() - interval '2 minutes'
+    `)
 
     const activeTransferRowsResult = await db.execute(sql`
       SELECT id FROM organization_namespace_transfers
@@ -1552,7 +1719,10 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
       throw new Error('Could not initialize namespace transfer')
     }
 
+    let latestTransferStep = 'Starting namespace transfer'
+
     const updateTransferProgress = async (completedSteps: number, currentStep: string) => {
+      latestTransferStep = currentStep
       const progressPercent = Math.min(100, Math.round((completedSteps / 7) * 100))
       await db.execute(sql`
         UPDATE organization_namespace_transfers
@@ -1565,12 +1735,13 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
     }
 
     const markTransferFailed = async (errorMessage: string) => {
+      const details = [`Error on step: ${latestTransferStep}`, `Details: ${errorMessage}`].join('\n')
       await db.execute(sql`
         UPDATE organization_namespace_transfers
         SET
           status = 'failed',
-          error_message = ${errorMessage},
-          current_step = 'Failed',
+          error_message = ${details},
+          current_step = ${latestTransferStep},
           completed_at = now()
         WHERE id = ${transferId}
       `)
@@ -1685,6 +1856,92 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
       organizationName: newOrganizationName,
       notice:
         'Hi, your unable to acsess this orginisation right now since you have changed the name, the orginisation will be back in less then 24-48h depending on how much data you are storing.',
+    }
+  })
+
+export const cancelOrganizationNamespaceTransferFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+    await ensureNamespaceTransferTable(db)
+
+    const organizationName = normalizeOrg(data.organizationName)
+    await assertOrganizationOwner({
+      db,
+      organizationName,
+      currentUserId: currentUser.id,
+    })
+
+    const transferRowsResult = await db.execute(sql`
+      SELECT
+        id,
+        organization_name AS "organizationName",
+        new_organization_name AS "newOrganizationName",
+        status,
+        progress_percent AS "progressPercent",
+        current_step AS "currentStep",
+        total_steps AS "totalSteps",
+        completed_steps AS "completedSteps",
+        started_at AS "startedAt",
+        completed_at AS "completedAt",
+        error_message AS "errorMessage"
+      FROM organization_namespace_transfers
+      WHERE organization_name = ${organizationName} OR new_organization_name = ${organizationName}
+      ORDER BY started_at DESC
+      LIMIT 1
+    `)
+
+    const transfer = getExecuteRows<NamespaceTransferStatus>(transferRowsResult)[0]
+    if (!transfer) {
+      throw new Error('No namespace transfer found to cancel')
+    }
+
+    if (transfer.status === 'completed') {
+      throw new Error('Completed transfers cannot be cancelled')
+    }
+
+    if (transfer.status === 'in_progress' && transfer.completedSteps > 1) {
+      throw new Error('Cannot cancel while transfer is actively moving files. Please wait for completion or failure.')
+    }
+
+    await rollbackNamespaceTransferChanges({
+      db,
+      sourceOrganizationName: transfer.organizationName,
+      targetOrganizationName: transfer.newOrganizationName,
+    })
+
+    await db.execute(sql`
+      UPDATE organization_namespace_transfers
+      SET
+        status = 'failed',
+        current_step = 'Cancelled and rolled back',
+        error_message = 'Error on step: Cancel requested by owner\nDetails: Namespace transfer was cancelled and changes were reverted.',
+        completed_at = now()
+      WHERE id = ${transfer.id}
+    `)
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.organization.rename.cancel',
+      entityType: 'organization',
+      details: {
+        organizationName: transfer.organizationName,
+        attemptedNewOrganizationName: transfer.newOrganizationName,
+        cancelledTransferId: transfer.id,
+      },
+    })
+
+    return {
+      success: true,
+      notice: 'Namespace transfer cancelled. Changes have been rolled back.',
     }
   })
 
