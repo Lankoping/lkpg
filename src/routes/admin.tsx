@@ -13,6 +13,7 @@ import {
   X,
   ExternalLink,
   HardDrive,
+  GitBranch,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/admin')({
@@ -169,6 +170,12 @@ function AdminLayout() {
                 label="Storage"
                 icon={<HardDrive className="w-5 h-5" />}
                 isActive={currentPath.startsWith('/admin/storage-perks')}
+              />
+              <NavItem
+                href="/admin/transfers"
+                label="Transfers"
+                icon={<GitBranch className="w-5 h-5" />}
+                isActive={currentPath.startsWith('/admin/transfers')}
               />
             </div>
 

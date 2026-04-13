@@ -111,6 +111,25 @@ type NamespaceTransferStatus = {
   errorMessage: string | null
 }
 
+type NamespaceTransferDbSnapshot = {
+  source: {
+    members: number
+    invitations: number
+    applications: number
+    storageFiles: number
+    storageReservations: number
+    storagePerkRequests: number
+  }
+  target: {
+    members: number
+    invitations: number
+    applications: number
+    storageFiles: number
+    storageReservations: number
+    storagePerkRequests: number
+  }
+}
+
 async function rollbackNamespaceTransferChanges(params: {
   db: Awaited<ReturnType<typeof getDb>>
   sourceOrganizationName: string
@@ -1630,6 +1649,100 @@ export const getNamespaceTransfersForAdminFn = createServerFn({ method: 'GET' })
   return getExecuteRows<NamespaceTransferStatus>(rowsResult)
 })
 
+export const getNamespaceTransferMonitorForAdminFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        transferId: z.number().int().positive(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    await requireOrganizerUser()
+    const db = await getDb()
+    await ensureNamespaceTransferTable(db)
+
+    const rowsResult = await db.execute(sql`
+      SELECT
+        id,
+        organization_name AS "organizationName",
+        new_organization_name AS "newOrganizationName",
+        status,
+        progress_percent AS "progressPercent",
+        current_step AS "currentStep",
+        total_steps AS "totalSteps",
+        completed_steps AS "completedSteps",
+        started_at AS "startedAt",
+        completed_at AS "completedAt",
+        error_message AS "errorMessage"
+      FROM organization_namespace_transfers
+      WHERE id = ${data.transferId}
+      LIMIT 1
+    `)
+
+    const transfer = getExecuteRows<NamespaceTransferStatus>(rowsResult)[0]
+    if (!transfer) {
+      throw new Error('Transfer not found')
+    }
+
+    const snapshotResult = await db.execute(sql`
+      SELECT
+        (SELECT count(*)::int FROM organization_members WHERE organization_name = ${transfer.organizationName}) AS "sourceMembers",
+        (SELECT count(*)::int FROM organization_invitations WHERE organization_name = ${transfer.organizationName}) AS "sourceInvitations",
+        (SELECT count(*)::int FROM foundary_applications WHERE organization_name = ${transfer.organizationName}) AS "sourceApplications",
+        (SELECT count(*)::int FROM storage_files WHERE organization_name = ${transfer.organizationName}) AS "sourceStorageFiles",
+        (SELECT count(*)::int FROM storage_upload_reservations WHERE organization_name = ${transfer.organizationName}) AS "sourceStorageReservations",
+        (SELECT count(*)::int FROM storage_perk_requests WHERE organization_name = ${transfer.organizationName}) AS "sourceStoragePerkRequests",
+
+        (SELECT count(*)::int FROM organization_members WHERE organization_name = ${transfer.newOrganizationName}) AS "targetMembers",
+        (SELECT count(*)::int FROM organization_invitations WHERE organization_name = ${transfer.newOrganizationName}) AS "targetInvitations",
+        (SELECT count(*)::int FROM foundary_applications WHERE organization_name = ${transfer.newOrganizationName}) AS "targetApplications",
+        (SELECT count(*)::int FROM storage_files WHERE organization_name = ${transfer.newOrganizationName}) AS "targetStorageFiles",
+        (SELECT count(*)::int FROM storage_upload_reservations WHERE organization_name = ${transfer.newOrganizationName}) AS "targetStorageReservations",
+        (SELECT count(*)::int FROM storage_perk_requests WHERE organization_name = ${transfer.newOrganizationName}) AS "targetStoragePerkRequests"
+    `)
+
+    const snapshotRow = getExecuteRows<{
+      sourceMembers: number
+      sourceInvitations: number
+      sourceApplications: number
+      sourceStorageFiles: number
+      sourceStorageReservations: number
+      sourceStoragePerkRequests: number
+      targetMembers: number
+      targetInvitations: number
+      targetApplications: number
+      targetStorageFiles: number
+      targetStorageReservations: number
+      targetStoragePerkRequests: number
+    }>(snapshotResult)[0]
+
+    const snapshot: NamespaceTransferDbSnapshot = {
+      source: {
+        members: snapshotRow?.sourceMembers ?? 0,
+        invitations: snapshotRow?.sourceInvitations ?? 0,
+        applications: snapshotRow?.sourceApplications ?? 0,
+        storageFiles: snapshotRow?.sourceStorageFiles ?? 0,
+        storageReservations: snapshotRow?.sourceStorageReservations ?? 0,
+        storagePerkRequests: snapshotRow?.sourceStoragePerkRequests ?? 0,
+      },
+      target: {
+        members: snapshotRow?.targetMembers ?? 0,
+        invitations: snapshotRow?.targetInvitations ?? 0,
+        applications: snapshotRow?.targetApplications ?? 0,
+        storageFiles: snapshotRow?.targetStorageFiles ?? 0,
+        storageReservations: snapshotRow?.targetStorageReservations ?? 0,
+        storagePerkRequests: snapshotRow?.targetStoragePerkRequests ?? 0,
+      },
+    }
+
+    return {
+      transfer,
+      snapshot,
+      polledAt: new Date().toISOString(),
+    }
+  })
+
 export const renameOrganizationFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
     z
@@ -1673,7 +1786,12 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
         error_message = 'Namespace transfer did not start in time. Please retry.',
         current_step = 'Failed to start',
         completed_at = now()
-      WHERE (organization_name = ${organizationName} OR new_organization_name = ${organizationName})
+      WHERE (
+          organization_name = ${organizationName}
+          OR new_organization_name = ${organizationName}
+          OR organization_name = ${newOrganizationName}
+          OR new_organization_name = ${newOrganizationName}
+        )
         AND status = 'in_progress'
         AND completed_steps = 0
         AND progress_percent = 0
@@ -1921,6 +2039,21 @@ export const cancelOrganizationNamespaceTransferFn = createServerFn({ method: 'P
       UPDATE organization_namespace_transfers
       SET
         status = 'failed',
+        current_step = 'Cancelled and rolled back',
+        error_message = 'Error on step: Cancel requested by owner\nDetails: Namespace transfer was cancelled and changes were reverted.',
+        completed_at = now()
+      WHERE (
+          organization_name = ${transfer.organizationName}
+          OR new_organization_name = ${transfer.organizationName}
+          OR organization_name = ${transfer.newOrganizationName}
+          OR new_organization_name = ${transfer.newOrganizationName}
+        )
+        AND status = 'in_progress'
+    `)
+
+    await db.execute(sql`
+      UPDATE organization_namespace_transfers
+      SET
         current_step = 'Cancelled and rolled back',
         error_message = 'Error on step: Cancel requested by owner\nDetails: Namespace transfer was cancelled and changes were reverted.',
         completed_at = now()

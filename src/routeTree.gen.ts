@@ -29,6 +29,7 @@ import { Route as HostedPerksHubRouteImport } from './routes/hosted/perks-hub'
 import { Route as HostedFaqRouteImport } from './routes/hosted/faq'
 import { Route as HostedApplicationsRouteImport } from './routes/hosted/applications'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminTransfersRouteImport } from './routes/admin/transfers'
 import { Route as AdminTicketsRouteImport } from './routes/admin/tickets'
 import { Route as AdminStoragePerksRouteImport } from './routes/admin/storage-perks'
 import { Route as AdminLogsRouteImport } from './routes/admin/logs'
@@ -139,6 +140,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminTransfersRoute = AdminTransfersRouteImport.update({
+  id: '/transfers',
+  path: '/transfers',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminTicketsRoute = AdminTicketsRouteImport.update({
   id: '/tickets',
   path: '/tickets',
@@ -202,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/admin/logs': typeof AdminLogsRoute
   '/admin/storage-perks': typeof AdminStoragePerksRoute
   '/admin/tickets': typeof AdminTicketsRoute
+  '/admin/transfers': typeof AdminTransfersRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
   '/hosted/faq': typeof HostedFaqRoute
@@ -231,6 +238,7 @@ export interface FileRoutesByTo {
   '/admin/logs': typeof AdminLogsRoute
   '/admin/storage-perks': typeof AdminStoragePerksRoute
   '/admin/tickets': typeof AdminTicketsRoute
+  '/admin/transfers': typeof AdminTransfersRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
   '/hosted/faq': typeof HostedFaqRoute
@@ -263,6 +271,7 @@ export interface FileRoutesById {
   '/admin/logs': typeof AdminLogsRoute
   '/admin/storage-perks': typeof AdminStoragePerksRoute
   '/admin/tickets': typeof AdminTicketsRoute
+  '/admin/transfers': typeof AdminTransfersRoute
   '/admin/users': typeof AdminUsersRoute
   '/hosted/applications': typeof HostedApplicationsRoute
   '/hosted/faq': typeof HostedFaqRoute
@@ -296,6 +305,7 @@ export interface FileRouteTypes {
     | '/admin/logs'
     | '/admin/storage-perks'
     | '/admin/tickets'
+    | '/admin/transfers'
     | '/admin/users'
     | '/hosted/applications'
     | '/hosted/faq'
@@ -325,6 +335,7 @@ export interface FileRouteTypes {
     | '/admin/logs'
     | '/admin/storage-perks'
     | '/admin/tickets'
+    | '/admin/transfers'
     | '/admin/users'
     | '/hosted/applications'
     | '/hosted/faq'
@@ -356,6 +367,7 @@ export interface FileRouteTypes {
     | '/admin/logs'
     | '/admin/storage-perks'
     | '/admin/tickets'
+    | '/admin/transfers'
     | '/admin/users'
     | '/hosted/applications'
     | '/hosted/faq'
@@ -529,6 +541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/transfers': {
+      id: '/admin/transfers'
+      path: '/transfers'
+      fullPath: '/admin/transfers'
+      preLoaderRoute: typeof AdminTransfersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/tickets': {
       id: '/admin/tickets'
       path: '/tickets'
@@ -600,6 +619,7 @@ interface AdminRouteChildren {
   AdminLogsRoute: typeof AdminLogsRoute
   AdminStoragePerksRoute: typeof AdminStoragePerksRoute
   AdminTicketsRoute: typeof AdminTicketsRoute
+  AdminTransfersRoute: typeof AdminTransfersRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -609,6 +629,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminLogsRoute: AdminLogsRoute,
   AdminStoragePerksRoute: AdminStoragePerksRoute,
   AdminTicketsRoute: AdminTicketsRoute,
+  AdminTransfersRoute: AdminTransfersRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
@@ -674,12 +695,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

@@ -1,15 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Users, FileText, CircleAlert, CircleCheck } from 'lucide-react'
 import { getUsersFn } from '../../server/functions/auth'
-import { getFoundaryApplicationsFn, getNamespaceTransfersForAdminFn } from '../../server/functions/foundary'
+import { getFoundaryApplicationsFn } from '../../server/functions/foundary'
 
 export const Route = createFileRoute('/admin/')({
   loader: async () => {
-    const [members, applications, namespaceTransfers] = await Promise.all([
-      getUsersFn(),
-      getFoundaryApplicationsFn(),
-      getNamespaceTransfersForAdminFn(),
-    ])
+    const [members, applications] = await Promise.all([getUsersFn(), getFoundaryApplicationsFn()])
 
     return {
       memberCount: members.length,
@@ -17,18 +13,10 @@ export const Route = createFileRoute('/admin/')({
       pendingCount: applications.filter((app) => app.status === 'pending').length,
       approvedCount: applications.filter((app) => app.status === 'approved').length,
       recentApplications: applications.slice(0, 5),
-      namespaceTransfers,
     }
   },
   component: AdminDashboard,
 })
-
-function formatDateTime(value: Date | string | null) {
-  if (!value) return '-'
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString()
-}
 
 function StatCard({
   label,
@@ -55,7 +43,7 @@ function StatCard({
 }
 
 function AdminDashboard() {
-  const { memberCount, applicationCount, pendingCount, approvedCount, recentApplications, namespaceTransfers } = Route.useLoaderData()
+  const { memberCount, applicationCount, pendingCount, approvedCount, recentApplications } = Route.useLoaderData()
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -106,45 +94,6 @@ function AdminDashboard() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-border bg-card">
-        <div className="border-b border-border px-5 py-4">
-          <h2 className="font-display text-2xl text-foreground">Namespace transfer monitor</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Explicit operational details for every rename transfer attempt.</p>
-        </div>
-
-        {namespaceTransfers.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-muted-foreground">No namespace transfer activity yet.</div>
-        ) : (
-          <div className="divide-y divide-border">
-            {namespaceTransfers.map((transfer) => (
-              <article key={transfer.id} className="space-y-2 px-5 py-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-base font-medium text-foreground">
-                    {transfer.organizationName} -&gt; {transfer.newOrganizationName}
-                  </p>
-                  <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{transfer.status}</span>
-                </div>
-
-                <p className="text-sm text-foreground">
-                  Step detail: {transfer.currentStep || 'Unknown'} ({transfer.completedSteps}/{transfer.totalSteps}) - {transfer.progressPercent}%
-                </p>
-
-                <p className="text-xs text-muted-foreground">
-                  Started: {formatDateTime(transfer.startedAt)} | Completed: {formatDateTime(transfer.completedAt)} | Transfer ID: {transfer.id}
-                </p>
-
-                {transfer.errorMessage ? (
-                  <div className="rounded-lg border border-red-500/40 bg-red-500/5 p-3">
-                    <p className="whitespace-pre-wrap text-sm text-red-700">{transfer.errorMessage}</p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">Error details: none</p>
-                )}
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   )
 }
