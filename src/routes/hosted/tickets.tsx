@@ -33,7 +33,8 @@ export const Route = createFileRoute('/hosted/tickets')({
       getHostedAccessControlFn(),
     ])
 
-    if (!accessControl.permissions.canManageTickets) {
+    const isApprovedOrganization = accessControl.organizationState.status === 'approved'
+    if (isApprovedOrganization && !accessControl.permissions.canManageTickets) {
       throw redirect({ to: '/hosted/team', search: { invite: undefined } })
     }
 

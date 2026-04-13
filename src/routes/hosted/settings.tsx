@@ -3,12 +3,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
 import {
   cancelOrganizationNamespaceTransferFn,
-  deleteOrganizationFn,
   deleteMyOrganizationAccountFn,
   getHostedAccessControlFn,
   getMyOrganizationNamespaceTransferStatusFn,
   getMyFoundaryApplicationsFn,
   getMyOrganizationMembersFn,
+  requestOrganizationDeletionApprovalFn,
   renameOrganizationFn,
 } from '../../server/functions/foundary'
 
@@ -83,6 +83,19 @@ function HostedSettingsPage() {
       : isStuckAtStart
         ? 'No progress was detected for more than 2 minutes. The transfer likely failed to start; refresh and retry rename.'
         : null
+
+  const formatTransferDuration = (startedAt: Date | string | null | undefined, completedAt: Date | string | null | undefined) => {
+    if (!startedAt) return '-'
+    const startMs = new Date(startedAt).getTime()
+    const endMs = completedAt ? new Date(completedAt).getTime() : Date.now()
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return '-'
+
+    const totalSeconds = Math.floor((endMs - startMs) / 1000)
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+    return `${hours}h ${minutes}m ${seconds}s`
+  }
 
   useEffect(() => {
     let stopped = false
@@ -185,18 +198,14 @@ function HostedSettingsPage() {
     setDeleteOrgBusy(true)
 
     try {
-      const response = await deleteOrganizationFn({
+      const response = await requestOrganizationDeletionApprovalFn({
         data: { organizationName },
       })
 
-      setDeleteOrgMessage(
-        `Organization deleted. Members: ${response.deletedMemberCount}, files: ${response.deletedFileCount}, applications: ${response.deletedApplicationCount}.`,
-      )
-
+      setDeleteOrgMessage(response.notice)
       await router.invalidate()
-      window.location.replace('/hosted')
     } catch (error: any) {
-      setDeleteOrgMessage(error?.message || 'Could not delete organization')
+      setDeleteOrgMessage(error?.message || 'Could not request organization deletion')
     } finally {
       setDeleteOrgBusy(false)
     }
@@ -218,8 +227,10 @@ function HostedSettingsPage() {
           {transferStatus && (
             <div className="rounded-xl border border-border bg-background p-4">
               <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Namespace transfer status</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {transferStatus.organizationName} → {transferStatus.newOrganizationName}
+              <p className="mt-2 text-sm text-muted-foreground">Old organisation name: {transferStatus.organizationName}</p>
+              <p className="mt-1 text-sm text-muted-foreground">New organisation name: {transferStatus.newOrganizationName}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Total transfer duration: {formatTransferDuration(transferStatus.startedAt, transferStatus.completedAt)}
               </p>
               <p className="mt-1 text-sm text-foreground">Current step: {transferStatus.currentStep || 'Starting...'}</p>
               <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
@@ -313,7 +324,7 @@ function HostedSettingsPage() {
             <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4">
               <p className="text-xs font-medium uppercase tracking-[0.22em] text-red-800">Organization danger zone</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Delete the entire organization. This removes members, storage data, invitations, and applications.
+                Request deletion of the entire organization. An admin must approve before members, storage data, invitations, and applications are removed.
               </p>
 
               <button
@@ -322,7 +333,7 @@ function HostedSettingsPage() {
                 onClick={onDeleteOrganization}
                 className="mt-3 rounded border border-red-600/50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-500/10 disabled:opacity-50"
               >
-                {deleteOrgBusy ? 'Deleting organization...' : 'Delete organization'}
+                {deleteOrgBusy ? 'Submitting request...' : 'Request organization deletion'}
               </button>
 
               {deleteOrgMessage && <p className="mt-2 text-sm text-red-800">{deleteOrgMessage}</p>}

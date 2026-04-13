@@ -264,6 +264,100 @@ async function ensureNamespaceTransferTable(db: Awaited<ReturnType<typeof getDb>
   `)
 }
 
+async function ensureOrganizationDeletionRequestsTable(db: Awaited<ReturnType<typeof getDb>>) {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS organization_deletion_requests (
+      id serial PRIMARY KEY,
+      organization_name text NOT NULL,
+      requested_by_user_id integer NOT NULL,
+      status text NOT NULL DEFAULT 'pending',
+      requested_at timestamp NOT NULL DEFAULT now(),
+      reviewed_by_user_id integer,
+      reviewed_at timestamp,
+      review_notes text
+    );
+  `)
+}
+
+async function performOrganizationDeletion(params: {
+  db: Awaited<ReturnType<typeof getDb>>
+  organizationName: string
+  actorUserId: number
+  actorRole: 'organizer' | 'volunteer'
+  skipNotifyUserId?: number
+}) {
+  const { db, organizationName, actorUserId, actorRole, skipNotifyUserId } = params
+  const startedAtMs = Date.now()
+
+  const members = await db
+    .select({
+      id: organizationMembers.id,
+      userId: organizationMembers.userId,
+      email: users.email,
+    })
+    .from(organizationMembers)
+    .innerJoin(users, eq(organizationMembers.userId, users.id))
+    .where(eq(organizationMembers.organizationName, organizationName))
+
+  const storageCleanup = await deleteStorageFilesForOrganization({
+    db,
+    organizationName,
+  })
+
+  await db.delete(storageUploadReservations).where(eq(storageUploadReservations.organizationName, organizationName))
+  await db.delete(storagePerkRequests).where(eq(storagePerkRequests.organizationName, organizationName))
+
+  const applications = await db
+    .select({ id: foundaryApplications.id })
+    .from(foundaryApplications)
+    .where(eq(foundaryApplications.organizationName, organizationName))
+
+  if (applications.length > 0) {
+    await db.delete(foundaryApplicationMessages).where(inArray(foundaryApplicationMessages.applicationId, applications.map((row) => row.id)))
+  }
+
+  await db.delete(foundaryApplications).where(eq(foundaryApplications.organizationName, organizationName))
+  await db.delete(organizationInvitations).where(eq(organizationInvitations.organizationName, organizationName))
+  await db.delete(organizationMembers).where(eq(organizationMembers.organizationName, organizationName))
+
+  let notifiedMemberCount = 0
+  for (const member of members) {
+    if (skipNotifyUserId && member.userId === skipNotifyUserId) continue
+
+    await sendOrganizationAccountRemovedEmail({
+      to: member.email,
+      organizationName,
+    })
+    await sendDataDeletionCompletedEmail({
+      to: member.email,
+      elapsedHours: formatDeletionDurationHours(startedAtMs),
+    })
+    notifiedMemberCount += 1
+    await deactivateUserIfNoMemberships(db, member.userId)
+  }
+
+  await writeActivityLog({
+    actorUserId,
+    actorRole,
+    action: 'foundary.organization.delete',
+    entityType: 'organization',
+    details: {
+      organizationName,
+      deletedMemberCount: members.length,
+      deletedFileCount: storageCleanup.deletedFileCount,
+      deletedApplicationCount: applications.length,
+      notifiedMemberCount,
+    },
+  })
+
+  return {
+    success: true,
+    deletedMemberCount: members.length,
+    deletedFileCount: storageCleanup.deletedFileCount,
+    deletedApplicationCount: applications.length,
+  }
+}
+
 type HostedSupportAssistantResult = {
   summary: string
   answer: string
@@ -2454,7 +2548,21 @@ export const deleteOrganizationFn = createServerFn({ method: 'POST' })
       .parse(data),
   )
   .handler(async ({ data }) => {
-    const startedAtMs = Date.now()
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+    const organizationName = normalizeOrg(data.organizationName)
+
+    return await performOrganizationDeletion({
+      db,
+      organizationName,
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+    })
+  })
+
+export const requestOrganizationDeletionApprovalFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) => z.object({ organizationName: z.string().min(1) }).parse(data))
+  .handler(async ({ data }) => {
     const currentUser = await requireStaffUser()
     const db = await getDb()
     const organizationName = normalizeOrg(data.organizationName)
@@ -2465,71 +2573,162 @@ export const deleteOrganizationFn = createServerFn({ method: 'POST' })
       currentUserId: currentUser.id,
     })
 
-    const members = await db
-      .select({
-        id: organizationMembers.id,
-        userId: organizationMembers.userId,
-        email: users.email,
-      })
-      .from(organizationMembers)
-      .innerJoin(users, eq(organizationMembers.userId, users.id))
-      .where(eq(organizationMembers.organizationName, organizationName))
+    await ensureOrganizationDeletionRequestsTable(db)
 
-    const storageCleanup = await deleteStorageFilesForOrganization({
-      db,
-      organizationName,
-    })
+    const existing = await db.execute(sql`
+      SELECT id
+      FROM organization_deletion_requests
+      WHERE organization_name = ${organizationName}
+        AND status = 'pending'
+      LIMIT 1
+    `)
 
-    await db.delete(storageUploadReservations).where(eq(storageUploadReservations.organizationName, organizationName))
-    await db.delete(storagePerkRequests).where(eq(storagePerkRequests.organizationName, organizationName))
-
-    const applications = await db
-      .select({ id: foundaryApplications.id })
-      .from(foundaryApplications)
-      .where(eq(foundaryApplications.organizationName, organizationName))
-
-    if (applications.length > 0) {
-      await db.delete(foundaryApplicationMessages).where(inArray(foundaryApplicationMessages.applicationId, applications.map((row) => row.id)))
+    if (getExecuteRows<{ id: number }>(existing).length > 0) {
+      throw new Error('A deletion approval request is already pending for this organization')
     }
 
-    await db.delete(foundaryApplications).where(eq(foundaryApplications.organizationName, organizationName))
-    await db.delete(organizationInvitations).where(eq(organizationInvitations.organizationName, organizationName))
-    await db.delete(organizationMembers).where(eq(organizationMembers.organizationName, organizationName))
+    const created = await db.execute(sql`
+      INSERT INTO organization_deletion_requests (
+        organization_name,
+        requested_by_user_id,
+        status,
+        requested_at
+      ) VALUES (
+        ${organizationName},
+        ${currentUser.id},
+        'pending',
+        now()
+      )
+      RETURNING id
+    `)
 
-    let notifiedMemberCount = 0
-    for (const member of members) {
-      if (member.userId === currentUser.id) continue
-      await sendOrganizationAccountRemovedEmail({
-        to: member.email,
-        organizationName,
-      })
-      await sendDataDeletionCompletedEmail({
-        to: member.email,
-        elapsedHours: formatDeletionDurationHours(startedAtMs),
-      })
-      notifiedMemberCount += 1
-      await deactivateUserIfNoMemberships(db, member.userId)
+    const requestId = getExecuteRows<{ id: number }>(created)[0]?.id
+    if (!requestId) {
+      throw new Error('Could not create deletion approval request')
     }
 
     await writeActivityLog({
       actorUserId: currentUser.id,
       actorRole: currentUser.role,
-      action: 'foundary.organization.delete',
+      action: 'foundary.organization.delete.requested',
       entityType: 'organization',
       details: {
         organizationName,
-        deletedMemberCount: members.length,
-        deletedFileCount: storageCleanup.deletedFileCount,
-        deletedApplicationCount: applications.length,
-        notifiedMemberCount,
+        requestId,
       },
     })
 
     return {
       success: true,
-      deletedMemberCount: members.length,
-      deletedFileCount: storageCleanup.deletedFileCount,
-      deletedApplicationCount: applications.length,
+      requestId,
+      notice: 'Deletion request submitted. An admin must approve before organization-wide deletion starts.',
+    }
+  })
+
+export const getOrganizationDeletionRequestsForAdminFn = createServerFn({ method: 'GET' }).handler(async () => {
+  await requireOrganizerUser()
+  const db = await getDb()
+  await ensureOrganizationDeletionRequestsTable(db)
+
+  const rows = await db.execute(sql`
+    SELECT
+      id,
+      organization_name AS "organizationName",
+      requested_by_user_id AS "requestedByUserId",
+      status,
+      requested_at AS "requestedAt",
+      reviewed_by_user_id AS "reviewedByUserId",
+      reviewed_at AS "reviewedAt",
+      review_notes AS "reviewNotes"
+    FROM organization_deletion_requests
+    ORDER BY requested_at DESC
+    LIMIT 100
+  `)
+
+  return getExecuteRows<{
+    id: number
+    organizationName: string
+    requestedByUserId: number
+    status: 'pending' | 'approved' | 'rejected'
+    requestedAt: Date
+    reviewedByUserId: number | null
+    reviewedAt: Date | null
+    reviewNotes: string | null
+  }>(rows)
+})
+
+export const approveOrganizationDeletionRequestFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        requestId: z.number().int().positive(),
+        reviewNotes: z.string().optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+    await ensureOrganizationDeletionRequestsTable(db)
+
+    const rows = await db.execute(sql`
+      SELECT
+        id,
+        organization_name AS "organizationName",
+        requested_by_user_id AS "requestedByUserId",
+        status
+      FROM organization_deletion_requests
+      WHERE id = ${data.requestId}
+      LIMIT 1
+    `)
+
+    const request = getExecuteRows<{
+      id: number
+      organizationName: string
+      requestedByUserId: number
+      status: 'pending' | 'approved' | 'rejected'
+    }>(rows)[0]
+
+    if (!request) {
+      throw new Error('Deletion approval request not found')
+    }
+
+    if (request.status !== 'pending') {
+      throw new Error('Deletion approval request has already been reviewed')
+    }
+
+    await db.execute(sql`
+      UPDATE organization_deletion_requests
+      SET
+        status = 'approved',
+        reviewed_by_user_id = ${currentUser.id},
+        reviewed_at = now(),
+        review_notes = ${data.reviewNotes ?? null}
+      WHERE id = ${request.id}
+    `)
+
+    const deletionResult = await performOrganizationDeletion({
+      db,
+      organizationName: request.organizationName,
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+    })
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.organization.delete.approved',
+      entityType: 'organization',
+      details: {
+        requestId: request.id,
+        organizationName: request.organizationName,
+      },
+    })
+
+    return {
+      requestId: request.id,
+      organizationName: request.organizationName,
+      ...deletionResult,
     }
   })
 

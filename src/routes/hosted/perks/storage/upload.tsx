@@ -46,7 +46,7 @@ export const Route = createFileRoute('/hosted/perks/storage/upload')({
 function StorageUploadPage() {
   const router = useRouter()
   const { storage, storageLoadError } = Route.useLoaderData()
-  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadFiles, setUploadFiles] = useState<File[]>([])
   const [uploadBusy, setUploadBusy] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
   const [uploadError, setUploadError] = useState('')
@@ -73,60 +73,80 @@ function StorageUploadPage() {
 
   const uploadSelectedFile = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!uploadFile || !storage.organizationName) return
+    if (uploadFiles.length === 0 || !storage.organizationName) return
 
-    const uploadContentType = uploadFile.type || 'application/octet-stream'
     setUploadBusy(true)
     setUploadError('')
     setUploadMessage('')
 
     try {
-      const reservation = await createStorageUploadReservationFn({
-        data: {
-          organizationName: storage.organizationName,
-          fileName: uploadFile.name,
-          contentType: uploadContentType,
-          sizeBytes: uploadFile.size,
-        },
-      })
+      let successCount = 0
+      const failures: string[] = []
 
-      const uploadTargets = [reservation.uploadUrl]
-      const fallbackUploadUrl = buildUploadUrlFallback(reservation.uploadUrl)
-      if (fallbackUploadUrl) {
-        uploadTargets.push(fallbackUploadUrl)
-      }
+      for (const uploadFile of uploadFiles) {
+        const uploadContentType = uploadFile.type || 'application/octet-stream'
 
-      let putResult: Response | null = null
-      for (let index = 0; index < uploadTargets.length; index += 1) {
-        const candidateResult = await fetch(uploadTargets[index], {
-          method: 'PUT',
-          headers: { 'Content-Type': uploadContentType },
-          body: uploadFile,
-        })
+        try {
+          const reservation = await createStorageUploadReservationFn({
+            data: {
+              organizationName: storage.organizationName,
+              fileName: uploadFile.name,
+              contentType: uploadContentType,
+              sizeBytes: uploadFile.size,
+            },
+          })
 
-        if (index < uploadTargets.length - 1 && isLikelyHtml404(candidateResult)) {
-          continue
+          const uploadTargets = [reservation.uploadUrl]
+          const fallbackUploadUrl = buildUploadUrlFallback(reservation.uploadUrl)
+          if (fallbackUploadUrl) {
+            uploadTargets.push(fallbackUploadUrl)
+          }
+
+          let putResult: Response | null = null
+          for (let index = 0; index < uploadTargets.length; index += 1) {
+            const candidateResult = await fetch(uploadTargets[index], {
+              method: 'PUT',
+              headers: { 'Content-Type': uploadContentType },
+              body: uploadFile,
+            })
+
+            if (index < uploadTargets.length - 1 && isLikelyHtml404(candidateResult)) {
+              continue
+            }
+
+            putResult = candidateResult
+            break
+          }
+
+          if (!putResult) {
+            throw new Error('Upload failed before receiving a response')
+          }
+
+          if (!putResult.ok) {
+            const bodyDetails = await readUploadErrorBody(putResult)
+            const details = bodyDetails ? ` - ${bodyDetails}` : ''
+            throw new Error(`S3 upload failed (${putResult.status} ${putResult.statusText})${details}`)
+          }
+
+          successCount += 1
+        } catch (error: unknown) {
+          failures.push(`${uploadFile.name}: ${getErrorMessage(error, 'Upload failed')}`)
         }
-
-        putResult = candidateResult
-        break
       }
 
-      if (!putResult) {
-        throw new Error('Upload failed before receiving a response')
+      if (successCount > 0) {
+        setUploadMessage(`${successCount} file${successCount === 1 ? '' : 's'} uploaded successfully.`)
       }
 
-      if (!putResult.ok) {
-        const bodyDetails = await readUploadErrorBody(putResult)
-        const details = bodyDetails ? ` - ${bodyDetails}` : ''
-        throw new Error(`S3 upload failed (${putResult.status} ${putResult.statusText})${details}`)
+      if (failures.length > 0) {
+        setUploadError(failures.join('\n'))
       }
 
-      setUploadMessage('File uploaded successfully.')
-      setUploadFile(null)
+      if (successCount === uploadFiles.length) {
+        setUploadFiles([])
+      }
+
       await router.invalidate()
-    } catch (error: unknown) {
-      setUploadError(getErrorMessage(error, 'Could not upload file'))
     } finally {
       setUploadBusy(false)
     }
@@ -148,33 +168,43 @@ function StorageUploadPage() {
         </div>
 
         <label className="mt-5 block text-sm text-muted-foreground">
-          Select file
+          Select files
           <input
             type="file"
+            multiple
             required
-            onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
+            onChange={(event) => setUploadFiles(Array.from(event.target.files ?? []))}
             className="mt-2 block w-full rounded-2xl border border-border bg-card px-4 py-3 text-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary file:px-4 file:py-2.5 file:text-primary-foreground"
           />
         </label>
 
-        {uploadFile && (
+        {uploadFiles.length > 0 && (
           <div className="mt-4 rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
-            <p className="text-foreground">{uploadFile.name}</p>
-            <p className="mt-1 text-base">{formatBytes(uploadFile.size)}</p>
+            <p className="text-foreground">{uploadFiles.length} file{uploadFiles.length === 1 ? '' : 's'} selected</p>
+            <p className="mt-1 text-base">
+              {formatBytes(uploadFiles.reduce((sum, file) => sum + file.size, 0))}
+            </p>
+            <div className="mt-2 max-h-36 space-y-1 overflow-auto">
+              {uploadFiles.map((file) => (
+                <p key={`${file.name}-${file.size}-${file.lastModified}`} className="text-xs text-muted-foreground">
+                  {file.name} ({formatBytes(file.size)})
+                </p>
+              ))}
+            </div>
           </div>
         )}
 
-        {uploadError && <p className="mt-3 text-sm text-red-400">{uploadError}</p>}
+        {uploadError && <p className="mt-3 whitespace-pre-wrap text-sm text-red-400">{uploadError}</p>}
         {uploadMessage && <p className="mt-3 text-sm text-emerald-400">{uploadMessage}</p>}
 
         <button
           type="button"
           onClick={uploadSelectedFile}
-          disabled={uploadBusy || !uploadFile}
+          disabled={uploadBusy || uploadFiles.length === 0}
           className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           <Upload className="h-4 w-4" />
-          {uploadBusy ? 'Uploading...' : 'Upload to storage'}
+          {uploadBusy ? 'Uploading...' : 'Upload files to storage'}
         </button>
       </div>
     </StoragePageShell>

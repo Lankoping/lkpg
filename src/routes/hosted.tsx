@@ -26,6 +26,25 @@ export const Route = createFileRoute('/hosted')({
   validateSearch: (search: Record<string, unknown>) => ({
     invite: typeof search.invite === 'string' ? search.invite : undefined,
   }),
+  beforeLoad: async ({ location }) => {
+    const user = await getSessionFn()
+
+    if (!user || user.role === 'organizer') {
+      return
+    }
+
+    const accessControl = await getHostedAccessControlFn()
+    const isApprovedOrganization = accessControl.organizationState.status === 'approved'
+    const isApplicationOverviewPath =
+      location.pathname === '/hosted' ||
+      location.pathname === '/hosted/' ||
+      location.pathname.startsWith('/hosted/tickets') ||
+      location.pathname.startsWith('/hosted/applications')
+
+    if (!isApprovedOrganization && !isApplicationOverviewPath) {
+      throw redirect({ to: '/hosted/tickets', search: { invite: undefined } })
+    }
+  },
   loader: async () => {
     const user = await getSessionFn()
 
@@ -111,6 +130,9 @@ function HostedLayout() {
   const canManageTickets = Boolean(accessControl?.permissions?.canManageTickets)
   const canAccessStorage = Boolean(accessControl?.permissions?.canAccessStorage)
   const inStorageSection = currentPath.startsWith('/hosted/perks/storage')
+  const isApprovedOrganization = accessControl?.organizationState.status === 'approved'
+  const isRestrictedToApplicationOverview = Boolean(user && !isApprovedOrganization)
+  const organizationDisplayName = accessControl?.organizationName || 'No organization'
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
       ? 'Request funds'
@@ -187,6 +209,7 @@ function HostedLayout() {
           </div>
 
           <nav className="flex-1 py-4 overflow-y-auto">
+            {!isRestrictedToApplicationOverview && (
             <div className="mb-6">
               <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Perks</p>
               {canAccessStorage && inStorageSection && (
@@ -241,8 +264,9 @@ function HostedLayout() {
                 </>
               )}
             </div>
+            )}
 
-            {!inStorageSection && (
+            {!inStorageSection && !isRestrictedToApplicationOverview && (
               <div className="mb-6">
                 <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Management</p>
                 <HostedNavItem
@@ -268,7 +292,7 @@ function HostedLayout() {
               </div>
             )}
 
-            {!inStorageSection && (
+            {!inStorageSection && !isRestrictedToApplicationOverview && (
               <div className="mt-8">
                 <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Get help</p>
                 <HostedNavItem
@@ -285,6 +309,21 @@ function HostedLayout() {
                     isActive={currentPath === '/hosted/tickets'}
                   />
                 )}
+              </div>
+            )}
+
+            {isRestrictedToApplicationOverview && (
+              <div className="mt-8">
+                <p className="px-5 mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Application</p>
+                <HostedNavItem
+                  href="/hosted/tickets"
+                  label="Application tickets"
+                  icon={<Ticket className="w-5 h-5" />}
+                  isActive={currentPath === '/hosted/tickets'}
+                />
+                <p className="px-5 mt-2 text-xs text-muted-foreground">
+                  Organization access unlocks after admin approval.
+                </p>
               </div>
             )}
           </nav>
@@ -342,6 +381,10 @@ function HostedLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="hidden md:block rounded border border-border bg-background px-3 py-1.5">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Organization</p>
+              <p className="text-xs text-foreground">{organizationDisplayName}</p>
+            </div>
             <a
               href="/foundary"
               target="_blank"

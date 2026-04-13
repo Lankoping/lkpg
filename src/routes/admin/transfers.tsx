@@ -23,6 +23,19 @@ function formatDateTime(value: Date | string | null) {
   return date.toLocaleString()
 }
 
+function formatTransferDuration(startedAt: Date | string | null, completedAt: Date | string | null) {
+  if (!startedAt) return '-'
+  const startMs = new Date(startedAt).getTime()
+  const endMs = completedAt ? new Date(completedAt).getTime() : Date.now()
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return '-'
+
+  const totalSeconds = Math.floor((endMs - startMs) / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${hours}h ${minutes}m ${seconds}s`
+}
+
 function AdminTransfersPage() {
   const { transfers: initialTransfers } = Route.useLoaderData()
   const [transfers, setTransfers] = useState<TransferSummary[]>(initialTransfers)
@@ -147,8 +160,10 @@ function AdminTransfersPage() {
             <div className="space-y-4 px-5 py-4">
               <div className="rounded-lg border border-border bg-background p-3">
                 <p className="text-sm font-medium text-foreground">Transfer state</p>
-                <p className="mt-2 text-sm text-foreground">
-                  {selectedTransfer.organizationName} -&gt; {selectedTransfer.newOrganizationName}
+                <p className="mt-2 text-sm text-muted-foreground">Old organisation name: {selectedTransfer.organizationName}</p>
+                <p className="mt-1 text-sm text-muted-foreground">New organisation name: {selectedTransfer.newOrganizationName}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Total transfer duration: {formatTransferDuration(selectedTransfer.startedAt, selectedTransfer.completedAt)}
                 </p>
                 <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   {selectedTransfer.status} | Step {selectedTransfer.completedSteps} of {selectedTransfer.totalSteps} | {selectedTransfer.progressPercent}%
