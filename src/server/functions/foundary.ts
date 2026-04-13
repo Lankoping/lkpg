@@ -1,10 +1,10 @@
 'use server'
 import { createServerFn } from '@tanstack/react-start'
-import { and, desc, eq, inArray, or } from 'drizzle-orm'
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { setCookie } from '@tanstack/react-start/server'
 import { createHash, randomUUID } from 'node:crypto'
-import { DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { hostedHelpContext } from '../../lib/hosted-help'
 import { getDb } from '../db/runtime'
 import {
@@ -86,10 +86,47 @@ const isMissingAccessControlColumnsError = (error: unknown) => {
 }
 
 const normalizeOrg = (value: string) => value.trim()
+const slugifyOrgName = (value: string) =>
+  normalizeOrg(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 const getApplicationThreadId = (applicationId: number) => `<foundary-application-${applicationId}@lankoping.se>`
 const getHostedSupportThreadId = (ticketId: number) => `<hosted-support-${ticketId}@lankoping.se>`
 const ticketPrioritySchema = z.enum(['low', 'normal', 'high', 'urgent'])
 const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions'
+
+type NamespaceTransferStatus = {
+  id: number
+  organizationName: string
+  newOrganizationName: string
+  status: 'in_progress' | 'completed' | 'failed'
+  progressPercent: number
+  currentStep: string
+  totalSteps: number
+  completedSteps: number
+  startedAt: Date
+  completedAt: Date | null
+  errorMessage: string | null
+}
+
+async function ensureNamespaceTransferTable(db: Awaited<ReturnType<typeof getDb>>) {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS organization_namespace_transfers (
+      id serial PRIMARY KEY,
+      organization_name text NOT NULL,
+      new_organization_name text NOT NULL,
+      status text NOT NULL DEFAULT 'in_progress',
+      progress_percent integer NOT NULL DEFAULT 0,
+      current_step text NOT NULL DEFAULT '',
+      total_steps integer NOT NULL DEFAULT 0,
+      completed_steps integer NOT NULL DEFAULT 0,
+      started_at timestamp NOT NULL DEFAULT now(),
+      completed_at timestamp,
+      error_message text
+    );
+  `)
+}
 
 type HostedSupportAssistantResult = {
   summary: string
@@ -568,6 +605,60 @@ async function sendApplicationThreadEmail({
 async function sendOrganizationAccountRemovedEmail({
   to,
   organizationName,
+  transferredFileCount,
+}: {
+  to: string
+  organizationName: string
+  transferredFileCount?: number
+}) {
+  const host = process.env.SMTP_HOST
+  const port = Number(process.env.SMTP_PORT || 587)
+  const user = process.env.SMTP_USER
+  const pass = process.env.SMTP_PASS
+
+  if (!host || !user || !pass) {
+    throw new Error('SMTP configuration missing: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS')
+  }
+
+  const nodemailer = await import('nodemailer')
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  })
+
+  const hasTransferredFiles = (transferredFileCount ?? 0) > 0
+  const text = [
+    `Hi, a organisation you are apart of have deleted your account.`,
+    `Organization: ${organizationName}`,
+    hasTransferredFiles
+      ? 'If the admin deleting your account have transfered important documents hosted by you ownership of the files transfered has changed.'
+      : 'No files were transfered to another user before account removal.',
+    'Other files are pending for deletion, and you will recive a nonification as soon as they are removed from our systems.',
+  ].join('\n')
+
+  const html = `
+    <p>Hi, a organisation you are apart of have deleted your account.</p>
+    <p><strong>Organization:</strong> ${organizationName}</p>
+    <p>${hasTransferredFiles
+      ? 'If the admin deleting your account have transfered important documents hosted by you ownership of the files transfered has changed.'
+      : 'No files were transfered to another user before account removal.'}</p>
+    <p>Other files are pending for deletion, and you will recive a nonification as soon as they are removed from our systems.</p>
+  `
+
+  await transporter.sendMail({
+    from: 'foundary@lankoping.se',
+    to,
+    subject: `Account removed from ${organizationName}`,
+    text,
+    html,
+  })
+}
+
+async function sendOrganizationNamespaceTransferCompletedEmail({
+  to,
+  organizationName,
 }: {
   to: string
   organizationName: string
@@ -589,20 +680,13 @@ async function sendOrganizationAccountRemovedEmail({
     auth: { user, pass },
   })
 
-  const text = [
-    `Hi, The orginisation (${organizationName}) has removed your account.`,
-    'Please note that all files you have uploaded also has been deleted.',
-  ].join('\n')
-
-  const html = `
-    <p>Hi, The orginisation (${organizationName}) has removed your account.</p>
-    <p>Please note that all files you have uploaded also has been deleted.</p>
-  `
+  const text = `Hi the transfer of your orginisation to a new namespace is done!\nOrganization: ${organizationName}`
+  const html = `<p>Hi the transfer of your orginisation to a new namespace is done!</p><p>Organization: <strong>${organizationName}</strong></p>`
 
   await transporter.sendMail({
     from: 'foundary@lankoping.se',
     to,
-    subject: `Account removed from ${organizationName}`,
+    subject: `Namespace transfer completed for ${organizationName}`,
     text,
     html,
   })
@@ -1207,6 +1291,385 @@ export const getMyOrganizationMembersFn = createServerFn({ method: 'GET' }).hand
   return rows
 })
 
+export const getOrganizationMemberStorageFilesFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+        userId: z.number().int().positive(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+    const organizationName = normalizeOrg(data.organizationName)
+
+    await assertOrganizationOwner({
+      db,
+      organizationName,
+      currentUserId: currentUser.id,
+    })
+
+    const member = await db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(and(eq(organizationMembers.organizationName, organizationName), eq(organizationMembers.userId, data.userId)))
+      .limit(1)
+
+    if (!member[0]) {
+      throw new Error('Member not found in this organization')
+    }
+
+    return await db
+      .select({
+        id: storageFiles.id,
+        fileName: storageFiles.fileName,
+        sizeBytes: storageFiles.sizeBytes,
+        createdAt: storageFiles.createdAt,
+        objectKey: storageFiles.objectKey,
+      })
+      .from(storageFiles)
+      .where(and(eq(storageFiles.organizationName, organizationName), eq(storageFiles.uploadedByUserId, data.userId)))
+      .orderBy(desc(storageFiles.createdAt))
+  })
+
+export const transferSelectedOrganizationFilesFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+        fromUserId: z.number().int().positive(),
+        toUserId: z.number().int().positive(),
+        fileIds: z.array(z.number().int().positive()).min(1),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+    const organizationName = normalizeOrg(data.organizationName)
+
+    await assertOrganizationOwner({
+      db,
+      organizationName,
+      currentUserId: currentUser.id,
+    })
+
+    if (data.fromUserId === data.toUserId) {
+      throw new Error('Source and destination users must be different')
+    }
+
+    const sourceMembership = await db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(and(eq(organizationMembers.organizationName, organizationName), eq(organizationMembers.userId, data.fromUserId)))
+      .limit(1)
+
+    const destinationMembership = await db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(and(eq(organizationMembers.organizationName, organizationName), eq(organizationMembers.userId, data.toUserId)))
+      .limit(1)
+
+    if (!sourceMembership[0]) {
+      throw new Error('Source member not found in this organization')
+    }
+
+    if (!destinationMembership[0]) {
+      throw new Error('Destination member not found in this organization')
+    }
+
+    const candidateFiles = await db
+      .select({ id: storageFiles.id })
+      .from(storageFiles)
+      .where(
+        and(
+          eq(storageFiles.organizationName, organizationName),
+          eq(storageFiles.uploadedByUserId, data.fromUserId),
+          inArray(storageFiles.id, data.fileIds),
+        ),
+      )
+
+    if (candidateFiles.length === 0) {
+      throw new Error('No matching files found for transfer')
+    }
+
+    const transferred = await db
+      .update(storageFiles)
+      .set({ uploadedByUserId: data.toUserId })
+      .where(inArray(storageFiles.id, candidateFiles.map((file) => file.id)))
+      .returning({ id: storageFiles.id })
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.organization.files.transfer_selected',
+      entityType: 'organization_member',
+      entityId: sourceMembership[0].id,
+      details: {
+        organizationName,
+        fromUserId: data.fromUserId,
+        toUserId: data.toUserId,
+        transferredFileCount: transferred.length,
+        fileIds: candidateFiles.map((file) => file.id),
+      },
+    })
+
+    return {
+      success: true,
+      transferredFileCount: transferred.length,
+    }
+  })
+
+export const getMyOrganizationNamespaceTransferStatusFn = createServerFn({ method: 'GET' }).handler(async () => {
+  const currentUser = await requireStaffUser()
+  const db = await getDb()
+  await ensureNamespaceTransferTable(db)
+
+  const organizations = await db
+    .select({ organizationName: organizationMembers.organizationName })
+    .from(organizationMembers)
+    .where(eq(organizationMembers.userId, currentUser.id))
+
+  const names = Array.from(new Set(organizations.map((org) => normalizeOrg(org.organizationName)).filter(Boolean)))
+  if (names.length === 0) {
+    return null
+  }
+
+  const rows = await db.execute(sql`
+    SELECT
+      id,
+      organization_name AS "organizationName",
+      new_organization_name AS "newOrganizationName",
+      status,
+      progress_percent AS "progressPercent",
+      current_step AS "currentStep",
+      total_steps AS "totalSteps",
+      completed_steps AS "completedSteps",
+      started_at AS "startedAt",
+      completed_at AS "completedAt",
+      error_message AS "errorMessage"
+    FROM organization_namespace_transfers
+    WHERE organization_name = ANY(${names}) OR new_organization_name = ANY(${names})
+    ORDER BY started_at DESC
+    LIMIT 1
+  `)
+
+  const transfer = (rows as unknown as Array<NamespaceTransferStatus>)[0]
+  return transfer ?? null
+})
+
+export const renameOrganizationFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+        newOrganizationName: z.string().min(2),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+    await ensureNamespaceTransferTable(db)
+    const organizationName = normalizeOrg(data.organizationName)
+    const newOrganizationName = normalizeOrg(data.newOrganizationName)
+
+    await assertOrganizationOwner({
+      db,
+      organizationName,
+      currentUserId: currentUser.id,
+    })
+
+    if (organizationName.toLowerCase() === newOrganizationName.toLowerCase()) {
+      throw new Error('New organization name must be different')
+    }
+
+    const existingTarget = await db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationName, newOrganizationName))
+      .limit(1)
+
+    if (existingTarget[0]) {
+      throw new Error('That organization name is already in use')
+    }
+
+    const activeTransferRows = await db.execute(sql`
+      SELECT id FROM organization_namespace_transfers
+      WHERE (organization_name = ${organizationName} OR new_organization_name = ${organizationName})
+        AND status = 'in_progress'
+      LIMIT 1
+    `)
+    if ((activeTransferRows as unknown as Array<{ id: number }>).length > 0) {
+      throw new Error('A namespace transfer is already in progress for this organization')
+    }
+
+    const transferCreateRows = await db.execute(sql`
+      INSERT INTO organization_namespace_transfers (
+        organization_name,
+        new_organization_name,
+        status,
+        progress_percent,
+        current_step,
+        total_steps,
+        completed_steps,
+        started_at
+      ) VALUES (
+        ${organizationName},
+        ${newOrganizationName},
+        'in_progress',
+        0,
+        'Starting namespace transfer',
+        7,
+        0,
+        now()
+      )
+      RETURNING id
+    `)
+
+    const transferId = (transferCreateRows as unknown as Array<{ id: number }>)[0]?.id
+    if (!transferId) {
+      throw new Error('Could not initialize namespace transfer')
+    }
+
+    const updateTransferProgress = async (completedSteps: number, currentStep: string) => {
+      const progressPercent = Math.min(100, Math.round((completedSteps / 7) * 100))
+      await db.execute(sql`
+        UPDATE organization_namespace_transfers
+        SET
+          completed_steps = ${completedSteps},
+          current_step = ${currentStep},
+          progress_percent = ${progressPercent}
+        WHERE id = ${transferId}
+      `)
+    }
+
+    const markTransferFailed = async (errorMessage: string) => {
+      await db.execute(sql`
+        UPDATE organization_namespace_transfers
+        SET
+          status = 'failed',
+          error_message = ${errorMessage},
+          current_step = 'Failed',
+          completed_at = now()
+        WHERE id = ${transferId}
+      `)
+    }
+
+    const memberRows = await db
+      .select({ email: users.email })
+      .from(organizationMembers)
+      .innerJoin(users, eq(organizationMembers.userId, users.id))
+      .where(eq(organizationMembers.organizationName, organizationName))
+
+    try {
+      await updateTransferProgress(1, 'Preparing storage namespace transfer')
+
+      const config = getStorageConfig()
+      const client = getStorageClient(config)
+      const oldPrefix = slugifyOrgName(organizationName) || 'organization'
+      const newPrefix = slugifyOrgName(newOrganizationName) || 'organization'
+
+      const storageRows = await db
+        .select({ id: storageFiles.id, objectKey: storageFiles.objectKey })
+        .from(storageFiles)
+        .where(eq(storageFiles.organizationName, organizationName))
+
+      const reservationRows = await db
+        .select({ id: storageUploadReservations.id, objectKey: storageUploadReservations.objectKey })
+        .from(storageUploadReservations)
+        .where(eq(storageUploadReservations.organizationName, organizationName))
+
+      await updateTransferProgress(2, 'Transferring stored file objects')
+      for (const row of storageRows) {
+        const nextKey = row.objectKey.startsWith(`${oldPrefix}/`)
+          ? `${newPrefix}/${row.objectKey.slice(oldPrefix.length + 1)}`
+          : `${newPrefix}/${row.objectKey}`
+
+        const encodedSourceKey = row.objectKey.split('/').map(encodeURIComponent).join('/')
+        await client.send(
+          new CopyObjectCommand({
+            Bucket: config.bucket,
+            CopySource: `${config.bucket}/${encodedSourceKey}`,
+            Key: nextKey,
+          }),
+        )
+        await client.send(
+          new DeleteObjectCommand({
+            Bucket: config.bucket,
+            Key: row.objectKey,
+          }),
+        )
+        await db.update(storageFiles).set({ objectKey: nextKey }).where(eq(storageFiles.id, row.id))
+      }
+
+      await updateTransferProgress(3, 'Updating reservation object keys')
+      for (const row of reservationRows) {
+        const nextKey = row.objectKey.startsWith(`${oldPrefix}/`)
+          ? `${newPrefix}/${row.objectKey.slice(oldPrefix.length + 1)}`
+          : `${newPrefix}/${row.objectKey}`
+        await db.update(storageUploadReservations).set({ objectKey: nextKey }).where(eq(storageUploadReservations.id, row.id))
+      }
+
+      await updateTransferProgress(4, 'Renaming organization membership namespace')
+      await db.update(organizationMembers).set({ organizationName: newOrganizationName }).where(eq(organizationMembers.organizationName, organizationName))
+
+      await updateTransferProgress(5, 'Renaming application and invitation namespace')
+      await db.update(organizationInvitations).set({ organizationName: newOrganizationName }).where(eq(organizationInvitations.organizationName, organizationName))
+      await db.update(foundaryApplications).set({ organizationName: newOrganizationName }).where(eq(foundaryApplications.organizationName, organizationName))
+
+      await updateTransferProgress(6, 'Renaming storage namespace records')
+      await db.update(storagePerkRequests).set({ organizationName: newOrganizationName }).where(eq(storagePerkRequests.organizationName, organizationName))
+      await db.update(storageUploadReservations).set({ organizationName: newOrganizationName }).where(eq(storageUploadReservations.organizationName, organizationName))
+      await db.update(storageFiles).set({ organizationName: newOrganizationName }).where(eq(storageFiles.organizationName, organizationName))
+
+      await updateTransferProgress(7, 'Finalizing and notifying members')
+
+      for (const member of memberRows) {
+        await sendOrganizationNamespaceTransferCompletedEmail({
+          to: member.email,
+          organizationName: newOrganizationName,
+        })
+      }
+
+      await db.execute(sql`
+        UPDATE organization_namespace_transfers
+        SET
+          status = 'completed',
+          progress_percent = 100,
+          current_step = 'Transfer completed',
+          completed_steps = 7,
+          completed_at = now(),
+          error_message = null
+        WHERE id = ${transferId}
+      `)
+    } catch (error) {
+      await markTransferFailed(error instanceof Error ? error.message : 'Unknown transfer error')
+      throw error
+    }
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'foundary.organization.rename',
+      entityType: 'organization',
+      details: {
+        from: organizationName,
+        to: newOrganizationName,
+      },
+    })
+
+    return {
+      success: true,
+      previousOrganizationName: organizationName,
+      organizationName: newOrganizationName,
+      notice:
+        'Hi, your unable to acsess this orginisation right now since you have changed the name, the orginisation will be back in less then 24-48h depending on how much data you are storing.',
+    }
+  })
+
 export const transferOrganizationMemberFilesFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
     z
@@ -1289,6 +1752,7 @@ export const removeOrganizationMemberFn = createServerFn({ method: 'POST' })
       .object({
         organizationName: z.string().min(1),
         userId: z.number().int().positive(),
+        transferredFileCount: z.number().int().min(0).optional(),
       })
       .parse(data),
   )
@@ -1338,6 +1802,7 @@ export const removeOrganizationMemberFn = createServerFn({ method: 'POST' })
     await sendOrganizationAccountRemovedEmail({
       to: targetMembership[0].email,
       organizationName,
+      transferredFileCount: data.transferredFileCount ?? 0,
     })
 
     await sendDataDeletionCompletedEmail({

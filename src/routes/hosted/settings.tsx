@@ -1,0 +1,217 @@
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { getSessionFn } from '../../server/functions/auth'
+import {
+  deleteMyOrganizationAccountFn,
+  getHostedAccessControlFn,
+  getMyOrganizationNamespaceTransferStatusFn,
+  getMyFoundaryApplicationsFn,
+  getMyOrganizationMembersFn,
+  renameOrganizationFn,
+} from '../../server/functions/foundary'
+
+export const Route = createFileRoute('/hosted/settings')({
+  loader: async () => {
+    const user = await getSessionFn()
+    if (!user) {
+      throw redirect({ to: '/hosted', search: { invite: undefined } })
+    }
+    if (user.role === 'organizer') {
+      throw redirect({ to: '/admin' })
+    }
+
+    const [applications, members, accessControl, transferStatus] = await Promise.all([
+      getMyFoundaryApplicationsFn(),
+      getMyOrganizationMembersFn(),
+      getHostedAccessControlFn(),
+      getMyOrganizationNamespaceTransferStatusFn(),
+    ])
+
+    return { user, applications, members, accessControl, transferStatus }
+  },
+  component: HostedSettingsPage,
+})
+
+function HostedSettingsPage() {
+  const router = useRouter()
+  const { user, applications, members, accessControl, transferStatus: initialTransferStatus } = Route.useLoaderData()
+
+  const [renameValue, setRenameValue] = useState('')
+  const [renameBusy, setRenameBusy] = useState(false)
+  const [renameMessage, setRenameMessage] = useState('')
+  const [transferStatus, setTransferStatus] = useState(initialTransferStatus)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteMessage, setDeleteMessage] = useState('')
+
+  const organizationName = accessControl.organizationName || applications[0]?.organizationName || ''
+
+  const ownerUserId = useMemo(() => {
+    if (!organizationName) return null
+    const orgMembers = members
+      .filter((member) => member.organizationName === organizationName)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    return orgMembers[0]?.userId ?? null
+  }, [members, organizationName])
+
+  const isOwner = Boolean(ownerUserId && ownerUserId === user.id)
+
+  useEffect(() => {
+    let stopped = false
+
+    const refreshTransferStatus = async () => {
+      try {
+        const latest = await getMyOrganizationNamespaceTransferStatusFn()
+        if (!stopped) {
+          setTransferStatus(latest)
+        }
+      } catch {
+        // Keep current status if refresh fails.
+      }
+    }
+
+    refreshTransferStatus()
+    const interval = window.setInterval(refreshTransferStatus, 3000)
+
+    return () => {
+      stopped = true
+      window.clearInterval(interval)
+    }
+  }, [])
+
+  const onRename = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!organizationName || !renameValue.trim()) return
+
+    setRenameMessage('')
+    setRenameBusy(true)
+
+    try {
+      const response = await renameOrganizationFn({
+        data: {
+          organizationName,
+          newOrganizationName: renameValue.trim(),
+        },
+      })
+
+      setRenameMessage(response.notice)
+      setRenameValue('')
+      await router.invalidate()
+    } catch (error: any) {
+      setRenameMessage(error?.message || 'Could not rename organization')
+    } finally {
+      setRenameBusy(false)
+    }
+  }
+
+  const onDeleteMyAccount = async () => {
+    if (!organizationName) return
+
+    setDeleteMessage('')
+    setDeleteBusy(true)
+
+    try {
+      const response = await deleteMyOrganizationAccountFn({
+        data: { organizationName },
+      })
+
+      setDeleteMessage(
+        response.deactivated
+          ? 'Your account was deleted and you have been signed out.'
+          : 'Your membership was removed. Any remaining memberships are still active.',
+      )
+      await router.invalidate()
+      if (response.deactivated) {
+        window.location.replace('/hosted')
+      }
+    } catch (error: any) {
+      setDeleteMessage(error?.message || 'Could not delete your account')
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
+
+  return (
+    <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Settings</p>
+        <p className="mt-2 text-sm text-muted-foreground">Manage organization details and your account lifecycle from one place.</p>
+      </div>
+
+      {!organizationName ? (
+        <div className="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+          Organization settings are available after your first application is linked to an organization.
+        </div>
+      ) : (
+        <>
+          {transferStatus && (
+            <div className="rounded-xl border border-border bg-background p-4">
+              <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Namespace transfer status</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {transferStatus.organizationName} → {transferStatus.newOrganizationName}
+              </p>
+              <p className="mt-1 text-sm text-foreground">Current step: {transferStatus.currentStep || 'Starting...'}</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                {transferStatus.status} · {transferStatus.progressPercent}% · Step {transferStatus.completedSteps} of {transferStatus.totalSteps}
+              </p>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
+                <div className="h-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, transferStatus.progressPercent || 0))}%` }} />
+              </div>
+              {transferStatus.errorMessage && <p className="mt-2 text-sm text-red-400">{transferStatus.errorMessage}</p>}
+            </div>
+          )}
+
+          <div className="rounded-xl border border-border bg-background p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Organization settings</p>
+            <p className="mt-2 text-sm text-muted-foreground">Current organization: {organizationName}</p>
+
+            {isOwner ? (
+              <form onSubmit={onRename} className="mt-3 space-y-3">
+                <label className="block text-sm text-muted-foreground">
+                  Rename organization
+                  <input
+                    type="text"
+                    required
+                    minLength={2}
+                    value={renameValue}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2 text-foreground outline-none focus:border-primary/60"
+                    placeholder="New organization name"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={renameBusy}
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {renameBusy ? 'Renaming...' : 'Rename organization'}
+                </button>
+              </form>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">Only the organization owner can rename the organization.</p>
+            )}
+
+            {renameMessage && <p className="mt-3 text-sm text-muted-foreground">{renameMessage}</p>}
+          </div>
+
+          <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-red-700">Profile settings</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Delete your own organization account from here. This removes your membership and deletes your uploaded files.
+            </p>
+
+            <button
+              type="button"
+              disabled={deleteBusy}
+              onClick={onDeleteMyAccount}
+              className="mt-3 rounded border border-red-500/40 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-500/10 disabled:opacity-50"
+            >
+              {deleteBusy ? 'Deleting account...' : 'Delete my account'}
+            </button>
+
+            {deleteMessage && <p className="mt-3 text-sm text-red-700">{deleteMessage}</p>}
+          </div>
+        </>
+      )}
+    </section>
+  )
+}

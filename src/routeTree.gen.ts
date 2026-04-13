@@ -23,6 +23,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as VerifyCodeRouteImport } from './routes/verify/$code'
 import { Route as HostedTicketsRouteImport } from './routes/hosted/tickets'
 import { Route as HostedTeamRouteImport } from './routes/hosted/team'
+import { Route as HostedSettingsRouteImport } from './routes/hosted/settings'
 import { Route as HostedRequestFundsRouteImport } from './routes/hosted/request-funds'
 import { Route as HostedPerksHubRouteImport } from './routes/hosted/perks-hub'
 import { Route as HostedFaqRouteImport } from './routes/hosted/faq'
@@ -106,6 +107,11 @@ const HostedTicketsRoute = HostedTicketsRouteImport.update({
 const HostedTeamRoute = HostedTeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => HostedRoute,
+} as any)
+const HostedSettingsRoute = HostedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => HostedRoute,
 } as any)
 const HostedRequestFundsRoute = HostedRequestFundsRouteImport.update({
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/hosted/faq': typeof HostedFaqRoute
   '/hosted/perks-hub': typeof HostedPerksHubRoute
   '/hosted/request-funds': typeof HostedRequestFundsRoute
+  '/hosted/settings': typeof HostedSettingsRoute
   '/hosted/team': typeof HostedTeamRoute
   '/hosted/tickets': typeof HostedTicketsRoute
   '/verify/$code': typeof VerifyCodeRoute
@@ -229,6 +236,7 @@ export interface FileRoutesByTo {
   '/hosted/faq': typeof HostedFaqRoute
   '/hosted/perks-hub': typeof HostedPerksHubRoute
   '/hosted/request-funds': typeof HostedRequestFundsRoute
+  '/hosted/settings': typeof HostedSettingsRoute
   '/hosted/team': typeof HostedTeamRoute
   '/hosted/tickets': typeof HostedTicketsRoute
   '/verify/$code': typeof VerifyCodeRoute
@@ -260,6 +268,7 @@ export interface FileRoutesById {
   '/hosted/faq': typeof HostedFaqRoute
   '/hosted/perks-hub': typeof HostedPerksHubRoute
   '/hosted/request-funds': typeof HostedRequestFundsRoute
+  '/hosted/settings': typeof HostedSettingsRoute
   '/hosted/team': typeof HostedTeamRoute
   '/hosted/tickets': typeof HostedTicketsRoute
   '/verify/$code': typeof VerifyCodeRoute
@@ -292,6 +301,7 @@ export interface FileRouteTypes {
     | '/hosted/faq'
     | '/hosted/perks-hub'
     | '/hosted/request-funds'
+    | '/hosted/settings'
     | '/hosted/team'
     | '/hosted/tickets'
     | '/verify/$code'
@@ -320,6 +330,7 @@ export interface FileRouteTypes {
     | '/hosted/faq'
     | '/hosted/perks-hub'
     | '/hosted/request-funds'
+    | '/hosted/settings'
     | '/hosted/team'
     | '/hosted/tickets'
     | '/verify/$code'
@@ -350,6 +361,7 @@ export interface FileRouteTypes {
     | '/hosted/faq'
     | '/hosted/perks-hub'
     | '/hosted/request-funds'
+    | '/hosted/settings'
     | '/hosted/team'
     | '/hosted/tickets'
     | '/verify/$code'
@@ -473,6 +485,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/hosted/team'
       preLoaderRoute: typeof HostedTeamRouteImport
+      parentRoute: typeof HostedRoute
+    }
+    '/hosted/settings': {
+      id: '/hosted/settings'
+      path: '/settings'
+      fullPath: '/hosted/settings'
+      preLoaderRoute: typeof HostedSettingsRouteImport
       parentRoute: typeof HostedRoute
     }
     '/hosted/request-funds': {
@@ -618,6 +637,7 @@ interface HostedRouteChildren {
   HostedFaqRoute: typeof HostedFaqRoute
   HostedPerksHubRoute: typeof HostedPerksHubRoute
   HostedRequestFundsRoute: typeof HostedRequestFundsRoute
+  HostedSettingsRoute: typeof HostedSettingsRoute
   HostedTeamRoute: typeof HostedTeamRoute
   HostedTicketsRoute: typeof HostedTicketsRoute
   HostedIndexRoute: typeof HostedIndexRoute
@@ -629,6 +649,7 @@ const HostedRouteChildren: HostedRouteChildren = {
   HostedFaqRoute: HostedFaqRoute,
   HostedPerksHubRoute: HostedPerksHubRoute,
   HostedRequestFundsRoute: HostedRequestFundsRoute,
+  HostedSettingsRoute: HostedSettingsRoute,
   HostedTeamRoute: HostedTeamRoute,
   HostedTicketsRoute: HostedTicketsRoute,
   HostedIndexRoute: HostedIndexRoute,

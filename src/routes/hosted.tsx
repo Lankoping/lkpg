@@ -19,6 +19,7 @@ import {
   FolderOpen,
   Link2,
   MonitorSmartphone,
+  Cog,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/hosted')({
@@ -113,6 +114,8 @@ function HostedLayout() {
   const currentPageLabel =
     currentPath.includes('/hosted/request-funds')
       ? 'Request funds'
+      : currentPath.includes('/hosted/settings')
+        ? 'Settings'
       : currentPath.includes('/hosted/faq')
         ? 'FAQ'
       : currentPath.includes('/hosted/tickets')
@@ -256,6 +259,12 @@ function HostedLayout() {
                     isActive={currentPath === '/hosted/request-funds'}
                   />
                 )}
+                <HostedNavItem
+                  href="/hosted/settings"
+                  label="Settings"
+                  icon={<Cog className="w-5 h-5" />}
+                  isActive={currentPath === '/hosted/settings'}
+                />
               </div>
             )}
 
@@ -366,6 +375,13 @@ function HostedLayout() {
                     </div>
 
                     <div className="border-t border-border p-2">
+                      <a
+                        href="/hosted/settings"
+                        className="mb-1 flex w-full items-center gap-2 border border-transparent px-3 py-2 text-sm text-foreground hover:border-border hover:bg-secondary/50 transition-colors"
+                      >
+                        <Cog className="w-4 h-4" />
+                        Settings
+                      </a>
                       <button
                         onClick={handleLogout}
                         disabled={loggingOut}
