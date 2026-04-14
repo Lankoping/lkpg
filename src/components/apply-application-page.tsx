@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import { getSessionFn } from '../server/functions/auth'
-import { submitFoundaryApplicationFn, submitFoundaryApplicationForCurrentUserFn } from '../server/functions/foundary'
+import {
+  submitFoundaryApplicationFn,
+  submitFoundaryApplicationForCurrentUserFn,
+} from '../server/functions/foundary-applications'
 
 export function ApplyApplicationPage() {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'submitted'>('idle')

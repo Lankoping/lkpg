@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { getOrganizationInviteInfoFn, registerInvitedMemberFn } from '../server/functions/foundary'
+import { getOrganizationInviteInfoFn, registerInvitedMemberFn } from '../server/functions/foundary-organizations'
 
 export const Route = createFileRoute('/invite-register')({
   validateSearch: (search: Record<string, unknown>) => ({

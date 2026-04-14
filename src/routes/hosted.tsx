@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, useLocation, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { getSessionFn, logoutFn } from '../server/functions/auth'
-import { acceptOrganizationInviteFn, getHostedAccessControlFn } from '../server/functions/foundary'
+import { acceptOrganizationInviteFn, getHostedAccessControlFn } from '../server/functions/foundary-organizations'
 import {
   Ticket,
   CircleHelp,
