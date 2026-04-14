@@ -5,6 +5,7 @@ import {
   cancelOrganizationNamespaceTransferFn,
   deleteMyOrganizationAccountFn,
   getHostedAccessControlFn,
+  getNamespaceTransferEstimateFn,
   getMyOrganizationNamespaceTransferStatusFn,
   getMyFoundaryApplicationsFn,
   getMyOrganizationMembersFn,
@@ -29,14 +30,42 @@ export const Route = createFileRoute('/hosted/settings')({
       getMyOrganizationNamespaceTransferStatusFn(),
     ])
 
-    return { user, applications, members, accessControl, transferStatus }
+    const organizationName = accessControl.organizationName || applications[0]?.organizationName || ''
+    const transferEstimate = organizationName ? await getNamespaceTransferEstimateFn({ data: { organizationName } }) : null
+
+    return { user, applications, members, accessControl, transferStatus, transferEstimate }
   },
   component: HostedSettingsPage,
 })
 
+type NamespaceTransferDetails = {
+  durationSeconds: number
+  speedSummary: string
+  stats: {
+    movedStorageObjects: number
+    movedReservationObjectKeys: number
+    renamedMembers: number
+    renamedInvitations: number
+    renamedApplications: number
+    renamedStoragePerkRequests: number
+    renamedStorageReservations: number
+    renamedStorageFiles: number
+    notificationEmailsSent: number
+  }
+}
+
+function parseTransferDetails(detailsJson: string | null | undefined): NamespaceTransferDetails | null {
+  if (!detailsJson) return null
+  try {
+    return JSON.parse(detailsJson) as NamespaceTransferDetails
+  } catch {
+    return null
+  }
+}
+
 function HostedSettingsPage() {
   const router = useRouter()
-  const { user, applications, members, accessControl, transferStatus: initialTransferStatus } = Route.useLoaderData()
+  const { user, applications, members, accessControl, transferStatus: initialTransferStatus, transferEstimate } = Route.useLoaderData()
 
   const [renameValue, setRenameValue] = useState('')
   const [renameBusy, setRenameBusy] = useState(false)
@@ -83,6 +112,8 @@ function HostedSettingsPage() {
       : isStuckAtStart
         ? 'No progress was detected for more than 2 minutes. The transfer likely failed to start; refresh and retry rename.'
         : null
+
+  const transferDetails = parseTransferDetails(transferStatus?.detailsJson)
 
   const formatTransferDuration = (startedAt: Date | string | null | undefined, completedAt: Date | string | null | undefined) => {
     if (!startedAt) return '-'
@@ -247,6 +278,21 @@ function HostedSettingsPage() {
                 </div>
               )}
 
+              {transferDetails && (
+                <div className="mt-3 rounded-lg border border-border p-3">
+                  <p className="text-sm font-medium text-foreground">Transfer summary</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Why it was this fast: {transferDetails.speedSummary}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Duration: {transferDetails.durationSeconds}s</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Storage objects moved: {transferDetails.stats.movedStorageObjects} · Reservation keys moved: {transferDetails.stats.movedReservationObjectKeys}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Records renamed: members {transferDetails.stats.renamedMembers}, invitations {transferDetails.stats.renamedInvitations}, applications {transferDetails.stats.renamedApplications}, perk requests {transferDetails.stats.renamedStoragePerkRequests}, reservations {transferDetails.stats.renamedStorageReservations}, files {transferDetails.stats.renamedStorageFiles}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">Notification emails sent: {transferDetails.stats.notificationEmailsSent}</p>
+                </div>
+              )}
+
               {isOwner && transferStatus.status !== 'completed' && (
                 <div className="mt-3">
                   <button
@@ -266,6 +312,20 @@ function HostedSettingsPage() {
           <div className="rounded-xl border border-border bg-background p-4">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Organization settings</p>
             <p className="mt-2 text-sm text-muted-foreground">Current organization: {organizationName}</p>
+
+            {transferEstimate && (
+              <div className="mt-3 rounded-lg border border-border bg-card p-3">
+                <p className="text-sm font-medium text-foreground">Pre-transfer estimate</p>
+                <p className="mt-1 text-sm text-muted-foreground">{transferEstimate.speedSummary}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Members: {transferEstimate.memberCount} · Invitations: {transferEstimate.invitationCount} · Applications: {transferEstimate.applicationCount}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Storage files: {transferEstimate.storageFileCount} · Upload reservations: {transferEstimate.storageReservationCount} · Storage perk requests: {transferEstimate.storagePerkRequestCount}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Storage objects to move: {transferEstimate.totalStorageObjectCount}</p>
+              </div>
+            )}
 
             {isOwner ? (
               <form onSubmit={onRename} className="mt-3 space-y-3">

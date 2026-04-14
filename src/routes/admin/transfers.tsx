@@ -16,6 +16,39 @@ export const Route = createFileRoute('/admin/transfers')({
 type TransferSummary = Awaited<ReturnType<typeof getNamespaceTransfersForAdminFn>>[number]
 type TransferMonitor = Awaited<ReturnType<typeof getNamespaceTransferMonitorForAdminFn>>
 
+type NamespaceTransferDetails = {
+  oldOrganizationName: string
+  newOrganizationName: string
+  durationSeconds: number
+  speedSummary: string
+  stats: {
+    sourceMembers: number
+    sourceInvitations: number
+    sourceApplications: number
+    sourceStorageFiles: number
+    sourceStorageReservations: number
+    sourceStoragePerkRequests: number
+    movedStorageObjects: number
+    movedReservationObjectKeys: number
+    renamedMembers: number
+    renamedInvitations: number
+    renamedApplications: number
+    renamedStoragePerkRequests: number
+    renamedStorageReservations: number
+    renamedStorageFiles: number
+    notificationEmailsSent: number
+  }
+}
+
+function parseTransferDetails(detailsJson: string | null | undefined): NamespaceTransferDetails | null {
+  if (!detailsJson) return null
+  try {
+    return JSON.parse(detailsJson) as NamespaceTransferDetails
+  } catch {
+    return null
+  }
+}
+
 function formatDateTime(value: Date | string | null) {
   if (!value) return '-'
   const date = value instanceof Date ? value : new Date(value)
@@ -48,6 +81,10 @@ function AdminTransfersPage() {
     () => transfers.find((transfer) => transfer.id === selectedTransferId) ?? null,
     [selectedTransferId, transfers],
   )
+
+  const selectedTransferDetails = useMemo(() => {
+    return parseTransferDetails(selectedMonitor?.transfer?.detailsJson ?? selectedTransfer?.detailsJson)
+  }, [selectedMonitor?.transfer?.detailsJson, selectedTransfer?.detailsJson])
 
   useEffect(() => {
     let stopped = false
@@ -199,6 +236,37 @@ function AdminTransfersPage() {
                   </div>
                 </div>
               </div>
+
+              {selectedTransferDetails && (
+                <div className="rounded-lg border border-border bg-background p-3">
+                  <p className="text-sm font-medium text-foreground">Completion summary</p>
+                  <p className="mt-2 text-xs text-muted-foreground">Speed explanation: {selectedTransferDetails.speedSummary}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Duration: {selectedTransferDetails.durationSeconds}s</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded border border-border p-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Source totals</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Members: {selectedTransferDetails.stats.sourceMembers}</p>
+                      <p className="text-xs text-muted-foreground">Invitations: {selectedTransferDetails.stats.sourceInvitations}</p>
+                      <p className="text-xs text-muted-foreground">Applications: {selectedTransferDetails.stats.sourceApplications}</p>
+                      <p className="text-xs text-muted-foreground">Storage files: {selectedTransferDetails.stats.sourceStorageFiles}</p>
+                      <p className="text-xs text-muted-foreground">Upload reservations: {selectedTransferDetails.stats.sourceStorageReservations}</p>
+                      <p className="text-xs text-muted-foreground">Storage perk requests: {selectedTransferDetails.stats.sourceStoragePerkRequests}</p>
+                    </div>
+                    <div className="rounded border border-border p-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Transfer operations</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Moved storage objects: {selectedTransferDetails.stats.movedStorageObjects}</p>
+                      <p className="text-xs text-muted-foreground">Moved reservation keys: {selectedTransferDetails.stats.movedReservationObjectKeys}</p>
+                      <p className="text-xs text-muted-foreground">Renamed members: {selectedTransferDetails.stats.renamedMembers}</p>
+                      <p className="text-xs text-muted-foreground">Renamed invitations: {selectedTransferDetails.stats.renamedInvitations}</p>
+                      <p className="text-xs text-muted-foreground">Renamed applications: {selectedTransferDetails.stats.renamedApplications}</p>
+                      <p className="text-xs text-muted-foreground">Renamed storage perk requests: {selectedTransferDetails.stats.renamedStoragePerkRequests}</p>
+                      <p className="text-xs text-muted-foreground">Renamed storage reservations: {selectedTransferDetails.stats.renamedStorageReservations}</p>
+                      <p className="text-xs text-muted-foreground">Renamed storage files: {selectedTransferDetails.stats.renamedStorageFiles}</p>
+                      <p className="text-xs text-muted-foreground">Notification emails sent: {selectedTransferDetails.stats.notificationEmailsSent}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-lg border border-border bg-background p-3">
                 <p className="text-sm font-medium text-foreground">Raw DB transfer payload</p>

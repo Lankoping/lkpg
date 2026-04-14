@@ -1,18 +1,24 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { getSessionFn } from '../../server/functions/auth'
-import { forceOrganizationStatusForAdminFn, getOrganizationsForAdminFn } from '../../server/functions/foundary'
+import { forceOrganizationStatusForAdminFn, getOrganizationsForAdminFn, setOrganizationLimboHiddenFn } from '../../server/functions/foundary'
 
 export const Route = createFileRoute('/admin/organizations')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    showHidden: search.showHidden === '1' || search.showHidden === true,
+  }),
+  loaderDeps: ({ search }) => ({
+    showHidden: Boolean(search.showHidden),
+  }),
   beforeLoad: async () => {
     const user = await getSessionFn()
     if (!user || user.role !== 'organizer') {
       throw redirect({ to: '/foundary' })
     }
   },
-  loader: async () => {
-    const organizations = await getOrganizationsForAdminFn()
-    return { organizations }
+  loader: async ({ deps }) => {
+    const organizations = await getOrganizationsForAdminFn({ data: { includeHidden: deps.showHidden } })
+    return { organizations, showHidden: deps.showHidden }
   },
   component: AdminOrganizationsPage,
 })
@@ -25,7 +31,7 @@ function formatDateTime(value: Date | string | null | undefined) {
 }
 
 function AdminOrganizationsPage() {
-  const { organizations } = Route.useLoaderData()
+  const { organizations, showHidden } = Route.useLoaderData()
   const router = useRouter()
   const [selectedOrganizationName, setSelectedOrganizationName] = useState<string | null>(organizations[0]?.organizationName ?? null)
   const [busyOrganizationName, setBusyOrganizationName] = useState<string | null>(null)
@@ -40,6 +46,22 @@ function AdminOrganizationsPage() {
   }, [organizations, selectedOrganizationName])
 
   const pendingCount = organizations.filter((organization) => organization.status === 'pending').length
+
+  const setHidden = async (organizationName: string, hidden: boolean) => {
+    setActionError('')
+    setActionMessage('')
+    setBusyOrganizationName(organizationName)
+
+    try {
+      const response = await setOrganizationLimboHiddenFn({ data: { organizationName, hidden } })
+      setActionMessage(response.hidden ? `Hidden ${response.organizationName} from limbo list.` : `Unhidden ${response.organizationName}.`)
+      await router.invalidate()
+    } catch (error: any) {
+      setActionError(error?.message || 'Could not update hidden state')
+    } finally {
+      setBusyOrganizationName(null)
+    }
+  }
 
   const forceStatus = async () => {
     if (!selectedOrganization) return
@@ -85,6 +107,13 @@ function AdminOrganizationsPage() {
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Organizations</p>
             <p className="mt-1 text-sm text-muted-foreground">Force-fix limbo states (pending/approval issues)</p>
             <p className="mt-1 text-xs text-muted-foreground">Pending: {pendingCount}</p>
+            <button
+              type="button"
+              onClick={() => router.navigate({ to: '/admin/organizations', search: { showHidden: !showHidden } })}
+              className="mt-2 rounded border border-border px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+            >
+              {showHidden ? 'Hide hidden orgs' : 'Show hidden orgs'}
+            </button>
           </div>
 
           <div className="max-h-[42rem] overflow-auto p-2">
@@ -107,6 +136,7 @@ function AdminOrganizationsPage() {
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">Last event: {organization.eventName}</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">Updated: {formatDateTime(organization.updatedAt)}</p>
+                  {organization.hidden && <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-amber-700">Hidden</p>}
                 </button>
               )
             })}
@@ -167,6 +197,18 @@ function AdminOrganizationsPage() {
                   className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
                   {busyOrganizationName === selectedOrganization.organizationName ? 'Saving...' : 'Force change status'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHidden(selectedOrganization.organizationName, !selectedOrganization.hidden)}
+                  disabled={busyOrganizationName === selectedOrganization.organizationName}
+                  className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground disabled:opacity-60"
+                >
+                  {busyOrganizationName === selectedOrganization.organizationName
+                    ? 'Saving...'
+                    : selectedOrganization.hidden
+                      ? 'Unhide from limbo'
+                      : 'Hide from limbo'}
                 </button>
               </div>
 

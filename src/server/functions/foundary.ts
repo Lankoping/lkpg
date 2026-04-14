@@ -109,6 +109,31 @@ type NamespaceTransferStatus = {
   startedAt: Date
   completedAt: Date | null
   errorMessage: string | null
+  detailsJson: string | null
+}
+
+type NamespaceTransferDetails = {
+  oldOrganizationName: string
+  newOrganizationName: string
+  durationSeconds: number
+  speedSummary: string
+  stats: {
+    sourceMembers: number
+    sourceInvitations: number
+    sourceApplications: number
+    sourceStorageFiles: number
+    sourceStorageReservations: number
+    sourceStoragePerkRequests: number
+    movedStorageObjects: number
+    movedReservationObjectKeys: number
+    renamedMembers: number
+    renamedInvitations: number
+    renamedApplications: number
+    renamedStoragePerkRequests: number
+    renamedStorageReservations: number
+    renamedStorageFiles: number
+    notificationEmailsSent: number
+  }
 }
 
 type NamespaceTransferDbSnapshot = {
@@ -128,6 +153,18 @@ type NamespaceTransferDbSnapshot = {
     storageReservations: number
     storagePerkRequests: number
   }
+}
+
+type NamespaceTransferEstimate = {
+  organizationName: string
+  memberCount: number
+  invitationCount: number
+  applicationCount: number
+  storageFileCount: number
+  storageReservationCount: number
+  storagePerkRequestCount: number
+  totalStorageObjectCount: number
+  speedSummary: string
 }
 
 async function rollbackNamespaceTransferChanges(params: {
@@ -259,7 +296,25 @@ async function ensureNamespaceTransferTable(db: Awaited<ReturnType<typeof getDb>
       completed_steps integer NOT NULL DEFAULT 0,
       started_at timestamp NOT NULL DEFAULT now(),
       completed_at timestamp,
-      error_message text
+      error_message text,
+      details_json text
+    );
+  `)
+
+  await db.execute(sql`
+    ALTER TABLE organization_namespace_transfers
+    ADD COLUMN IF NOT EXISTS details_json text;
+  `)
+}
+
+async function ensureOrganizationLimboPreferencesTable(db: Awaited<ReturnType<typeof getDb>>) {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS organization_limbo_preferences (
+      organization_name text PRIMARY KEY,
+      hidden boolean NOT NULL DEFAULT false,
+      hidden_at timestamp,
+      hidden_by_user_id integer,
+      updated_at timestamp NOT NULL DEFAULT now()
     );
   `)
 }
@@ -889,9 +944,17 @@ async function sendOrganizationAccountRemovedEmail({
 async function sendOrganizationNamespaceTransferCompletedEmail({
   to,
   organizationName,
+  oldOrganizationName,
+  durationSeconds,
+  speedSummary,
+  stats,
 }: {
   to: string
   organizationName: string
+  oldOrganizationName: string
+  durationSeconds: number
+  speedSummary: string
+  stats: NamespaceTransferDetails['stats']
 }) {
   const host = process.env.SMTP_HOST
   const port = Number(process.env.SMTP_PORT || 587)
@@ -910,8 +973,57 @@ async function sendOrganizationNamespaceTransferCompletedEmail({
     auth: { user, pass },
   })
 
-  const text = `Hi the transfer of your orginisation to a new namespace is done!\nOrganization: ${organizationName}`
-  const html = `<p>Hi the transfer of your orginisation to a new namespace is done!</p><p>Organization: <strong>${organizationName}</strong></p>`
+  const durationText = `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s`
+  const text = [
+    'Hi, your organization namespace transfer is completed.',
+    `Old organization name: ${oldOrganizationName}`,
+    `New organization name: ${organizationName}`,
+    `Total transfer duration: ${durationText}`,
+    `Speed explanation: ${speedSummary}`,
+    '',
+    'Transfer details:',
+    `- Source members: ${stats.sourceMembers}`,
+    `- Source invitations: ${stats.sourceInvitations}`,
+    `- Source applications: ${stats.sourceApplications}`,
+    `- Source storage files: ${stats.sourceStorageFiles}`,
+    `- Source upload reservations: ${stats.sourceStorageReservations}`,
+    `- Source storage perk requests: ${stats.sourceStoragePerkRequests}`,
+    `- Moved storage objects: ${stats.movedStorageObjects}`,
+    `- Moved reservation object keys: ${stats.movedReservationObjectKeys}`,
+    `- Renamed members: ${stats.renamedMembers}`,
+    `- Renamed invitations: ${stats.renamedInvitations}`,
+    `- Renamed applications: ${stats.renamedApplications}`,
+    `- Renamed storage perk requests: ${stats.renamedStoragePerkRequests}`,
+    `- Renamed storage reservations: ${stats.renamedStorageReservations}`,
+    `- Renamed storage files: ${stats.renamedStorageFiles}`,
+    `- Notification emails sent: ${stats.notificationEmailsSent}`,
+  ].join('\n')
+
+  const html = `
+    <p>Hi, your organization namespace transfer is completed.</p>
+    <p><strong>Old organization name:</strong> ${oldOrganizationName}</p>
+    <p><strong>New organization name:</strong> ${organizationName}</p>
+    <p><strong>Total transfer duration:</strong> ${durationText}</p>
+    <p><strong>Speed explanation:</strong> ${speedSummary}</p>
+    <p><strong>Transfer details:</strong></p>
+    <ul>
+      <li>Source members: ${stats.sourceMembers}</li>
+      <li>Source invitations: ${stats.sourceInvitations}</li>
+      <li>Source applications: ${stats.sourceApplications}</li>
+      <li>Source storage files: ${stats.sourceStorageFiles}</li>
+      <li>Source upload reservations: ${stats.sourceStorageReservations}</li>
+      <li>Source storage perk requests: ${stats.sourceStoragePerkRequests}</li>
+      <li>Moved storage objects: ${stats.movedStorageObjects}</li>
+      <li>Moved reservation object keys: ${stats.movedReservationObjectKeys}</li>
+      <li>Renamed members: ${stats.renamedMembers}</li>
+      <li>Renamed invitations: ${stats.renamedInvitations}</li>
+      <li>Renamed applications: ${stats.renamedApplications}</li>
+      <li>Renamed storage perk requests: ${stats.renamedStoragePerkRequests}</li>
+      <li>Renamed storage reservations: ${stats.renamedStorageReservations}</li>
+      <li>Renamed storage files: ${stats.renamedStorageFiles}</li>
+      <li>Notification emails sent: ${stats.notificationEmailsSent}</li>
+    </ul>
+  `
 
   await transporter.sendMail({
     from: 'foundary@lankoping.se',
@@ -1807,7 +1919,8 @@ export const getMyOrganizationNamespaceTransferStatusFn = createServerFn({ metho
       completed_steps AS "completedSteps",
       started_at AS "startedAt",
       completed_at AS "completedAt",
-      error_message AS "errorMessage"
+      error_message AS "errorMessage",
+      details_json AS "detailsJson"
     FROM organization_namespace_transfers
     WHERE (${orgMatch}) OR (${newOrgMatch})
     ORDER BY started_at DESC
@@ -1860,7 +1973,8 @@ export const getNamespaceTransfersForAdminFn = createServerFn({ method: 'GET' })
       completed_steps AS "completedSteps",
       started_at AS "startedAt",
       completed_at AS "completedAt",
-      error_message AS "errorMessage"
+      error_message AS "errorMessage",
+      details_json AS "detailsJson"
     FROM organization_namespace_transfers
     ORDER BY started_at DESC
     LIMIT 100
@@ -1894,7 +2008,8 @@ export const getNamespaceTransferMonitorForAdminFn = createServerFn({ method: 'P
         completed_steps AS "completedSteps",
         started_at AS "startedAt",
         completed_at AS "completedAt",
-        error_message AS "errorMessage"
+        error_message AS "errorMessage",
+        details_json AS "detailsJson"
       FROM organization_namespace_transfers
       WHERE id = ${data.transferId}
       LIMIT 1
@@ -1961,6 +2076,67 @@ export const getNamespaceTransferMonitorForAdminFn = createServerFn({ method: 'P
       snapshot,
       polledAt: new Date().toISOString(),
     }
+  })
+
+export const getNamespaceTransferEstimateFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireStaffUser()
+    const db = await getDb()
+    const organizationName = normalizeOrg(data.organizationName)
+
+    await assertOrganizationOwner({
+      db,
+      organizationName,
+      currentUserId: currentUser.id,
+    })
+
+    const countsResult = await db.execute(sql`
+      SELECT
+        (SELECT count(*)::int FROM organization_members WHERE organization_name = ${organizationName}) AS "memberCount",
+        (SELECT count(*)::int FROM organization_invitations WHERE organization_name = ${organizationName}) AS "invitationCount",
+        (SELECT count(*)::int FROM foundary_applications WHERE organization_name = ${organizationName}) AS "applicationCount",
+        (SELECT count(*)::int FROM storage_files WHERE organization_name = ${organizationName}) AS "storageFileCount",
+        (SELECT count(*)::int FROM storage_upload_reservations WHERE organization_name = ${organizationName}) AS "storageReservationCount",
+        (SELECT count(*)::int FROM storage_perk_requests WHERE organization_name = ${organizationName}) AS "storagePerkRequestCount"
+    `)
+
+    const row = getExecuteRows<{
+      memberCount: number
+      invitationCount: number
+      applicationCount: number
+      storageFileCount: number
+      storageReservationCount: number
+      storagePerkRequestCount: number
+    }>(countsResult)[0]
+
+    const totalStorageObjectCount = (row?.storageFileCount ?? 0) + (row?.storageReservationCount ?? 0)
+    const speedSummary =
+      totalStorageObjectCount === 0
+        ? 'Very fast: this rename should mostly be direct database updates because there are no storage objects or reservation keys to move.'
+        : totalStorageObjectCount <= 20
+          ? 'Fast: the data set is small, so most work is namespace updates with only a few storage copy/delete operations.'
+          : 'Slower than a small rename: storage copy/delete work dominates as the object count grows.'
+
+    const estimate: NamespaceTransferEstimate = {
+      organizationName,
+      memberCount: row?.memberCount ?? 0,
+      invitationCount: row?.invitationCount ?? 0,
+      applicationCount: row?.applicationCount ?? 0,
+      storageFileCount: row?.storageFileCount ?? 0,
+      storageReservationCount: row?.storageReservationCount ?? 0,
+      storagePerkRequestCount: row?.storagePerkRequestCount ?? 0,
+      totalStorageObjectCount,
+      speedSummary,
+    }
+
+    return estimate
   })
 
 export const renameOrganizationFn = createServerFn({ method: 'POST' })
@@ -2056,6 +2232,7 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
     if (!transferId) {
       throw new Error('Could not initialize namespace transfer')
     }
+    const transferStartedAtMs = Date.now()
 
     let latestTransferStep = 'Starting namespace transfer'
 
@@ -2080,6 +2257,7 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
           status = 'failed',
           error_message = ${details},
           current_step = ${latestTransferStep},
+          details_json = null,
           completed_at = now()
         WHERE id = ${transferId}
       `)
@@ -2090,6 +2268,28 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
       .from(organizationMembers)
       .innerJoin(users, eq(organizationMembers.userId, users.id))
       .where(eq(organizationMembers.organizationName, organizationName))
+
+    const invitationRows = await db
+      .select({ id: organizationInvitations.id })
+      .from(organizationInvitations)
+      .where(eq(organizationInvitations.organizationName, organizationName))
+
+    const applicationRows = await db
+      .select({ id: foundaryApplications.id })
+      .from(foundaryApplications)
+      .where(eq(foundaryApplications.organizationName, organizationName))
+
+    const perkRequestRows = await db
+      .select({ id: storagePerkRequests.id })
+      .from(storagePerkRequests)
+      .where(eq(storagePerkRequests.organizationName, organizationName))
+
+    let renamedMembers = 0
+    let renamedInvitations = 0
+    let renamedApplications = 0
+    let renamedStoragePerkRequests = 0
+    let renamedStorageReservations = 0
+    let renamedStorageFiles = 0
 
     try {
       await updateTransferProgress(1, 'Preparing storage namespace transfer')
@@ -2141,23 +2341,97 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
       }
 
       await updateTransferProgress(4, 'Renaming organization membership namespace')
-      await db.update(organizationMembers).set({ organizationName: newOrganizationName }).where(eq(organizationMembers.organizationName, organizationName))
+      renamedMembers = (
+        await db
+          .update(organizationMembers)
+          .set({ organizationName: newOrganizationName })
+          .where(eq(organizationMembers.organizationName, organizationName))
+          .returning({ id: organizationMembers.id })
+      ).length
 
       await updateTransferProgress(5, 'Renaming application and invitation namespace')
-      await db.update(organizationInvitations).set({ organizationName: newOrganizationName }).where(eq(organizationInvitations.organizationName, organizationName))
-      await db.update(foundaryApplications).set({ organizationName: newOrganizationName }).where(eq(foundaryApplications.organizationName, organizationName))
+      renamedInvitations = (
+        await db
+          .update(organizationInvitations)
+          .set({ organizationName: newOrganizationName })
+          .where(eq(organizationInvitations.organizationName, organizationName))
+          .returning({ id: organizationInvitations.id })
+      ).length
+      renamedApplications = (
+        await db
+          .update(foundaryApplications)
+          .set({ organizationName: newOrganizationName })
+          .where(eq(foundaryApplications.organizationName, organizationName))
+          .returning({ id: foundaryApplications.id })
+      ).length
 
       await updateTransferProgress(6, 'Renaming storage namespace records')
-      await db.update(storagePerkRequests).set({ organizationName: newOrganizationName }).where(eq(storagePerkRequests.organizationName, organizationName))
-      await db.update(storageUploadReservations).set({ organizationName: newOrganizationName }).where(eq(storageUploadReservations.organizationName, organizationName))
-      await db.update(storageFiles).set({ organizationName: newOrganizationName }).where(eq(storageFiles.organizationName, organizationName))
+      renamedStoragePerkRequests = (
+        await db
+          .update(storagePerkRequests)
+          .set({ organizationName: newOrganizationName })
+          .where(eq(storagePerkRequests.organizationName, organizationName))
+          .returning({ id: storagePerkRequests.id })
+      ).length
+      renamedStorageReservations = (
+        await db
+          .update(storageUploadReservations)
+          .set({ organizationName: newOrganizationName })
+          .where(eq(storageUploadReservations.organizationName, organizationName))
+          .returning({ id: storageUploadReservations.id })
+      ).length
+      renamedStorageFiles = (
+        await db
+          .update(storageFiles)
+          .set({ organizationName: newOrganizationName })
+          .where(eq(storageFiles.organizationName, organizationName))
+          .returning({ id: storageFiles.id })
+      ).length
 
       await updateTransferProgress(7, 'Finalizing and notifying members')
+
+      const durationSeconds = Math.max(1, Math.round((Date.now() - transferStartedAtMs) / 1000))
+      const stats: NamespaceTransferDetails['stats'] = {
+        sourceMembers: memberRows.length,
+        sourceInvitations: invitationRows.length,
+        sourceApplications: applicationRows.length,
+        sourceStorageFiles: storageRows.length,
+        sourceStorageReservations: reservationRows.length,
+        sourceStoragePerkRequests: perkRequestRows.length,
+        movedStorageObjects: storageRows.length,
+        movedReservationObjectKeys: reservationRows.length,
+        renamedMembers,
+        renamedInvitations,
+        renamedApplications,
+        renamedStoragePerkRequests,
+        renamedStorageReservations,
+        renamedStorageFiles,
+        notificationEmailsSent: memberRows.length,
+      }
+
+      const speedSummary =
+        stats.movedStorageObjects === 0 && stats.movedReservationObjectKeys === 0
+          ? 'This completed quickly because there were no storage objects or reserved upload keys to move. The transfer only needed fast database namespace updates.'
+          : stats.movedStorageObjects + stats.movedReservationObjectKeys <= 20
+            ? 'This completed quickly because the amount of data to move was small and most work was direct database namespace updates.'
+            : 'Transfer speed depends on storage object volume and storage provider copy/delete latency.'
+
+      const details: NamespaceTransferDetails = {
+        oldOrganizationName: organizationName,
+        newOrganizationName,
+        durationSeconds,
+        speedSummary,
+        stats,
+      }
 
       for (const member of memberRows) {
         await sendOrganizationNamespaceTransferCompletedEmail({
           to: member.email,
           organizationName: newOrganizationName,
+          oldOrganizationName: organizationName,
+          durationSeconds,
+          speedSummary,
+          stats,
         })
       }
 
@@ -2169,7 +2443,8 @@ export const renameOrganizationFn = createServerFn({ method: 'POST' })
           current_step = 'Transfer completed',
           completed_steps = 7,
           completed_at = now(),
-          error_message = null
+          error_message = null,
+          details_json = ${JSON.stringify(details)}
         WHERE id = ${transferId}
       `)
     } catch (error) {
@@ -2229,7 +2504,8 @@ export const cancelOrganizationNamespaceTransferFn = createServerFn({ method: 'P
         completed_steps AS "completedSteps",
         started_at AS "startedAt",
         completed_at AS "completedAt",
-        error_message AS "errorMessage"
+        error_message AS "errorMessage",
+        details_json AS "detailsJson"
       FROM organization_namespace_transfers
       WHERE organization_name = ${organizationName} OR new_organization_name = ${organizationName}
       ORDER BY started_at DESC
@@ -3384,9 +3660,13 @@ export const getFoundaryApplicationsFn = createServerFn({ method: 'GET' }).handl
   }
 })
 
-export const getOrganizationsForAdminFn = createServerFn({ method: 'GET' }).handler(async () => {
+export const getOrganizationsForAdminFn = createServerFn({ method: 'GET' })
+  .inputValidator((data: unknown) => z.object({ includeHidden: z.boolean().optional() }).parse(data ?? {}))
+  .handler(async ({ data }) => {
   await requireOrganizerUser()
   const db = await getDb()
+  await ensureOrganizationLimboPreferencesTable(db)
+  const includeHidden = Boolean(data.includeHidden)
 
   const rows = await db
     .select({
@@ -3408,6 +3688,7 @@ export const getOrganizationsForAdminFn = createServerFn({ method: 'GET' }).hand
   const organizations: Array<{
     organizationName: string
     status: 'pending' | 'approved' | 'rejected'
+    hidden: boolean
     applicationId: number
     reviewNotes: string | null
     eventName: string
@@ -3417,6 +3698,16 @@ export const getOrganizationsForAdminFn = createServerFn({ method: 'GET' }).hand
     createdAt: Date
     updatedAt: Date
   }> = []
+
+  const preferenceRows = getExecuteRows<{ organizationName: string; hidden: boolean }>(
+    await db.execute(sql`
+      SELECT organization_name AS "organizationName", hidden
+      FROM organization_limbo_preferences
+    `),
+  )
+  const hiddenByOrganization = new Map<string, boolean>(
+    preferenceRows.map((row) => [normalizeOrg(row.organizationName), Boolean(row.hidden)]),
+  )
 
   for (const row of rows) {
     const normalizedOrganizationName = normalizeOrg(row.organizationName)
@@ -3428,6 +3719,7 @@ export const getOrganizationsForAdminFn = createServerFn({ method: 'GET' }).hand
     organizations.push({
       organizationName: normalizedOrganizationName,
       status: row.status,
+      hidden: hiddenByOrganization.get(normalizedOrganizationName) ?? false,
       applicationId: row.applicationId,
       reviewNotes: row.reviewNotes,
       eventName: row.eventName,
@@ -3439,8 +3731,64 @@ export const getOrganizationsForAdminFn = createServerFn({ method: 'GET' }).hand
     })
   }
 
-  return organizations
+  return includeHidden ? organizations : organizations.filter((organization) => !organization.hidden)
 })
+
+export const setOrganizationLimboHiddenFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        organizationName: z.string().min(1),
+        hidden: z.boolean(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const currentUser = await requireOrganizerUser()
+    const db = await getDb()
+    await ensureOrganizationLimboPreferencesTable(db)
+
+    const organizationName = normalizeOrg(data.organizationName)
+
+    await db.execute(sql`
+      INSERT INTO organization_limbo_preferences (
+        organization_name,
+        hidden,
+        hidden_at,
+        hidden_by_user_id,
+        updated_at
+      ) VALUES (
+        ${organizationName},
+        ${data.hidden},
+        ${data.hidden ? sql`now()` : null},
+        ${data.hidden ? currentUser.id : null},
+        now()
+      )
+      ON CONFLICT (organization_name)
+      DO UPDATE SET
+        hidden = EXCLUDED.hidden,
+        hidden_at = EXCLUDED.hidden_at,
+        hidden_by_user_id = EXCLUDED.hidden_by_user_id,
+        updated_at = now()
+    `)
+
+    await writeActivityLog({
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      action: data.hidden ? 'foundary.organization.limbo.hide' : 'foundary.organization.limbo.unhide',
+      entityType: 'organization',
+      details: {
+        organizationName,
+        hidden: data.hidden,
+      },
+    })
+
+    return {
+      success: true,
+      organizationName,
+      hidden: data.hidden,
+    }
+  })
 
 export const forceOrganizationStatusForAdminFn = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) =>
